@@ -630,6 +630,9 @@ New event types: `task.cheered`, `reaction.added`. Small bonus XP for receiving 
 
 Coolify's Nixpacks auto-detects Node apps from `package.json`. Define the build in scripts:
 
+**Node version pin.** A `nixpacks.toml` in the repo root pins `nodejs_23` because Nixpacks' default `nodejs_22` currently resolves to 22.11, which is below Vite 8's minimum (20.19+ or 22.12+). When Vite runs on 22.11 its embedded rolldown bundler fails to load its native binding and the build crashes. Whenever Nixpacks updates its nixpkgs pin past Node 22.12, this override can be revisited.
+
+
 ```json
 {
   "scripts": {
@@ -883,6 +886,7 @@ Cross-reference this with the Home Assistant REST integration docs when wiring i
 
 ## Things to Watch Out For
 
+- **Nixpacks Node version drift.** Nixpacks bakes a nixpkgs commit that controls which Node `nodejs_XX` resolves to. At time of writing `nodejs_22` = 22.11, below Vite 8's 22.12+ floor. If you upgrade Vite or rolldown and deploys start failing with "Cannot find native binding", the nixpacks pin has slipped behind again — update `nixpacks.toml` to the next available major.
 - **TanStack Start + PWA tooling** is rough. Plan time for service worker setup; have Next.js as an escape hatch if it becomes a blocker.
 - **Service worker scope and origin rules** — must be served from app origin, path matters. Don't put Start behind a path prefix.
 - **DST and timezones** — never store UTC offsets, always IANA names. Recompute next occurrences rather than adding fixed intervals.

@@ -1,0 +1,6 @@
+# Pins Node 23 for Coolify / Nixpacks builds. Vite 8 requires Node 20.19+ or
+# 22.12+; Nixpacks' default `nodejs_22` resolves to 22.11 in its current
+# nixpkgs pin, which is below the cutoff and causes Vite's embedded rolldown
+# bundler to fail to load its native binding at build time.
+[phases.setup]
+nixPkgs = ["nodejs_23", "pnpm-9_x"]
