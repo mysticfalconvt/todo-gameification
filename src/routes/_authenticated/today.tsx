@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   completeInstance,
   getProgression,
+  listRecentActivity,
   listSomedayInstances,
   listTodayInstances,
   skipInstance,
@@ -53,6 +54,11 @@ function TodayPage() {
     queryFn: () => getProgression(),
   })
 
+  const activityQuery = useQuery({
+    queryKey: ['recent-activity'],
+    queryFn: () => listRecentActivity(),
+  })
+
   function optimisticRemove(instanceId: string) {
     return async () => {
       await qc.cancelQueries({ queryKey: ['today'] })
@@ -81,6 +87,7 @@ function TodayPage() {
       qc.invalidateQueries({ queryKey: ['today'] })
       qc.invalidateQueries({ queryKey: ['someday'] })
       qc.invalidateQueries({ queryKey: ['progression'] })
+      qc.invalidateQueries({ queryKey: ['recent-activity'] })
     },
   })
 
@@ -143,10 +150,16 @@ function TodayPage() {
       </header>
 
       {progression ? (
-        <section className="island-shell mb-6 grid grid-cols-3 gap-4 rounded-2xl p-4 text-center">
-          <Stat label="Level" value={progression.level} />
-          <Stat label="XP" value={progression.xp} />
-          <Stat label="Streak" value={`${progression.currentStreak}d`} />
+        <section className="island-shell mb-6 rounded-2xl p-4">
+          <div className="grid grid-cols-4 gap-4 text-center">
+            <Stat label="Level" value={progression.level} />
+            <Stat label="XP" value={progression.xp} />
+            <Stat label="Streak" value={`${progression.currentStreak}d`} />
+            <Stat label="Longest" value={`${progression.longestStreak}d`} />
+          </div>
+          <div className="mt-4">
+            <ActivityStrip days={activityQuery.data ?? []} />
+          </div>
         </section>
       ) : null}
 
@@ -325,6 +338,50 @@ function Stat({ label, value }: { label: string; value: string | number }) {
         {label}
       </p>
       <p className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</p>
+    </div>
+  )
+}
+
+function ActivityStrip({ days }: { days: string[] }) {
+  const done = new Set(days)
+  const dayKey = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d)
+  const cells = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    return {
+      key: dayKey(d),
+      label: d.toLocaleDateString(undefined, { weekday: 'narrow' }),
+      done: done.has(dayKey(d)),
+      isToday: i === 6,
+    }
+  })
+  return (
+    <div>
+      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--kicker)]">
+        Last 7 days
+      </p>
+      <div className="flex items-end gap-1.5">
+        {cells.map((c) => (
+          <div key={c.key} className="flex flex-1 flex-col items-center gap-1">
+            <span
+              className={`h-6 w-full rounded-md ${
+                c.done
+                  ? 'bg-[var(--lagoon-deep)]'
+                  : 'bg-[var(--option-bg)] border border-[var(--line)]'
+              } ${c.isToday ? 'ring-2 ring-[var(--lagoon)]' : ''}`}
+              aria-label={`${c.key}: ${c.done ? 'completed' : 'no completions'}`}
+            />
+            <span className="text-[10px] text-[var(--sea-ink-soft)]">
+              {c.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -15,8 +15,10 @@ import { useEffect, type ReactNode } from 'react'
 
 import { signOut, useSession } from '../lib/auth-client'
 import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
+import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { InstallPrompt } from '../components/InstallPrompt'
 import '../styles.css'
 
 const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('todo-xp-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`
@@ -60,6 +62,10 @@ function RootShell({ children }: { children: ReactNode }) {
     return unsubscribe
   }, [queryClient])
 
+  useEffect(() => {
+    registerServiceWorker()
+  }, [])
+
   return (
     <html lang="en">
       <head>
@@ -83,6 +89,7 @@ function RootShell({ children }: { children: ReactNode }) {
                 </div>
               </nav>
             </header>
+            <InstallPrompt />
             {children}
           </div>
           <TanStackDevtools

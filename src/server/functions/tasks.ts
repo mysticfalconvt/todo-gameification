@@ -494,6 +494,7 @@ interface TaskDetail {
   xpOverride: number | null
   recurrence: Recurrence | null
   timeOfDay: string | null
+  snoozeUntil: string | null
   active: boolean
   createdAt: string
   updatedAt: string
@@ -521,6 +522,7 @@ export const getTask = createServerFn({ method: 'GET' })
       xpOverride: row.xpOverride,
       recurrence: row.recurrence,
       timeOfDay: row.timeOfDay,
+      snoozeUntil: row.snoozeUntil?.toISOString() ?? null,
       active: row.active,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -580,6 +582,27 @@ export const deleteTask = createServerFn({ method: 'POST' })
     return { id: result[0].id }
   })
 
+export const snoozeTask = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { taskId: string; until: string | null }) => {
+    if (!data.taskId) throw new Error('taskId required')
+    if (data.until !== null) {
+      const parsed = new Date(data.until)
+      if (Number.isNaN(parsed.getTime())) throw new Error('invalid until date')
+    }
+    return data
+  })
+  .handler(async ({ data, context }) => {
+    const until = data.until ? new Date(data.until) : null
+    const result = await db
+      .update(tasks)
+      .set({ snoozeUntil: until, updatedAt: new Date() })
+      .where(and(eq(tasks.id, data.taskId), eq(tasks.userId, context.userId)))
+      .returning({ id: tasks.id })
+    if (result.length === 0) throw new Error('task not found')
+    return { id: result[0].id, until: until?.toISOString() ?? null }
+  })
+
 interface ProgressionSummary {
   xp: number
   level: number
@@ -607,4 +630,35 @@ export const getProgression = createServerFn({ method: 'GET' })
       currentStreak: row.currentStreak,
       longestStreak: row.longestStreak,
     }
+  })
+
+export const listRecentActivity = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<string[]> => {
+    const timeZone = await loadUserTimeZone(context.userId)
+    const since = new Date(Date.now() - 8 * 24 * 3_600_000)
+    const rows = await db
+      .select({ occurredAt: events.occurredAt })
+      .from(events)
+      .where(
+        and(
+          eq(events.userId, context.userId),
+          eq(events.type, 'task.completed'),
+          isNotNull(events.occurredAt),
+        ),
+      )
+      .orderBy(events.occurredAt)
+
+    const dayKeys = new Set<string>()
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    for (const row of rows) {
+      if (!row.occurredAt || row.occurredAt < since) continue
+      dayKeys.add(formatter.format(row.occurredAt))
+    }
+    return Array.from(dayKeys).sort()
   })

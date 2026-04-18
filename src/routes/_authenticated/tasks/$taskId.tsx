@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteTask,
   getTask,
+  snoozeTask,
   updateTask,
 } from '../../../server/functions/tasks'
 import { getLlmStatus } from '../../../server/functions/config'
@@ -125,6 +126,20 @@ function EditTaskPage() {
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to save')
+    },
+  })
+
+  const snooze = useMutation({
+    mutationFn: (until: string | null) =>
+      snoozeTask({ data: { taskId, until } }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['task', taskId] })
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['someday'] })
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to snooze task')
     },
   })
 
@@ -299,6 +314,58 @@ function EditTaskPage() {
           </label>
         ) : null}
 
+        <fieldset className="rounded-xl border border-[var(--line)] p-3">
+          <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Snooze task
+          </legend>
+          {task.snoozeUntil ? (
+            <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
+              Snoozed until {new Date(task.snoozeUntil).toLocaleString()}
+            </p>
+          ) : (
+            <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
+              Hide from Today + stop reminders until a chosen date. Existing
+              instances stay scheduled but won't fire.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <SnoozeButton
+              label="1 week"
+              onClick={() =>
+                snooze.mutate(
+                  new Date(Date.now() + 7 * 24 * 3_600_000).toISOString(),
+                )
+              }
+              disabled={snooze.isPending}
+            />
+            <SnoozeButton
+              label="1 month"
+              onClick={() =>
+                snooze.mutate(
+                  new Date(Date.now() + 30 * 24 * 3_600_000).toISOString(),
+                )
+              }
+              disabled={snooze.isPending}
+            />
+            <SnoozeButton
+              label="3 months"
+              onClick={() =>
+                snooze.mutate(
+                  new Date(Date.now() + 90 * 24 * 3_600_000).toISOString(),
+                )
+              }
+              disabled={snooze.isPending}
+            />
+            {task.snoozeUntil ? (
+              <SnoozeButton
+                label="Un-snooze"
+                onClick={() => snooze.mutate(null)}
+                disabled={snooze.isPending}
+              />
+            ) : null}
+          </div>
+        </fieldset>
+
         {error ? (
           <p className="text-sm text-red-600" role="alert">
             {error}
@@ -335,6 +402,27 @@ function EditTaskPage() {
         </div>
       </form>
     </main>
+  )
+}
+
+function SnoozeButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)] disabled:opacity-60"
+    >
+      {label}
+    </button>
   )
 }
 
