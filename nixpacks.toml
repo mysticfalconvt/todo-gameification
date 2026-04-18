@@ -4,8 +4,12 @@
 [phases.setup]
 nixPkgs = ["nodejs_23", "pnpm-9_x"]
 
-# Explicit start command so Nixpacks runs our Nitro/Node SSR server instead of
-# its default static-SPA Caddyfile. TanStack Start's build produces an output
-# server at .output/server/index.mjs that must stay the entrypoint.
+# Explicit start command:
+# 1. Run any pending Drizzle migrations on every boot. Idempotent — a DB that
+#    is already up-to-date is a no-op.
+# 2. Start the Nitro/Node SSR server built by `vite build`. Without this
+#    override Nixpacks misdetects TanStack Start as a static SPA and runs a
+#    Caddy file-server instead, which returns 404 for every request because
+#    there is no index.html.
 [start]
-cmd = "node .output/server/index.mjs"
+cmd = "pnpm db:migrate && node .output/server/index.mjs"
