@@ -17,7 +17,7 @@ import { signOut, useSession } from '../lib/auth-client'
 import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { updateTimezone } from '../server/functions/user'
 import { ThemeToggle } from '../components/ThemeToggle'
-import appCss from '../styles.css?url'
+import '../styles.css'
 
 const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('todo-xp-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`
 
@@ -36,7 +36,6 @@ export const Route = createRootRoute({
         rel: 'stylesheet',
         href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap',
       },
-      { rel: 'stylesheet', href: appCss },
       { rel: 'manifest', href: '/manifest.json' },
       { rel: 'icon', href: '/favicon.ico' },
       { rel: 'apple-touch-icon', href: '/logo192.png' },
