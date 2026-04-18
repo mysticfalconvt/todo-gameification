@@ -1,7 +1,13 @@
-# Pins Node 23 for Coolify/Nixpacks builds. Nixpacks' default `nodejs_22`
-# resolves to 22.11 in its current nixpkgs pin, which is below pg-boss 12's
-# required Node 22.12+. Whenever Nixpacks updates its pin past 22.12, this
-# override can be dropped and Nixpacks can auto-detect everything from
-# package.json + pnpm-lock.yaml.
+# Pins Node 23 for Coolify/Nixpacks builds. Nixpacks' default nodejs_22
+# resolves to 22.11 in the current nixpkgs pin; pg-boss 12 requires 22.12+.
+# When Nixpacks updates its pin past 22.12, this override can be dropped.
 [phases.setup]
 nixPkgs = ["nodejs_23", "pnpm-9_x"]
+
+# Clear the Vite cache before the build. Nixpacks mounts
+# /app/node_modules/.cache as a persistent Docker cache, so stale artifacts
+# from prior failed builds (e.g. a Vite 8/rolldown attempt) can poison a
+# subsequent Vite 7 build and produce `css content for "" was not found` in
+# the vite:css-post plugin.
+[phases.build]
+cmds = ["rm -rf /app/node_modules/.cache /app/.output /app/.nitro && pnpm run build"]
