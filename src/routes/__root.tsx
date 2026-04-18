@@ -44,7 +44,28 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootShell,
+  notFoundComponent: NotFound,
 })
+
+function NotFound() {
+  return (
+    <main className="page-wrap px-4 py-16 text-center">
+      <p className="island-kicker mb-2">404</p>
+      <h1 className="display-title mb-4 text-4xl font-bold text-[var(--sea-ink)]">
+        Page not found
+      </h1>
+      <p className="mb-6 text-[var(--sea-ink-soft)]">
+        The URL didn't match anything we have.
+      </p>
+      <Link
+        to="/today"
+        className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+      >
+        Back to Today
+      </Link>
+    </main>
+  )
+}
 
 function RootShell({ children }: { children: ReactNode }) {
   const queryClient = getQueryClient()
@@ -140,7 +161,13 @@ function SessionNav() {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[var(--sea-ink-soft)]">{data.user.name}</span>
+      <Link
+        to="/settings"
+        className="nav-link"
+        activeProps={{ className: 'nav-link is-active' }}
+      >
+        {data.user.name}
+      </Link>
       <button type="button" onClick={onSignOut} className="nav-link">
         Sign out
       </button>

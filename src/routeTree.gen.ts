@@ -15,11 +15,21 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
+import { Route as ApiV1ProgressionRouteImport } from './routes/api/v1/progression'
+import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
 import { Route as ApiPushVapidPublicKeyRouteImport } from './routes/api/push/vapid-public-key'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthenticatedTasksNewRouteImport } from './routes/_authenticated/tasks/new'
 import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenticated/tasks/$taskId'
+import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
+import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
+import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
+import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api/v1/instances/$instanceId/snooze'
+import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
+import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -50,6 +60,27 @@ const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiV1TodayRoute = ApiV1TodayRouteImport.update({
+  id: '/api/v1/today',
+  path: '/api/v1/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ProgressionRoute = ApiV1ProgressionRouteImport.update({
+  id: '/api/v1/progression',
+  path: '/api/v1/progression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1EventsRoute = ApiV1EventsRouteImport.update({
+  id: '/api/v1/events',
+  path: '/api/v1/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushVapidPublicKeyRoute = ApiPushVapidPublicKeyRouteImport.update({
   id: '/api/push/vapid-public-key',
   path: '/api/push/vapid-public-key',
@@ -76,30 +107,84 @@ const AuthenticatedTasksTaskIdRoute =
     path: '/tasks/$taskId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsApiDocsRoute =
+  AuthenticatedSettingsApiDocsRouteImport.update({
+    id: '/settings/api-docs',
+    path: '/settings/api-docs',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
+  id: '/api/v1/tasks/',
+  path: '/api/v1/tasks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1TasksTaskIdRoute = ApiV1TasksTaskIdRouteImport.update({
+  id: '/api/v1/tasks/$taskId',
+  path: '/api/v1/tasks/$taskId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1InstancesInstanceIdSnoozeRoute =
+  ApiV1InstancesInstanceIdSnoozeRouteImport.update({
+    id: '/api/v1/instances/$instanceId/snooze',
+    path: '/api/v1/instances/$instanceId/snooze',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1InstancesInstanceIdSkipRoute =
+  ApiV1InstancesInstanceIdSkipRouteImport.update({
+    id: '/api/v1/instances/$instanceId/skip',
+    path: '/api/v1/instances/$instanceId/skip',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1InstancesInstanceIdCompleteRoute =
+  ApiV1InstancesInstanceIdCompleteRouteImport.update({
+    id: '/api/v1/instances/$instanceId/complete',
+    path: '/api/v1/instances/$instanceId/complete',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/today': typeof AuthenticatedTodayRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/progression': typeof ApiV1ProgressionRoute
+  '/api/v1/today': typeof ApiV1TodayRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
+  '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
+  '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
+  '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/today': typeof AuthenticatedTodayRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/progression': typeof ApiV1ProgressionRoute
+  '/api/v1/today': typeof ApiV1TodayRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
+  '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/api/v1/tasks': typeof ApiV1TasksIndexRoute
+  '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
+  '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
+  '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -108,12 +193,22 @@ export interface FileRoutesById {
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/_authenticated/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/_authenticated/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/_authenticated/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/progression': typeof ApiV1ProgressionRoute
+  '/api/v1/today': typeof ApiV1TodayRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
+  '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
+  '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
+  '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -122,24 +217,44 @@ export interface FileRouteTypes {
     | '/today'
     | '/auth/login'
     | '/auth/signup'
+    | '/settings/api-docs'
     | '/tasks/$taskId'
     | '/tasks/new'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
+    | '/api/v1/events'
+    | '/api/v1/progression'
+    | '/api/v1/today'
+    | '/settings/'
     | '/tasks/'
+    | '/api/v1/tasks/$taskId'
+    | '/api/v1/tasks/'
+    | '/api/v1/instances/$instanceId/complete'
+    | '/api/v1/instances/$instanceId/skip'
+    | '/api/v1/instances/$instanceId/snooze'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/today'
     | '/auth/login'
     | '/auth/signup'
+    | '/settings/api-docs'
     | '/tasks/$taskId'
     | '/tasks/new'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
+    | '/api/v1/events'
+    | '/api/v1/progression'
+    | '/api/v1/today'
+    | '/settings'
     | '/tasks'
+    | '/api/v1/tasks/$taskId'
+    | '/api/v1/tasks'
+    | '/api/v1/instances/$instanceId/complete'
+    | '/api/v1/instances/$instanceId/skip'
+    | '/api/v1/instances/$instanceId/snooze'
   id:
     | '__root__'
     | '/'
@@ -147,12 +262,22 @@ export interface FileRouteTypes {
     | '/_authenticated/today'
     | '/auth/login'
     | '/auth/signup'
+    | '/_authenticated/settings/api-docs'
     | '/_authenticated/tasks/$taskId'
     | '/_authenticated/tasks/new'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
+    | '/api/v1/events'
+    | '/api/v1/progression'
+    | '/api/v1/today'
+    | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
+    | '/api/v1/tasks/$taskId'
+    | '/api/v1/tasks/'
+    | '/api/v1/instances/$instanceId/complete'
+    | '/api/v1/instances/$instanceId/skip'
+    | '/api/v1/instances/$instanceId/snooze'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -163,6 +288,14 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
   ApiPushVapidPublicKeyRoute: typeof ApiPushVapidPublicKeyRoute
+  ApiV1EventsRoute: typeof ApiV1EventsRoute
+  ApiV1ProgressionRoute: typeof ApiV1ProgressionRoute
+  ApiV1TodayRoute: typeof ApiV1TodayRoute
+  ApiV1TasksTaskIdRoute: typeof ApiV1TasksTaskIdRoute
+  ApiV1TasksIndexRoute: typeof ApiV1TasksIndexRoute
+  ApiV1InstancesInstanceIdCompleteRoute: typeof ApiV1InstancesInstanceIdCompleteRoute
+  ApiV1InstancesInstanceIdSkipRoute: typeof ApiV1InstancesInstanceIdSkipRoute
+  ApiV1InstancesInstanceIdSnoozeRoute: typeof ApiV1InstancesInstanceIdSnoozeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -209,6 +342,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/v1/today': {
+      id: '/api/v1/today'
+      path: '/api/v1/today'
+      fullPath: '/api/v1/today'
+      preLoaderRoute: typeof ApiV1TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/progression': {
+      id: '/api/v1/progression'
+      path: '/api/v1/progression'
+      fullPath: '/api/v1/progression'
+      preLoaderRoute: typeof ApiV1ProgressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/events': {
+      id: '/api/v1/events'
+      path: '/api/v1/events'
+      fullPath: '/api/v1/events'
+      preLoaderRoute: typeof ApiV1EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push/vapid-public-key': {
       id: '/api/push/vapid-public-key'
       path: '/api/push/vapid-public-key'
@@ -244,20 +405,66 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksTaskIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/api-docs': {
+      id: '/_authenticated/settings/api-docs'
+      path: '/settings/api-docs'
+      fullPath: '/settings/api-docs'
+      preLoaderRoute: typeof AuthenticatedSettingsApiDocsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/v1/tasks/': {
+      id: '/api/v1/tasks/'
+      path: '/api/v1/tasks'
+      fullPath: '/api/v1/tasks/'
+      preLoaderRoute: typeof ApiV1TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/tasks/$taskId': {
+      id: '/api/v1/tasks/$taskId'
+      path: '/api/v1/tasks/$taskId'
+      fullPath: '/api/v1/tasks/$taskId'
+      preLoaderRoute: typeof ApiV1TasksTaskIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/instances/$instanceId/snooze': {
+      id: '/api/v1/instances/$instanceId/snooze'
+      path: '/api/v1/instances/$instanceId/snooze'
+      fullPath: '/api/v1/instances/$instanceId/snooze'
+      preLoaderRoute: typeof ApiV1InstancesInstanceIdSnoozeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/instances/$instanceId/skip': {
+      id: '/api/v1/instances/$instanceId/skip'
+      path: '/api/v1/instances/$instanceId/skip'
+      fullPath: '/api/v1/instances/$instanceId/skip'
+      preLoaderRoute: typeof ApiV1InstancesInstanceIdSkipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/instances/$instanceId/complete': {
+      id: '/api/v1/instances/$instanceId/complete'
+      path: '/api/v1/instances/$instanceId/complete'
+      fullPath: '/api/v1/instances/$instanceId/complete'
+      preLoaderRoute: typeof ApiV1InstancesInstanceIdCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
+  AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
   AuthenticatedTasksTaskIdRoute: typeof AuthenticatedTasksTaskIdRoute
   AuthenticatedTasksNewRoute: typeof AuthenticatedTasksNewRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
+  AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,
   AuthenticatedTasksTaskIdRoute: AuthenticatedTasksTaskIdRoute,
   AuthenticatedTasksNewRoute: AuthenticatedTasksNewRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
 }
 
@@ -273,6 +480,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,
   ApiPushVapidPublicKeyRoute: ApiPushVapidPublicKeyRoute,
+  ApiV1EventsRoute: ApiV1EventsRoute,
+  ApiV1ProgressionRoute: ApiV1ProgressionRoute,
+  ApiV1TodayRoute: ApiV1TodayRoute,
+  ApiV1TasksTaskIdRoute: ApiV1TasksTaskIdRoute,
+  ApiV1TasksIndexRoute: ApiV1TasksIndexRoute,
+  ApiV1InstancesInstanceIdCompleteRoute: ApiV1InstancesInstanceIdCompleteRoute,
+  ApiV1InstancesInstanceIdSkipRoute: ApiV1InstancesInstanceIdSkipRoute,
+  ApiV1InstancesInstanceIdSnoozeRoute: ApiV1InstancesInstanceIdSnoozeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

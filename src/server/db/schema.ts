@@ -132,6 +132,19 @@ export const progression = pgTable('progression', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+export const apiTokens = pgTable('api_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  hashedToken: text('hashed_token').notNull().unique(),
+  tokenPrefix: text('token_prefix').notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at'),
+})
+
 export const pushSubscriptions = pgTable('push_subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id').notNull(),
