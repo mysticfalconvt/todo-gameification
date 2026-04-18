@@ -1,23 +1,7 @@
-# Coolify/Nixpacks build config.
-#
-# Node 23 — Nixpacks' default nodejs_22 resolves to 22.11, below Vite 8's
-# minimum. On 22.11 Vite's embedded rolldown bundler fails to load its
-# native binding.
-#
-# pnpm 10 at /usr/local/bin/pnpm (explicit absolute path) — Nixpacks bundles
-# pnpm 9.15, and pnpm 9 produces a different module graph for rolldown's
-# platform-specific deps that crashes the build inside vite:css-post. We
-# install pnpm 10 via npm (not Corepack — Node 23.2's Corepack has stale
-# signing keys). We call pnpm by absolute path because Nixpacks' login shell
-# between RUN steps doesn't reliably include the global npm bin on $PATH.
-
+# Pins Node 23 for Coolify/Nixpacks builds. Nixpacks' default `nodejs_22`
+# resolves to 22.11 in its current nixpkgs pin, which is below pg-boss 12's
+# required Node 22.12+. Whenever Nixpacks updates its pin past 22.12, this
+# override can be dropped and Nixpacks can auto-detect everything from
+# package.json + pnpm-lock.yaml.
 [phases.setup]
-nixPkgs = ["nodejs_23"]
-
-[phases.install]
-cmds = [
-    "npm install -g --prefix=/usr/local pnpm@10.18.0 && /usr/local/bin/pnpm install --frozen-lockfile",
-]
-
-[phases.build]
-cmds = ["/usr/local/bin/pnpm run build"]
+nixPkgs = ["nodejs_23", "pnpm-9_x"]
