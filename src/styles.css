@@ -1,11 +1,7 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
-
-@theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-}
 
 :root {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --sea-ink: #0f2a2f;
   --sea-ink-soft: #2a4448;
   --lagoon: #4fb8b2;
