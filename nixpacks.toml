@@ -3,3 +3,9 @@
 # When Nixpacks updates its pin past 22.12, this override can be dropped.
 [phases.setup]
 nixPkgs = ["nodejs_23", "pnpm-9_x"]
+
+# Explicit start command so Nixpacks runs our Nitro/Node SSR server instead of
+# its default static-SPA Caddyfile. TanStack Start's build produces an output
+# server at .output/server/index.mjs that must stay the entrypoint.
+[start]
+cmd = "node .output/server/index.mjs"
