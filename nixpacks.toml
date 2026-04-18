@@ -1,26 +1,23 @@
 # Coolify/Nixpacks build config.
 #
 # Node 23 — Nixpacks' default nodejs_22 resolves to 22.11, below Vite 8's
-# minimum (22.12+ or 20.19+); on 22.11 Vite's embedded rolldown bundler fails
-# to load its native binding.
+# minimum. On 22.11 Vite's embedded rolldown bundler fails to load its
+# native binding.
 #
-# pnpm 10 installed globally to /usr/local (always on PATH in Ubuntu) —
-# Nixpacks bundles pnpm 9.15, and pnpm 9 produces a different module graph
-# for rolldown's platform-specific deps that crashes the build inside
-# vite:css-post. We install pnpm 10 through npm (not Corepack) because
-# Node 23.2's Corepack has stale signing keys that fail verification.
-# --prefix=/usr/local is critical — nix-installed Node's default global
-# prefix puts binaries on a path that isn't on the subsequent RUN step's
-# $PATH, so without it `pnpm` is "command not found" on the install line.
+# pnpm 10 at /usr/local/bin/pnpm (explicit absolute path) — Nixpacks bundles
+# pnpm 9.15, and pnpm 9 produces a different module graph for rolldown's
+# platform-specific deps that crashes the build inside vite:css-post. We
+# install pnpm 10 via npm (not Corepack — Node 23.2's Corepack has stale
+# signing keys). We call pnpm by absolute path because Nixpacks' login shell
+# between RUN steps doesn't reliably include the global npm bin on $PATH.
 
 [phases.setup]
 nixPkgs = ["nodejs_23"]
 
 [phases.install]
 cmds = [
-    "npm install -g --prefix=/usr/local pnpm@10.18.0",
-    "pnpm install --frozen-lockfile",
+    "npm install -g --prefix=/usr/local pnpm@10.18.0 && /usr/local/bin/pnpm install --frozen-lockfile",
 ]
 
 [phases.build]
-cmds = ["pnpm run build"]
+cmds = ["/usr/local/bin/pnpm run build"]
