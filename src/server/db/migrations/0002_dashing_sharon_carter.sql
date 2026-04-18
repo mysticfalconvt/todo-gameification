@@ -1,0 +1,1 @@
+ALTER TABLE "task_instances" ALTER COLUMN "due_at" DROP NOT NULL;
