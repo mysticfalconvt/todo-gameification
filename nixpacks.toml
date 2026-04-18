@@ -1,21 +1,21 @@
 # Coolify/Nixpacks build config.
 #
-# Pins Node 23 because Nixpacks' default nodejs_22 resolves to 22.11, which is
-# below Vite 8's minimum (22.12+ or 20.19+); on 22.11, Vite's embedded rolldown
-# bundler fails to load its native binding.
+# Node 23 — Nixpacks' default nodejs_22 resolves to 22.11, below Vite 8's
+# minimum (22.12+ or 20.19+); on 22.11 Vite's embedded rolldown bundler fails
+# to load its native binding.
 #
-# We override the install phase to use Corepack + the `packageManager` field in
-# package.json, which pulls in the exact pnpm version we develop against
-# locally (10.x). Nixpacks' bundled pnpm is 9.15, and pnpm 9 produces a
-# different module graph for rolldown's platform-specific deps that crashes the
-# build in the vite:css-post plugin.
+# pnpm 10 via `npm install -g` — Nixpacks bundles pnpm 9.15. pnpm 9 produces a
+# different module graph for rolldown's platform-specific deps that crashes
+# the build inside vite:css-post ("css content for \"\" was not found"). We
+# install pnpm 10 through npm (not Corepack) because Node 23.2's Corepack has
+# stale signing keys and fails with a "Cannot find matching keyid" error.
 
 [phases.setup]
 nixPkgs = ["nodejs_23"]
 
 [phases.install]
 cmds = [
-    "corepack enable",
+    "npm install -g pnpm@10.18.0",
     "pnpm install --frozen-lockfile",
 ]
 
