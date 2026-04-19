@@ -180,10 +180,7 @@ function TodayPage() {
               ? `${instances.length} to knock out`
               : 'All clear'}
           </h1>
-          <CoachBlurb
-            instances={instances}
-            progression={progression}
-          />
+          <CoachBlurb instances={instances} />
         </div>
         <Link
           to="/tasks/new"
@@ -352,15 +349,7 @@ function PushBanner() {
 
 const PUSH_DISMISS_KEY = 'todo-xp-push-prompt-dismissed'
 
-function CoachBlurb({
-  instances,
-  progression,
-}: {
-  instances: TodayInstance[]
-  progression:
-    | { xp: number; currentStreak: number; longestStreak: number }
-    | undefined
-}) {
+function CoachBlurb({ instances }: { instances: TodayInstance[] }) {
   // A signature derived from the state the coach cares about. When it
   // changes, the React Query key changes, so Query auto-fetches fresh copy.
   //
@@ -376,28 +365,30 @@ function CoachBlurb({
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  const signature = useMemo(() => {
-    const ids = instances
-      .map((i) => i.instanceId)
-      .sort()
-      .join(',')
-    const xp = progression?.xp ?? 0
-    const streak = progression?.currentStreak ?? 0
-    const hourBucket = Math.floor(Date.now() / (2 * 3_600_000))
-    return `${ids}|${xp}|${streak}|${hourBucket}`
-  }, [instances, progression?.xp, progression?.currentStreak])
+  // Signature = just the set of open instance IDs. Every real-world
+  // trigger we care about (add / complete / skip / snooze / day rollover
+  // pulling in new instances) flips this set. Earlier versions also
+  // included xp + currentStreak + hourBucket, but those double-fire
+  // against a single completion: `today` and `progression` invalidate
+  // separately, so the signature would flip twice and the coach would
+  // run twice. The refetchInterval below handles the idle case; no need
+  // to rotate the key on a clock.
+  const signature = useMemo(
+    () => instances.map((i) => i.instanceId).sort().join(','),
+    [instances],
+  )
 
   const query = useQuery({
     queryKey: ['coach', signature],
     queryFn: () => getCoachSummary(),
     enabled: mounted,
-    // The key already encodes the freshness we care about, so keep each
-    // fetched summary around indefinitely (until its key is gc'd). A 2-hour
-    // refetchInterval covers the idle-user case.
+    // Key already encodes freshness; don't re-run on remount. Let
+    // refetchInterval cover the idle-user case.
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 4,
     refetchInterval: 1000 * 60 * 60 * 2,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
 
   if (!mounted) return null
