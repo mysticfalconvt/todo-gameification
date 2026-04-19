@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { listCompletionHistory } from '../../server/functions/tasks'
@@ -7,12 +8,28 @@ export const Route = createFileRoute('/_authenticated/history')({
 })
 
 function HistoryPage() {
+  const [search, setSearch] = useState('')
+
   const query = useQuery({
     queryKey: ['history', 30],
     queryFn: () => listCompletionHistory({ data: { days: 30 } }),
   })
 
-  const days = query.data ?? []
+  const allDays = query.data ?? []
+  const days = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return allDays
+    return allDays
+      .map((d) => ({
+        ...d,
+        items: d.items.filter((i) => i.title.toLowerCase().includes(q)),
+      }))
+      .filter((d) => d.items.length > 0)
+      .map((d) => ({
+        ...d,
+        totalXp: d.items.reduce((acc, i) => acc + i.xp, 0),
+      }))
+  }, [allDays, search])
   const totalXp = days.reduce((acc, d) => acc + d.totalXp, 0)
   const totalItems = days.reduce((acc, d) => acc + d.items.length, 0)
 
@@ -30,6 +47,14 @@ function HistoryPage() {
           </p>
         )}
       </header>
+
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search history…"
+        className="field-input max-w-md"
+      />
 
       {query.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>

@@ -390,6 +390,13 @@ function CoachBlurb({
   //  - xp → any completion bumps this
   //  - current streak → day rollovers flip this
   //  - hour bucket (every 2h) → covers idle users via refetchInterval too
+  // Defer rendering until the client has mounted. The coach summary is
+  // purely a loaded blurb; SSR would always show the skeleton <div> while
+  // the persisted client cache often returns the final <p> on hydration,
+  // tripping a React 19 hydration error.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const signature = useMemo(() => {
     const ids = instances
       .map((i) => i.instanceId)
@@ -404,6 +411,7 @@ function CoachBlurb({
   const query = useQuery({
     queryKey: ['coach', signature],
     queryFn: () => getCoachSummary(),
+    enabled: mounted,
     // The key already encodes the freshness we care about, so keep each
     // fetched summary around indefinitely (until its key is gc'd). A 2-hour
     // refetchInterval covers the idle-user case.
@@ -413,6 +421,7 @@ function CoachBlurb({
     refetchOnWindowFocus: false,
   })
 
+  if (!mounted) return null
   if (query.isLoading) {
     return (
       <div className="mt-2 h-4 w-3/4 max-w-md animate-pulse rounded bg-[var(--option-bg)]" />

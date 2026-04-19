@@ -19,13 +19,20 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const [needsVerify, setNeedsVerify] = useState(false)
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setNeedsVerify(false)
     setSubmitting(true)
     const { error: signInError } = await signIn.email({ email, password })
     setSubmitting(false)
     if (signInError) {
+      if (signInError.code === 'EMAIL_NOT_VERIFIED') {
+        setNeedsVerify(true)
+        return
+      }
       setError(signInError.message ?? 'Sign in failed')
       return
     }
@@ -64,6 +71,16 @@ function LoginPage() {
               {error}
             </p>
           ) : null}
+          {needsVerify ? (
+            <p
+              className="rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] p-3 text-sm text-[var(--sea-ink)]"
+              role="status"
+            >
+              Your email isn't verified yet. We just sent a fresh verification
+              link to <strong>{email}</strong> — click it and you'll be signed
+              in automatically.
+            </p>
+          ) : null}
           <button
             type="submit"
             disabled={submitting}
@@ -72,10 +89,18 @@ function LoginPage() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <p className="mt-6 text-sm text-[var(--sea-ink-soft)]">
-          No account yet?{' '}
-          <Link to="/auth/signup" className="font-semibold">
-            Sign up
+        <p className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--sea-ink-soft)]">
+          <span>
+            No account yet?{' '}
+            <Link to="/auth/signup" className="font-semibold">
+              Sign up
+            </Link>
+          </span>
+          <Link
+            to="/auth/forgot-password"
+            className="font-semibold text-[var(--lagoon-deep)]"
+          >
+            Forgot password?
           </Link>
         </p>
       </section>

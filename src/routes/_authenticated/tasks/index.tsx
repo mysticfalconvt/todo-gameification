@@ -22,6 +22,7 @@ const UNCATEGORIZED = '__uncategorized__'
 function AllTasksPage() {
   const qc = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -82,14 +83,20 @@ function AllTasksPage() {
   )
 
   const filtered = useMemo(() => {
-    const base =
-      selectedCategory === null
-        ? tasks
-        : selectedCategory === UNCATEGORIZED
-          ? tasks.filter((t) => !t.categorySlug)
-          : tasks.filter((t) => t.categorySlug === selectedCategory)
+    const q = search.trim().toLowerCase()
+    const base = tasks.filter((t) => {
+      if (
+        selectedCategory === UNCATEGORIZED
+          ? t.categorySlug !== null
+          : selectedCategory !== null && t.categorySlug !== selectedCategory
+      ) {
+        return false
+      }
+      if (q && !t.title.toLowerCase().includes(q)) return false
+      return true
+    })
     return [...base].sort(compareBy(sortKey))
-  }, [tasks, selectedCategory, sortKey])
+  }, [tasks, selectedCategory, sortKey, search])
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -107,7 +114,14 @@ function AllTasksPage() {
 
       <CategoryHistogram />
 
-      <div className="mb-3 flex items-center justify-end">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tasks…"
+          className="field-input flex-1 min-w-[12rem]"
+        />
         <SortSelect value={sortKey} options={TASKS_SORTS} onChange={setSortKey} />
       </div>
 

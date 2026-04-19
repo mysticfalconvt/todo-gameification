@@ -102,6 +102,15 @@ export const categoryCounts = createServerFn({ method: 'GET' })
     service.categoryCounts(context.userId, data.scope),
   )
 
+export const getStats = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: { days?: number | 'all' } | undefined) => data ?? {},
+  )
+  .handler(({ data, context }) =>
+    service.getStats(context.userId, data?.days ?? 30),
+  )
+
 export const listCompletionHistory = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .inputValidator((data: { days?: number } | undefined) => data ?? {})

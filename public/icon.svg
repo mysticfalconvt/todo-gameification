@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Todo XP">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fb8b2"/>
+      <stop offset="1" stop-color="#1f6e75"/>
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed rounded square so the image doubles as a maskable icon
+       (Android will crop to its own shape; our content stays inside the
+       center 80% safe area). -->
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+  <!-- Big white checkmark — the primary signal. -->
+  <path
+    d="M140 278 L214 352 L376 176"
+    fill="none"
+    stroke="white"
+    stroke-width="48"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+  <!-- Small four-point sparkle at the upper-right of the check, for the
+       XP/gamification flavor. Offsetting from the mask safe area slightly so
+       Android maskable crops won't eat it. -->
+  <g transform="translate(388 140)" fill="white">
+    <path d="M0 -28 C2 -10 10 -2 28 0 C10 2 2 10 0 28 C-2 10 -10 2 -28 0 C-10 -2 -2 -10 0 -28 Z"/>
+  </g>
+</svg>

@@ -39,8 +39,9 @@ export const Route = createRootRoute({
         href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap',
       },
       { rel: 'manifest', href: '/manifest.json' },
-      { rel: 'icon', href: '/favicon.ico' },
-      { rel: 'apple-touch-icon', href: '/logo192.png' },
+      { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+      { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
     ],
   }),
   shellComponent: RootShell,
@@ -88,7 +89,7 @@ function RootShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
@@ -106,6 +107,9 @@ function RootShell({ children }: { children: ReactNode }) {
                 </Link>
                 <Link to="/history" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                   History
+                </Link>
+                <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  Stats
                 </Link>
                 <div className="ml-auto flex items-center gap-3">
                   <OfflineIndicator />

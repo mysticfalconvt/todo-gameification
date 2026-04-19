@@ -994,6 +994,161 @@ export async function categoryCounts(
   return Array.from(counts.entries()).map(([slug, count]) => ({ slug, count }))
 }
 
+export interface Stats {
+  days: number
+  xpByDay: Array<{ date: string; xp: number; count: number }>
+  weekday: number[] // 0=Sun..6=Sat
+  hour: number[] // 0..23
+  topTasks: Array<{ taskId: string | null; title: string; count: number }>
+}
+
+const MAX_ALL_TIME_DAYS = 365 * 10 // safety cap on the filled series
+
+export async function getStats(
+  userId: string,
+  days: number | 'all',
+): Promise<Stats> {
+  const timeZone = await getUserTimeZone(userId)
+  const allTime = days === 'all'
+  const since = allTime
+    ? new Date(0)
+    : new Date(Date.now() - (days as number) * 24 * 3_600_000)
+
+  const rows = await db
+    .select({
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, userId),
+        eq(events.type, 'task.completed'),
+        isNotNull(events.occurredAt),
+        gte(events.occurredAt, since),
+      ),
+    )
+
+  const dayFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const weekdayFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+  })
+  const hourFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    hour12: false,
+  })
+
+  const weekdayIndex: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  }
+
+  const xpByDay = new Map<string, { xp: number; count: number }>()
+  const weekday = [0, 0, 0, 0, 0, 0, 0]
+  const hour = new Array<number>(24).fill(0)
+  const taskCounts = new Map<string, number>()
+
+  for (const r of rows) {
+    if (!r.occurredAt) continue
+    const p =
+      r.payload && typeof r.payload === 'object'
+        ? (r.payload as Record<string, unknown>)
+        : {}
+    const xpOverride =
+      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
+    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
+    const xp =
+      xpOverride ??
+      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+
+    const dayKey = dayFmt.format(r.occurredAt)
+    const bucket = xpByDay.get(dayKey) ?? { xp: 0, count: 0 }
+    bucket.xp += xp
+    bucket.count += 1
+    xpByDay.set(dayKey, bucket)
+
+    const wd = weekdayIndex[weekdayFmt.format(r.occurredAt)] ?? 0
+    weekday[wd] += 1
+
+    const hourStr = hourFmt.format(r.occurredAt)
+    const hourNum = Number.parseInt(hourStr, 10)
+    if (Number.isFinite(hourNum) && hourNum >= 0 && hourNum < 24) {
+      hour[hourNum] += 1
+    }
+
+    const taskId = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+    if (taskId) {
+      taskCounts.set(taskId, (taskCounts.get(taskId) ?? 0) + 1)
+    }
+  }
+
+  // Fill every day in the window so the line chart doesn't have gaps.
+  // For "all time" we start from the earliest event so we don't fill years of
+  // empty days for a user who signed up last week.
+  let fillDays: number
+  if (allTime) {
+    let earliest = Date.now()
+    for (const r of rows) {
+      if (r.occurredAt && r.occurredAt.getTime() < earliest) {
+        earliest = r.occurredAt.getTime()
+      }
+    }
+    const spanMs = Math.max(0, Date.now() - earliest)
+    fillDays = Math.min(
+      MAX_ALL_TIME_DAYS,
+      Math.max(1, Math.ceil(spanMs / 86_400_000) + 1),
+    )
+  } else {
+    fillDays = days as number
+  }
+
+  const xpSeries: Array<{ date: string; xp: number; count: number }> = []
+  for (let i = fillDays - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 3_600_000)
+    const key = dayFmt.format(d)
+    const bucket = xpByDay.get(key) ?? { xp: 0, count: 0 }
+    xpSeries.push({ date: key, xp: bucket.xp, count: bucket.count })
+  }
+
+  // Top tasks by count.
+  const topIds = Array.from(taskCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+  const topTitles = new Map<string, string>()
+  if (topIds.length > 0) {
+    const idRows = await db
+      .select({ id: tasks.id, title: tasks.title })
+      .from(tasks)
+      .where(inArray(tasks.id, topIds.map(([id]) => id)))
+    for (const r of idRows) topTitles.set(r.id, r.title)
+  }
+  const topTasks = topIds.map(([taskId, count]) => ({
+    taskId,
+    title: topTitles.get(taskId) ?? '(deleted task)',
+    count,
+  }))
+
+  return {
+    days: allTime ? fillDays : (days as number),
+    xpByDay: xpSeries,
+    weekday,
+    hour,
+    topTasks,
+  }
+}
+
 export async function listRecentActivity(userId: string): Promise<string[]> {
   const timeZone = await getUserTimeZone(userId)
   const since = new Date(Date.now() - 8 * 24 * 3_600_000)

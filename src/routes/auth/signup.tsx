@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { signUp } from '../../lib/auth-client'
 import { getCurrentSession } from '../../server/session'
@@ -13,12 +13,12 @@ export const Route = createFileRoute('/auth/signup')({
 })
 
 function SignupPage() {
-  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,7 +36,30 @@ function SignupPage() {
       setError(signUpError.message ?? 'Sign up failed')
       return
     }
-    navigate({ to: '/today' })
+    setSent(true)
+  }
+
+  if (sent) {
+    return (
+      <main className="page-wrap px-4 py-12">
+        <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
+          <h1 className="display-title mb-4 text-3xl font-bold text-[var(--sea-ink)]">
+            Check your email
+          </h1>
+          <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+            We sent a verification link to <strong>{email}</strong>. Click
+            it, and you'll be signed in automatically.
+          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Didn't get it? Check your spam folder, or{' '}
+            <Link to="/auth/login" className="font-semibold">
+              try signing in
+            </Link>{' '}
+            — you can resend from there.
+          </p>
+        </section>
+      </main>
+    )
   }
 
   return (
