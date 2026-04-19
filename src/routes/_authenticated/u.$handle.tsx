@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getPublicProfileFn } from '../../server/functions/profile'
+import { getCategoryHistogramFn } from '../../server/functions/categoryStats'
+import { CategoryHistogramView } from '../../components/CategoryHistogramView'
+import type { CategoryScope } from '../../server/services/categoryStats'
 import {
   acceptFriendRequestFn,
   blockUserFn,
@@ -166,9 +170,72 @@ function ProfilePage() {
             </div>
           </section>
           <XpSection data={p.xpByDay} />
+          <CategorySection userId={p.userId} />
         </>
       )}
     </main>
+  )
+}
+
+function CategorySection({ userId }: { userId: string }) {
+  const [scope, setScope] = useState<CategoryScope>('active')
+  const query = useQuery({
+    queryKey: ['category-histogram', userId, scope],
+    queryFn: () =>
+      getCategoryHistogramFn({
+        data: { targetUserId: userId, scope },
+      }),
+  })
+
+  const data = query.data
+  return (
+    <section className="island-shell rounded-2xl p-4">
+      <header className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
+            By category
+          </h2>
+          <p className="text-xs text-[var(--sea-ink-soft)]">
+            {data
+              ? `${data.total} ${scope === 'active' ? 'active' : 'completed in 30d'}`
+              : '…'}
+          </p>
+        </div>
+        <div
+          className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+          role="radiogroup"
+          aria-label="Scope"
+        >
+          {(['active', 'completed'] as CategoryScope[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={scope === s}
+              onClick={() => setScope(s)}
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                scope === s
+                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+              }`}
+            >
+              {s === 'active' ? 'Active' : 'Completed (30d)'}
+            </button>
+          ))}
+        </div>
+      </header>
+      {query.isLoading || !data ? (
+        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">
+          Loading…
+        </p>
+      ) : !data.shared ? (
+        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">
+          Not shared.
+        </p>
+      ) : (
+        <CategoryHistogramView bars={data.bars} />
+      )}
+    </section>
   )
 }
 

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { getStats } from '../../server/functions/tasks'
+import { getStats, listCompletionHistory } from '../../server/functions/tasks'
 
 export const Route = createFileRoute('/_authenticated/stats')({
   component: StatsPage,
@@ -64,10 +64,129 @@ function StatsPage() {
             <HourSection data={stats.hour} />
           </div>
           <TopTasksSection tasks={stats.topTasks} />
+          <HistorySection />
         </>
       )}
     </main>
   )
+}
+
+function HistorySection() {
+  const [search, setSearch] = useState('')
+  const query = useQuery({
+    queryKey: ['history', 30],
+    queryFn: () => listCompletionHistory({ data: { days: 30 } }),
+  })
+
+  const allDays = query.data ?? []
+  const days = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return allDays
+    return allDays
+      .map((d) => ({
+        ...d,
+        items: d.items.filter((i) => i.title.toLowerCase().includes(q)),
+      }))
+      .filter((d) => d.items.length > 0)
+      .map((d) => ({
+        ...d,
+        totalXp: d.items.reduce((acc, i) => acc + i.xp, 0),
+      }))
+  }, [allDays, search])
+  const totalXp = days.reduce((acc, d) => acc + d.totalXp, 0)
+  const totalItems = days.reduce((acc, d) => acc + d.items.length, 0)
+
+  return (
+    <section className="space-y-4">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[var(--sea-ink)]">History</h2>
+          {query.isLoading ? null : (
+            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+              {totalItems} completions · {totalXp} XP · {days.length}{' '}
+              active {days.length === 1 ? 'day' : 'days'}
+            </p>
+          )}
+        </div>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search history…"
+          className="field-input max-w-xs"
+        />
+      </header>
+
+      {query.isLoading ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : days.length === 0 ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          {search
+            ? 'Nothing matches that search.'
+            : 'Nothing in the last 30 days. Go complete something.'}
+        </p>
+      ) : (
+        <ol className="space-y-5">
+          {days.map((day) => (
+            <li key={day.date}>
+              <header className="mb-2 flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-bold text-[var(--sea-ink)]">
+                  {formatDayLabel(day.date)}
+                </h3>
+                <span className="text-xs font-semibold text-[var(--lagoon-deep)]">
+                  +{day.totalXp} XP · {day.items.length} done
+                </span>
+              </header>
+              <ul className="space-y-1">
+                {day.items.map((item) => (
+                  <li
+                    key={item.instanceId}
+                    className="island-shell flex items-center gap-3 rounded-xl p-3"
+                  >
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.14)] text-xs font-bold text-[var(--lagoon-deep)]">
+                      ✓
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-[var(--sea-ink)]">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-[var(--sea-ink-soft)]">
+                        {formatTime(item.completedAt)} · +{item.xp} XP
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+function formatDayLabel(iso: string): string {
+  const d = new Date(iso + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - d.getTime()) / 86_400_000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  if (diff < 7) {
+    return d.toLocaleDateString(undefined, { weekday: 'long' })
+  }
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+  })
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 function XpLineSection({

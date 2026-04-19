@@ -14,6 +14,7 @@ import {
 } from '../db/schema'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import type { DomainEvent } from '../../domain/events'
+import { sendPushToUser } from '../push/broadcast'
 import { getUserTimeZone } from './tasks'
 
 export const CHEER_XP = 2
@@ -302,5 +303,162 @@ export async function cheerCompletion(
       })
   })
 
+  // Best-effort push to the recipient. Errors are logged only — the cheer
+  // itself already landed, so a failed push shouldn't fail the mutation.
+  try {
+    const taskId =
+      completion.payload && typeof completion.payload === 'object'
+        ? (completion.payload as Record<string, unknown>)['taskId']
+        : null
+    const [giver, task] = await Promise.all([
+      db.query.user.findFirst({
+        where: eq(userTable.id, giverId),
+        columns: { name: true, handle: true },
+      }),
+      typeof taskId === 'string'
+        ? db.query.tasks.findFirst({
+            where: eq(tasks.id, taskId),
+            columns: { title: true },
+          })
+        : Promise.resolve(null),
+    ])
+    if (giver) {
+      const title = task?.title ? `"${task.title}"` : 'your completion'
+      await sendPushToUser(recipientId, {
+        title: `${giver.name} cheered you`,
+        body: `${title} · +${CHEER_XP} XP`,
+        tag: `cheer-${completionEventId}`,
+        url: '/friends',
+      })
+    }
+  } catch (err) {
+    console.error('[activity] cheer push failed:', err)
+  }
+
   return { ok: true }
+}
+
+export interface ReceivedCheer {
+  eventId: string
+  giverUserId: string
+  giverHandle: string
+  giverName: string
+  taskTitle: string | null
+  xp: number
+  occurredAt: Date
+}
+
+// Recent cheers the viewer has received. Joins through the referenced
+// completion event so we can surface the original task's title (respecting
+// the task-level visibility: private completions never surface, even if
+// somehow cheered).
+export async function getReceivedCheers(
+  viewerId: string,
+  opts: { days?: number; limit?: number } = {},
+): Promise<ReceivedCheer[]> {
+  const days = opts.days ?? 30
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200)
+  const since = new Date(Date.now() - days * 24 * 3_600_000)
+
+  const rows = await db
+    .select({
+      id: events.id,
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, viewerId),
+        eq(events.type, 'task.cheered'),
+        isNotNull(events.occurredAt),
+        gte(events.occurredAt, since),
+      ),
+    )
+    .orderBy(desc(events.occurredAt))
+    .limit(limit)
+
+  if (rows.length === 0) return []
+
+  const giverIds: string[] = []
+  const completionIds: string[] = []
+  for (const r of rows) {
+    const p =
+      r.payload && typeof r.payload === 'object'
+        ? (r.payload as Record<string, unknown>)
+        : {}
+    const giver = typeof p['giverUserId'] === 'string' ? p['giverUserId'] : null
+    const comp =
+      typeof p['completionEventId'] === 'string' ? p['completionEventId'] : null
+    if (giver) giverIds.push(giver)
+    if (comp) completionIds.push(comp)
+  }
+
+  const [givers, completions] = await Promise.all([
+    giverIds.length > 0
+      ? db
+          .select({
+            id: userTable.id,
+            handle: userTable.handle,
+            name: userTable.name,
+          })
+          .from(userTable)
+          .where(inArray(userTable.id, giverIds))
+      : Promise.resolve([] as Array<{ id: string; handle: string; name: string }>),
+    completionIds.length > 0
+      ? db
+          .select({
+            id: events.id,
+            taskTitle: tasks.title,
+            taskVisibility: tasks.visibility,
+          })
+          .from(events)
+          .leftJoin(
+            tasks,
+            eq(tasks.id, sql`(${events.payload}->>'taskId')::uuid`),
+          )
+          .where(inArray(events.id, completionIds))
+      : Promise.resolve(
+          [] as Array<{
+            id: string
+            taskTitle: string | null
+            taskVisibility: string | null
+          }>,
+        ),
+  ])
+
+  const giverById = new Map(givers.map((g) => [g.id, g]))
+  const completionById = new Map(completions.map((c) => [c.id, c]))
+
+  return rows
+    .map((r): ReceivedCheer | null => {
+      const p =
+        r.payload && typeof r.payload === 'object'
+          ? (r.payload as Record<string, unknown>)
+          : {}
+      const giverId =
+        typeof p['giverUserId'] === 'string' ? (p['giverUserId'] as string) : ''
+      const compId =
+        typeof p['completionEventId'] === 'string'
+          ? (p['completionEventId'] as string)
+          : ''
+      const xp = typeof p['xp'] === 'number' ? (p['xp'] as number) : CHEER_XP
+      const giver = giverById.get(giverId)
+      if (!giver) return null
+      const comp = completionById.get(compId)
+      // Don't surface titles from private tasks even to the owner here —
+      // keeps the behavior consistent with the activity feed.
+      const title =
+        comp && comp.taskVisibility !== 'private' ? comp.taskTitle : null
+      return {
+        eventId: r.id,
+        giverUserId: giverId,
+        giverHandle: giver.handle,
+        giverName: giver.name,
+        taskTitle: title,
+        xp,
+        occurredAt: r.occurredAt!,
+      }
+    })
+    .filter((c): c is ReceivedCheer => c !== null)
 }

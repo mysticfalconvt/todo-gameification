@@ -158,6 +158,16 @@ export function applyEvent(
         level: levelFor(xp),
       }
     }
+
+    case 'friend.added': {
+      // One-time flat XP for connecting. Doesn't affect streak.
+      const xp = state.xp + event.xp
+      return {
+        ...state,
+        xp,
+        level: levelFor(xp),
+      }
+    }
   }
 }
 

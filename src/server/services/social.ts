@@ -3,9 +3,20 @@
 // activity services that also need the privacy gate.
 import { and, desc, eq, gt, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { friendships, user as userTable, userPrefs } from '../db/schema'
+import {
+  events,
+  friendships,
+  progression,
+  user as userTable,
+  userPrefs,
+} from '../db/schema'
+import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { sendPushToUser } from '../push/broadcast'
 import { normalizeHandle } from './handles'
+
+// Flat XP both sides get when a friendship becomes accepted. One-time per
+// pair (see awardFriendshipXp dedupe).
+export const FRIEND_ADDED_XP = 25
 
 // Best-effort friend-activity pushes. Swallow errors so the mutation
 // always succeeds even when VAPID is unconfigured or the recipient has
@@ -31,6 +42,91 @@ async function loadDisplayName(
     columns: { name: true, handle: true },
   })
   return row ?? null
+}
+
+// Insert a friend.added event for `userId` naming `otherUserId`, and apply
+// its XP bump to their progression. Idempotent: if the user already has a
+// friend.added event for this pair, it no-ops. Protects against unfriend +
+// refriend cycles farming XP.
+async function grantFriendXpForSide(
+  userId: string,
+  otherUserId: string,
+): Promise<void> {
+  const existing = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, userId),
+        eq(events.type, 'friend.added'),
+        sql`${events.payload}->>'otherUserId' = ${otherUserId}`,
+      ),
+    )
+    .limit(1)
+  if (existing.length > 0) return
+
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      userId,
+      type: 'friend.added',
+      payload: { otherUserId, xp: FRIEND_ADDED_XP },
+      occurredAt: now,
+    })
+    const current = await tx.query.progression.findFirst({
+      where: eq(progression.userId, userId),
+    })
+    const prevState = current
+      ? {
+          xp: current.xp,
+          level: current.level,
+          currentStreak: current.currentStreak,
+          longestStreak: current.longestStreak,
+          lastCompletionAt: current.lastCompletionAt,
+        }
+      : INITIAL_PROGRESSION
+    const next = applyEvent(
+      prevState,
+      {
+        type: 'friend.added',
+        otherUserId,
+        xp: FRIEND_ADDED_XP,
+        occurredAt: now,
+      },
+      // timeZone isn't consulted for friend.added, so UTC is fine.
+      { timeZone: 'UTC' },
+    )
+    await tx
+      .insert(progression)
+      .values({
+        userId,
+        xp: next.xp,
+        level: next.level,
+        currentStreak: next.currentStreak,
+        longestStreak: next.longestStreak,
+        lastCompletionAt: next.lastCompletionAt,
+      })
+      .onConflictDoUpdate({
+        target: progression.userId,
+        set: { xp: next.xp, level: next.level, updatedAt: now },
+      })
+  })
+}
+
+// Award friendship XP to both sides. Best-effort — errors are logged but
+// never break the acceptance flow.
+async function awardFriendshipXp(
+  userIdA: string,
+  userIdB: string,
+): Promise<void> {
+  try {
+    await Promise.all([
+      grantFriendXpForSide(userIdA, userIdB),
+      grantFriendXpForSide(userIdB, userIdA),
+    ])
+  } catch (err) {
+    console.error('[social] awardFriendshipXp failed:', err)
+  }
 }
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked'
@@ -142,6 +238,7 @@ export async function sendFriendRequest(
             eq(friendships.addresseeId, meId),
           ),
         )
+      await awardFriendshipXp(meId, target.id)
       // Notify the original requester that we just accepted their request.
       const me = await loadDisplayName(meId)
       if (me) {
@@ -192,6 +289,7 @@ export async function acceptFriendRequest(
   if (res.length === 0) {
     throw new Error('No pending request from that user.')
   }
+  await awardFriendshipXp(meId, requesterId)
   // Let the requester know their request landed.
   const me = await loadDisplayName(meId)
   if (me) {

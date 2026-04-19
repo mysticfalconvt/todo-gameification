@@ -16,6 +16,7 @@ import { listCategories } from '../../../server/functions/categories'
 import { getLlmStatus } from '../../../server/functions/config'
 import type { Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
+import type { TaskVisibility } from '../../../server/services/tasks'
 
 export const Route = createFileRoute('/_authenticated/tasks/$taskId')({
   loader: async ({ params }) => {
@@ -83,6 +84,7 @@ function EditTaskPage() {
   const [afterDays, setAfterDays] = useState(7)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
+  const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [error, setError] = useState<string | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
@@ -104,6 +106,7 @@ function EditTaskPage() {
       // 'anytime'; user can switch to 'someday' if desired.
       setDueKind('anytime')
     }
+    setVisibility(t.visibility)
     setLoadedFor(t.id)
   }, [taskQuery.data, loadedFor])
 
@@ -118,6 +121,7 @@ function EditTaskPage() {
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
+      visibility: TaskVisibility
     }) => updateTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -191,6 +195,7 @@ function EditTaskPage() {
         ? null
         : buildRecurrence(recurrenceKind, afterDays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
+      visibility,
     })
   }
 
@@ -383,6 +388,23 @@ function EditTaskPage() {
             />
           </label>
         ) : null}
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Who can see this
+          </span>
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as TaskVisibility)}
+            className="field-input"
+          >
+            <option value="private">Private — just me</option>
+            <option value="friends">Friends — shown in activity feed</option>
+            <option value="public">
+              Public — shown on my profile
+            </option>
+          </select>
+        </label>
 
         <fieldset className="rounded-xl border border-[var(--line)] p-3">
           <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">

@@ -34,6 +34,13 @@ import { listCategories } from './categories'
 // Shared types
 // ---------------------------------------------------------------------------
 
+export type TaskVisibility = 'private' | 'friends' | 'public'
+export const TASK_VISIBILITY_VALUES: readonly TaskVisibility[] = [
+  'private',
+  'friends',
+  'public',
+] as const
+
 export interface CreateTaskInput {
   title: string
   notes?: string | null
@@ -41,6 +48,7 @@ export interface CreateTaskInput {
   recurrence: Recurrence | null
   timeOfDay: string | null
   someday: boolean
+  visibility?: TaskVisibility
 }
 
 export interface UpdateTaskInput {
@@ -50,6 +58,7 @@ export interface UpdateTaskInput {
   difficulty: Difficulty
   recurrence: Recurrence | null
   timeOfDay: string | null
+  visibility?: TaskVisibility
 }
 
 export interface CreateTaskResult {
@@ -91,6 +100,7 @@ export interface TaskSummary {
   categorySlug: string | null
   snoozeUntil: string | null
   createdAt: string
+  visibility: TaskVisibility
 }
 
 export interface TaskDetail extends TaskSummary {
@@ -171,6 +181,12 @@ function validateCreate(input: CreateTaskInput) {
   if (input.someday && input.recurrence) {
     throw new Error('someday tasks cannot be recurring')
   }
+  if (
+    input.visibility !== undefined &&
+    !TASK_VISIBILITY_VALUES.includes(input.visibility)
+  ) {
+    throw new Error('invalid visibility')
+  }
 }
 
 function validateUpdate(input: UpdateTaskInput) {
@@ -180,6 +196,12 @@ function validateUpdate(input: UpdateTaskInput) {
     throw new Error('invalid difficulty')
   }
   if (input.timeOfDay) assertValidTimeOfDay(input.timeOfDay)
+  if (
+    input.visibility !== undefined &&
+    !TASK_VISIBILITY_VALUES.includes(input.visibility)
+  ) {
+    throw new Error('invalid visibility')
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +258,7 @@ export async function createTask(
         recurrence: input.recurrence,
         timeOfDay: input.someday ? null : input.timeOfDay,
         categorySlug: categorization?.slug ?? null,
+        visibility: input.visibility ?? 'friends',
       })
       .returning()
 
@@ -278,6 +301,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
       categorySlug: tasks.categorySlug,
       snoozeUntil: tasks.snoozeUntil,
       createdAt: tasks.createdAt,
+      visibility: tasks.visibility,
     })
     .from(tasks)
     .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
@@ -294,6 +318,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
     categorySlug: r.categorySlug,
     snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
+    visibility: r.visibility as TaskVisibility,
   }))
 }
 
@@ -319,6 +344,7 @@ export async function getTask(
     active: row.active,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    visibility: row.visibility as TaskVisibility,
   }
 }
 
@@ -327,16 +353,20 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<{ id: string }> {
   validateUpdate(input)
+  const setValues: Record<string, unknown> = {
+    title: input.title.trim(),
+    notes: input.notes,
+    difficulty: input.difficulty,
+    recurrence: input.recurrence,
+    timeOfDay: input.timeOfDay,
+    updatedAt: new Date(),
+  }
+  if (input.visibility !== undefined) {
+    setValues.visibility = input.visibility
+  }
   const result = await db
     .update(tasks)
-    .set({
-      title: input.title.trim(),
-      notes: input.notes,
-      difficulty: input.difficulty,
-      recurrence: input.recurrence,
-      timeOfDay: input.timeOfDay,
-      updatedAt: new Date(),
-    })
+    .set(setValues)
     .where(and(eq(tasks.id, input.taskId), eq(tasks.userId, userId)))
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')

@@ -18,7 +18,6 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -82,11 +81,6 @@ const AuthenticatedTodayRoute = AuthenticatedTodayRouteImport.update({
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
   path: '/stats',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
@@ -201,7 +195,6 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/friends': typeof AuthenticatedFriendsRoute
-  '/history': typeof AuthenticatedHistoryRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -232,7 +225,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/friends': typeof AuthenticatedFriendsRoute
-  '/history': typeof AuthenticatedHistoryRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -265,7 +257,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/friends': typeof AuthenticatedFriendsRoute
-  '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -298,7 +289,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/friends'
-    | '/history'
     | '/stats'
     | '/today'
     | '/api/mcp'
@@ -329,7 +319,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/friends'
-    | '/history'
     | '/stats'
     | '/today'
     | '/api/mcp'
@@ -361,7 +350,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/_authenticated/friends'
-    | '/_authenticated/history'
     | '/_authenticated/stats'
     | '/_authenticated/today'
     | '/api/mcp'
@@ -474,13 +462,6 @@ declare module '@tanstack/react-router' {
       path: '/stats'
       fullPath: '/stats'
       preLoaderRoute: typeof AuthenticatedStatsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/friends': {
@@ -628,7 +609,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
-  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
   AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
@@ -643,7 +623,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
-  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
   AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,

@@ -6,18 +6,22 @@ import { getLeaderboardFn } from '../../server/functions/leaderboard'
 import {
   cheerCompletionFn,
   getFriendActivityFn,
+  getReceivedCheersFn,
 } from '../../server/functions/activity'
+import { getFriendsCategoryHistogramsFn } from '../../server/functions/categoryStats'
+import { CategoryHistogramView } from '../../components/CategoryHistogramView'
 import type {
   LeaderboardMetric,
   LeaderboardScope,
   LeaderboardWindow,
 } from '../../server/services/leaderboard'
+import type { CategoryScope } from '../../server/services/categoryStats'
 
 export const Route = createFileRoute('/_authenticated/friends')({
   component: FriendsPage,
 })
 
-type Tab = 'leaderboard' | 'activity'
+type Tab = 'leaderboard' | 'activity' | 'categories'
 
 const METRIC_LABEL: Record<LeaderboardMetric, string> = {
   xp: 'XP earned',
@@ -39,7 +43,11 @@ function FriendsPage() {
       <header>
         <p className="island-kicker mb-1">Friends</p>
         <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          {tab === 'leaderboard' ? 'Leaderboard' : 'Activity'}
+          {tab === 'leaderboard'
+            ? 'Leaderboard'
+            : tab === 'activity'
+              ? 'Activity'
+              : 'Categories'}
         </h1>
       </header>
       <div
@@ -47,7 +55,7 @@ function FriendsPage() {
         role="tablist"
         aria-label="Friends tabs"
       >
-        {(['leaderboard', 'activity'] as Tab[]).map((t) => (
+        {(['leaderboard', 'activity', 'categories'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -64,8 +72,116 @@ function FriendsPage() {
           </button>
         ))}
       </div>
-      {tab === 'leaderboard' ? <LeaderboardTab /> : <ActivityTab />}
+      {tab === 'leaderboard' ? (
+        <LeaderboardTab />
+      ) : tab === 'activity' ? (
+        <ActivityTab />
+      ) : (
+        <CategoriesTab />
+      )}
     </main>
+  )
+}
+
+function CategoriesTab() {
+  const [scope, setScope] = useState<CategoryScope>('active')
+  const query = useQuery({
+    queryKey: ['friends-categories', scope],
+    queryFn: () => getFriendsCategoryHistogramsFn({ data: { scope } }),
+  })
+  const rows = query.data ?? []
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          {scope === 'active'
+            ? 'Active tasks grouped by category.'
+            : 'Tasks completed in the last 30 days, by category.'}
+        </p>
+        <div
+          className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+          role="radiogroup"
+          aria-label="Scope"
+        >
+          {(['active', 'completed'] as CategoryScope[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={scope === s}
+              onClick={() => setScope(s)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                scope === s
+                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+              }`}
+            >
+              {s === 'active' ? 'Active' : 'Completed (30d)'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {query.isLoading ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : rows.length <= 1 ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          Add some friends to compare category breakdowns.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <section
+              key={r.userId}
+              className={`rounded-2xl border p-4 ${
+                r.isMe
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.08)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)]'
+              }`}
+            >
+              <header className="mb-3 flex items-center gap-3">
+                <Initials name={r.name ?? '?'} />
+                <div className="min-w-0 flex-1">
+                  {r.isMe ? (
+                    <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
+                      You
+                    </p>
+                  ) : (
+                    <Link
+                      to="/u/$handle"
+                      params={{ handle: r.handle ?? '' }}
+                      className="truncate text-sm font-semibold text-[var(--sea-ink)] no-underline"
+                    >
+                      {r.name}
+                    </Link>
+                  )}
+                  <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                    {r.handle ? `@${r.handle}` : ''}
+                    {r.shared ? ` · ${r.total} total` : ''}
+                  </p>
+                </div>
+              </header>
+              {!r.canView ? (
+                <p className="py-4 text-center text-xs text-[var(--sea-ink-soft)]">
+                  Profile not visible.
+                </p>
+              ) : !r.shared ? (
+                <p className="py-4 text-center text-xs text-[var(--sea-ink-soft)]">
+                  Activity sharing is off.
+                </p>
+              ) : r.bars.length === 0 ? (
+                <p className="py-4 text-center text-xs text-[var(--sea-ink-soft)]">
+                  No tasks in this scope.
+                </p>
+              ) : (
+                <CategoryHistogramView bars={r.bars} compact />
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -214,7 +330,50 @@ function LeaderboardTab() {
   )
 }
 
+type ActivitySub = 'friends' | 'received'
+
 function ActivityTab() {
+  const [sub, setSub] = useState<ActivitySub>('friends')
+  return (
+    <div className="space-y-4">
+      <div
+        className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+        role="tablist"
+        aria-label="Activity tabs"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sub === 'friends'}
+          onClick={() => setSub('friends')}
+          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+            sub === 'friends'
+              ? 'bg-[var(--lagoon-deep)] text-white'
+              : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+          }`}
+        >
+          Friends
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sub === 'received'}
+          onClick={() => setSub('received')}
+          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+            sub === 'received'
+              ? 'bg-[var(--lagoon-deep)] text-white'
+              : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+          }`}
+        >
+          Cheers for you
+        </button>
+      </div>
+      {sub === 'friends' ? <FriendsActivity /> : <ReceivedCheers />}
+    </div>
+  )
+}
+
+function FriendsActivity() {
   const qc = useQueryClient()
   const [days, setDays] = useState<7 | 30>(7)
 
@@ -304,6 +463,77 @@ function ActivityTab() {
                 <span>{r.viewerCheered ? 'Cheered' : 'Cheer'}</span>
                 {r.cheerCount > 0 ? <span>· {r.cheerCount}</span> : null}
               </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function ReceivedCheers() {
+  const [days, setDays] = useState<7 | 30 | 90>(30)
+  const query = useQuery({
+    queryKey: ['cheers-received', days],
+    queryFn: () => getReceivedCheersFn({ data: { days } }),
+  })
+  const rows = query.data ?? []
+
+  return (
+    <div className="space-y-4">
+      <div
+        className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+        role="radiogroup"
+        aria-label="Window"
+      >
+        {([7, 30, 90] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            role="radio"
+            aria-checked={days === d}
+            onClick={() => setDays(d)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              days === d
+                ? 'bg-[var(--lagoon-deep)] text-white'
+                : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+            }`}
+          >
+            {d}d
+          </button>
+        ))}
+      </div>
+
+      {query.isLoading ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          No cheers yet in this window.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li
+              key={r.eventId}
+              className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
+            >
+              <Initials name={r.giverName} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-[var(--sea-ink)]">
+                  <span className="font-semibold">{r.giverName}</span>
+                  <span className="text-[var(--sea-ink-soft)]"> cheered </span>
+                  {r.taskTitle ? (
+                    <span className="font-semibold">“{r.taskTitle}”</span>
+                  ) : (
+                    <span className="text-[var(--sea-ink-soft)]">
+                      a task
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                  @{r.giverHandle} · {relativeTime(r.occurredAt)} · +{r.xp} XP
+                </p>
+              </div>
             </li>
           ))}
         </ul>

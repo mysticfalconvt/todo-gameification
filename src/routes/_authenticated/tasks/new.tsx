@@ -5,6 +5,7 @@ import { createTask } from '../../../server/functions/tasks'
 import { getLlmStatus } from '../../../server/functions/config'
 import type { Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
+import type { TaskVisibility } from '../../../server/services/tasks'
 
 export const Route = createFileRoute('/_authenticated/tasks/new')({
   loader: () => getLlmStatus(),
@@ -41,6 +42,7 @@ function NewTaskPage() {
   const [afterDays, setAfterDays] = useState(7)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
+  const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [error, setError] = useState<string | null>(null)
 
   const isSomeday = dueKind === 'someday'
@@ -53,6 +55,7 @@ function NewTaskPage() {
       recurrence: Recurrence | null
       timeOfDay: string | null
       someday: boolean
+      visibility: TaskVisibility
     }) => createTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['today'] })
@@ -76,6 +79,7 @@ function NewTaskPage() {
         : buildRecurrence(recurrenceKind, afterDays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       someday: isSomeday,
+      visibility,
     })
   }
 
@@ -192,6 +196,23 @@ function NewTaskPage() {
             />
           </label>
         ) : null}
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Who can see this
+          </span>
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as TaskVisibility)}
+            className="field-input"
+          >
+            <option value="private">Private — just me</option>
+            <option value="friends">Friends — shown in activity feed</option>
+            <option value="public">
+              Public — shown on my profile
+            </option>
+          </select>
+        </label>
 
         {error ? (
           <p className="text-sm text-red-600" role="alert">

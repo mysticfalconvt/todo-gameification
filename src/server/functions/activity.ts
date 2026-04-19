@@ -1,6 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '../middleware/auth'
-import { cheerCompletion, getFriendActivity } from '../services/activity'
+import {
+  cheerCompletion,
+  getFriendActivity,
+  getReceivedCheers,
+} from '../services/activity'
 
 export const getFriendActivityFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
@@ -32,4 +36,21 @@ export const cheerCompletionFn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data, context }) =>
     cheerCompletion(context.userId, data.completionEventId),
+  )
+
+export const getReceivedCheersFn = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { days?: number; limit?: number }) => {
+    const days =
+      typeof data.days === 'number' && data.days > 0 && data.days <= 90
+        ? data.days
+        : 30
+    const limit =
+      typeof data.limit === 'number' && data.limit > 0 && data.limit <= 200
+        ? data.limit
+        : 50
+    return { days, limit }
+  })
+  .handler(async ({ data, context }) =>
+    getReceivedCheers(context.userId, data),
   )

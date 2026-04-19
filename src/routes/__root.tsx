@@ -13,10 +13,12 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { useEffect, type ReactNode } from 'react'
 import { Toaster } from 'sonner'
 
+import { useQuery } from '@tanstack/react-query'
 import { useSession } from '../lib/auth-client'
 import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
+import { listIncomingFn } from '../server/functions/social'
 import { InstallPrompt } from '../components/InstallPrompt'
 import { OfflineIndicator } from '../components/OfflineIndicator'
 import '../styles.css'
@@ -105,15 +107,10 @@ function RootShell({ children }: { children: ReactNode }) {
                 <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                   Tasks
                 </Link>
-                <Link to="/history" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                  History
-                </Link>
                 <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                   Stats
                 </Link>
-                <Link to="/friends" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                  Friends
-                </Link>
+                <FriendsNavLink />
                 <div className="ml-auto flex items-center gap-3">
                   <OfflineIndicator />
                   <SessionNav />
@@ -136,6 +133,38 @@ function RootShell({ children }: { children: ReactNode }) {
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function FriendsNavLink() {
+  const { data: session } = useSession()
+  const pending = useQuery({
+    queryKey: ['friends', 'incoming'],
+    queryFn: () => listIncomingFn(),
+    enabled: Boolean(session?.user),
+    // Re-fetch occasionally so the badge catches requests that arrived on
+    // another device while this tab was idle.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  })
+  const count = pending.data?.length ?? 0
+  return (
+    <Link
+      to="/friends"
+      className="nav-link relative"
+      activeProps={{ className: 'nav-link is-active relative' }}
+    >
+      <span>Friends</span>
+      {count > 0 ? (
+        <span
+          aria-label={`${count} pending friend ${count === 1 ? 'request' : 'requests'}`}
+          className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--lagoon-deep)] px-1 text-[10px] font-bold leading-none text-white"
+        >
+          {count > 9 ? '9+' : count}
+        </span>
+      ) : null}
+    </Link>
   )
 }
 

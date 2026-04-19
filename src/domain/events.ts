@@ -27,5 +27,15 @@ export type DomainEvent =
       xp: number
       occurredAt: Date
     }
+  | {
+      // Friend-added: event belongs to one side of the pair (their
+      // progression picks up the XP). The other side gets their own event
+      // inserted at the same time. otherUserId lets the service dedupe so
+      // unfriend+refriend can't farm XP repeatedly.
+      type: 'friend.added'
+      otherUserId: string
+      xp: number
+      occurredAt: Date
+    }
 
 export type DomainEventType = DomainEvent['type']
