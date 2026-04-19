@@ -26,27 +26,44 @@ import '../styles.css'
 
 const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('todo-xp-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`
 
+// Umami analytics: inject the tracking script only when both env vars are
+// set. head() runs server-side for SSR, so `process.env` is available and
+// the resulting <script> tag is serialized into the initial HTML. Leaving
+// either env var blank fully opts out — no script, no extra request.
+function umamiScriptTag():
+  | { src: string; defer: true; 'data-website-id': string }
+  | null {
+  const src = process.env.UMAMI_SCRIPT_URL?.trim()
+  const id = process.env.UMAMI_WEBSITE_ID?.trim()
+  if (!src || !id) return null
+  return { src, defer: true, 'data-website-id': id }
+}
+
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { name: 'theme-color', content: '#4fb8b2' },
-      { title: 'Todo Gameification' },
-    ],
-    links: [
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
-      {
-        rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap',
-      },
-      { rel: 'manifest', href: '/manifest.json?v=2' },
-      { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg?v=2' },
-      { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico?v=2' },
-      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png?v=2' },
-    ],
-  }),
+  head: () => {
+    const umami = umamiScriptTag()
+    return {
+      meta: [
+        { charSet: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'theme-color', content: '#4fb8b2' },
+        { title: 'Todo Gameification' },
+      ],
+      links: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap',
+        },
+        { rel: 'manifest', href: '/manifest.json?v=2' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg?v=2' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico?v=2' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png?v=2' },
+      ],
+      scripts: umami ? [umami] : undefined,
+    }
+  },
   shellComponent: RootShell,
   notFoundComponent: NotFound,
 })
