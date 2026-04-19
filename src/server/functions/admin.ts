@@ -9,6 +9,7 @@ import {
   loadAdminSummary,
 } from '../services/admin'
 import { loadLlmMetrics } from '../services/llmTracking'
+import { loadJobStats } from '../services/jobs'
 
 // Cheap non-admin check used by the nav + route beforeLoad so the link is
 // only rendered for admins. Returns a plain boolean so no 403 handling is
@@ -39,3 +40,7 @@ export const getAdminOpenInstancesFn = createServerFn({ method: 'GET' })
 export const getAdminLlmMetricsFn = createServerFn({ method: 'GET' })
   .middleware([adminMiddleware])
   .handler(async () => loadLlmMetrics())
+
+export const getAdminJobStatsFn = createServerFn({ method: 'GET' })
+  .middleware([adminMiddleware])
+  .handler(async () => loadJobStats())

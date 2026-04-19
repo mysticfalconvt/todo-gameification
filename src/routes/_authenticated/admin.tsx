@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
+  getAdminJobStatsFn,
   getAdminLlmMetricsFn,
   getAdminOpenInstancesFn,
   getAdminSummaryFn,
@@ -31,10 +32,123 @@ function AdminPage() {
         </h1>
       </header>
       <SummaryGrid />
+      <JobsSection />
       <LlmMetricsSection />
       <UsersTable />
       <RecentEvents />
     </main>
+  )
+}
+
+function JobsSection() {
+  const query = useQuery({
+    queryKey: ['admin', 'jobs'],
+    queryFn: () => getAdminJobStatsFn(),
+    refetchInterval: 15_000,
+  })
+  const data = query.data
+
+  return (
+    <section className="space-y-3">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          Background jobs
+        </h2>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          pg-boss queues, refreshed every 15s.
+        </p>
+      </header>
+      {query.isLoading || !data ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : data.queues.length === 0 ? (
+        <p className="text-[var(--sea-ink-soft)]">No queues registered.</p>
+      ) : (
+        <div className="island-shell overflow-x-auto rounded-2xl">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+              <tr>
+                <th className="px-3 py-2">Queue</th>
+                <th className="px-3 py-2">Queued</th>
+                <th className="px-3 py-2">Active</th>
+                <th className="px-3 py-2">Deferred</th>
+                <th className="px-3 py-2">Done 24h</th>
+                <th className="px-3 py-2">Failed 24h</th>
+                <th className="px-3 py-2">Last failure</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.queues.map((q) => {
+                const danger = q.failedLast24h > 0
+                return (
+                  <tr
+                    key={q.name}
+                    className={`border-b border-[var(--line)] last:border-none ${
+                      danger ? 'bg-[rgba(230,90,90,0.08)]' : ''
+                    }`}
+                  >
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
+                      {q.name}
+                    </td>
+                    <td className="px-3 py-2">{q.queuedCount}</td>
+                    <td className="px-3 py-2">{q.activeCount}</td>
+                    <td className="px-3 py-2">{q.deferredCount}</td>
+                    <td className="px-3 py-2">{q.completedLast24h}</td>
+                    <td
+                      className={`px-3 py-2 ${
+                        danger ? 'font-semibold text-red-600' : ''
+                      }`}
+                    >
+                      {q.failedLast24h}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
+                      {q.lastFailureAt ? (
+                        <span
+                          title={q.lastFailureMessage ?? undefined}
+                          className="truncate"
+                        >
+                          {relativeTime(q.lastFailureAt)}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data && data.recentFailures.length > 0 ? (
+        <details className="island-shell rounded-2xl p-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-[var(--sea-ink)]">
+            Recent job failures ({data.recentFailures.length})
+          </summary>
+          <ul className="mt-3 space-y-1 text-xs">
+            {data.recentFailures.map((f, i) => (
+              <li
+                key={i}
+                className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
+              >
+                <span>
+                  {f.completedOn ? relativeTime(f.completedOn) : '—'}
+                </span>
+                <span className="font-semibold text-[var(--sea-ink)]">
+                  {f.name}
+                </span>
+                <span>retries {f.retryCount}</span>
+                {f.errorMessage ? (
+                  <code className="min-w-0 flex-1 truncate text-[11px]">
+                    {f.errorMessage}
+                  </code>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   )
 }
 
