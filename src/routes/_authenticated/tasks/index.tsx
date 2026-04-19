@@ -2,12 +2,17 @@ import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { deleteTask, listAllTasks } from '../../../server/functions/tasks'
+import {
+  deleteTask,
+  listAllTasks,
+  setTaskCategory,
+} from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 import type { Recurrence } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
 import { SortSelect } from '../../../components/SortSelect'
 import { CategoryHistogram } from '../../../components/CategoryHistogram'
+import { formatWeeklyLabel } from '../../../components/WeekdayPicker'
 import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
@@ -23,6 +28,8 @@ function AllTasksPage() {
   const qc = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [bulkPending, setBulkPending] = useState(false)
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -97,6 +104,81 @@ function AllTasksPage() {
     })
     return [...base].sort(compareBy(sortKey))
   }, [tasks, selectedCategory, sortKey, search])
+
+  // Keep selection in sync with what's actually on screen — if a filter
+  // removes a selected row, drop it so the count stays meaningful.
+  const visibleSelectedIds = useMemo(() => {
+    const visibleIds = new Set(filtered.map((t) => t.id))
+    const next = new Set<string>()
+    for (const id of selectedIds) if (visibleIds.has(id)) next.add(id)
+    return next
+  }, [filtered, selectedIds])
+
+  function toggleOne(id: string, on: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+  function selectAllVisible() {
+    setSelectedIds(new Set(filtered.map((t) => t.id)))
+  }
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  async function bulkDelete() {
+    const ids = Array.from(visibleSelectedIds)
+    if (ids.length === 0) return
+    if (!confirm(`Delete ${ids.length} task${ids.length === 1 ? '' : 's'}?`)) {
+      return
+    }
+    setBulkPending(true)
+    try {
+      const results = await Promise.allSettled(
+        ids.map((taskId) => deleteTask({ data: { taskId } })),
+      )
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) toast.error(`${failed} delete${failed === 1 ? '' : 's'} failed.`)
+      else toast.success(`Deleted ${ids.length}.`)
+      clearSelection()
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
+  async function bulkCategory(slug: string | null) {
+    const ids = Array.from(visibleSelectedIds)
+    if (ids.length === 0) return
+    setBulkPending(true)
+    try {
+      const results = await Promise.allSettled(
+        ids.map((taskId) => setTaskCategory({ data: { taskId, slug } })),
+      )
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0)
+        toast.error(`${failed} update${failed === 1 ? '' : 's'} failed.`)
+      else {
+        const label =
+          slug === null
+            ? 'uncategorized'
+            : (catBySlug.get(slug)?.label ?? slug)
+        toast.success(`Moved ${ids.length} to ${label}.`)
+      }
+      clearSelection()
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['category-counts'] })
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
+  const selectionCount = visibleSelectedIds.size
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -186,6 +268,52 @@ function AllTasksPage() {
         </div>
       ) : null}
 
+      {selectionCount > 0 ? (
+        <div className="sticky top-[3.5rem] z-40 mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--lagoon-deep)] bg-[var(--surface-strong)] p-3 shadow-sm">
+          <span className="text-sm font-semibold text-[var(--sea-ink)]">
+            {selectionCount} selected
+          </span>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs font-semibold text-[var(--sea-ink-soft)] underline"
+          >
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="text-xs text-[var(--sea-ink-soft)]">
+              Move to:{' '}
+              <select
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (!v) return
+                  e.target.value = ''
+                  bulkCategory(v === UNCATEGORIZED ? null : v)
+                }}
+                disabled={bulkPending}
+                className="field-input inline-block w-auto"
+              >
+                <option value="">Category…</option>
+                <option value={UNCATEGORIZED}>Uncategorized</option>
+                {categories.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={bulkDelete}
+              disabled={bulkPending}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600 disabled:opacity-60"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {tasksQuery.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : filtered.length === 0 ? (
@@ -203,14 +331,46 @@ function AllTasksPage() {
           )}
         </p>
       ) : (
-        <ul className="space-y-2">
+        <>
+          <div className="mb-2 flex items-center gap-2 text-xs text-[var(--sea-ink-soft)]">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={
+                  selectionCount > 0 && selectionCount === filtered.length
+                }
+                ref={(el) => {
+                  if (el) {
+                    el.indeterminate =
+                      selectionCount > 0 && selectionCount < filtered.length
+                  }
+                }}
+                onChange={(e) => {
+                  if (e.target.checked) selectAllVisible()
+                  else clearSelection()
+                }}
+              />
+              <span>Select all ({filtered.length})</span>
+            </label>
+          </div>
+          <ul className="space-y-2">
           {filtered.map((t) => {
             const cat = t.categorySlug ? catBySlug.get(t.categorySlug) : null
+            const checked = visibleSelectedIds.has(t.id)
             return (
               <li
                 key={t.id}
-                className="island-shell flex items-center gap-3 rounded-xl p-3"
+                className={`island-shell flex items-center gap-3 rounded-xl p-3 ${
+                  checked ? 'ring-2 ring-[var(--lagoon-deep)]' : ''
+                }`}
               >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => toggleOne(t.id, e.target.checked)}
+                  aria-label={`Select ${t.title}`}
+                  className="flex-shrink-0"
+                />
                 <span
                   aria-hidden
                   title={cat?.label ?? 'Uncategorized'}
@@ -254,7 +414,8 @@ function AllTasksPage() {
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </>
       )}
     </main>
   )
@@ -266,9 +427,7 @@ function recurrenceLabel(r: Recurrence | null) {
     case 'daily':
       return 'Daily'
     case 'weekly':
-      return r.daysOfWeek.length === 7
-        ? 'Every day'
-        : `Weekly (${r.daysOfWeek.length}d)`
+      return formatWeeklyLabel(r.daysOfWeek)
     case 'interval':
       return `Every ${r.days} days`
     case 'after_completion':

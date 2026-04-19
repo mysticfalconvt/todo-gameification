@@ -6,26 +6,28 @@ import { getLlmStatus } from '../../../server/functions/config'
 import type { Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
+import { WeekdayPicker } from '../../../components/WeekdayPicker'
 
 export const Route = createFileRoute('/_authenticated/tasks/new')({
   loader: () => getLlmStatus(),
   component: NewTaskPage,
 })
 
-type RecurrenceKind = 'none' | 'daily' | 'weekly_daily' | 'after_completion'
+type RecurrenceKind = 'none' | 'daily' | 'weekly' | 'after_completion'
 type DueKind = 'someday' | 'anytime' | 'timed'
 
 function buildRecurrence(
   kind: RecurrenceKind,
   afterDays: number,
+  weekdays: number[],
 ): Recurrence | null {
   switch (kind) {
     case 'none':
       return null
     case 'daily':
       return { type: 'daily' }
-    case 'weekly_daily':
-      return { type: 'weekly', daysOfWeek: [0, 1, 2, 3, 4, 5, 6] }
+    case 'weekly':
+      return { type: 'weekly', daysOfWeek: [...weekdays].sort((a, b) => a - b) }
     case 'after_completion':
       return { type: 'after_completion', days: afterDays }
   }
@@ -41,6 +43,7 @@ function NewTaskPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [kind, setKind] = useState<RecurrenceKind>('none')
   const [afterDays, setAfterDays] = useState(7)
+  const [weekdays, setWeekdays] = useState<number[]>([1]) // default Monday
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
@@ -73,13 +76,21 @@ function NewTaskPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (
+      !isSomeday &&
+      recurrenceKind === 'weekly' &&
+      weekdays.length === 0
+    ) {
+      setError('Pick at least one day of the week.')
+      return
+    }
     mutation.mutate({
       title,
       notes: notes.trim() ? notes : null,
       difficulty,
       recurrence: isSomeday
         ? null
-        : buildRecurrence(recurrenceKind, afterDays),
+        : buildRecurrence(recurrenceKind, afterDays, weekdays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       someday: isSomeday,
       visibility,
@@ -188,7 +199,7 @@ function NewTaskPage() {
           >
             <option value="none">One-off</option>
             <option value="daily">Every day</option>
-            <option value="weekly_daily">Every day of the week</option>
+            <option value="weekly">On specific days of the week</option>
             <option value="after_completion">N days after last done</option>
           </select>
           {isSomeday ? (
@@ -197,6 +208,15 @@ function NewTaskPage() {
             </p>
           ) : null}
         </label>
+
+        {recurrenceKind === 'weekly' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Days of the week
+            </legend>
+            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+          </fieldset>
+        ) : null}
 
         {recurrenceKind === 'after_completion' && !isSomeday ? (
           <label className="block">

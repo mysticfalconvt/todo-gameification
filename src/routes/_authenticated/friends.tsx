@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import type {
   LeaderboardWindow,
 } from '../../server/services/leaderboard'
 import type { CategoryScope } from '../../server/services/categoryStats'
+import { useAvailableWindows } from '../../lib/useAvailableWindows'
 
 export const Route = createFileRoute('/_authenticated/friends')({
   component: FriendsPage,
@@ -189,6 +190,13 @@ function LeaderboardTab() {
   const [scope, setScope] = useState<LeaderboardScope>('friends')
   const [metric, setMetric] = useState<LeaderboardMetric>('xp')
   const [days, setDays] = useState<LeaderboardWindow>(30)
+  const { allows } = useAvailableWindows()
+  const ranges = ([7, 30, 90, 'all'] as LeaderboardWindow[]).filter((r) =>
+    allows(r),
+  )
+  useEffect(() => {
+    if (!ranges.includes(days) && ranges.length > 0) setDays(ranges[0])
+  }, [ranges.join(','), days])
 
   const query = useQuery({
     queryKey: ['leaderboard', scope, metric, days],
@@ -208,7 +216,7 @@ function LeaderboardTab() {
           role="radiogroup"
           aria-label="Window"
         >
-          {([7, 30, 90, 'all'] as LeaderboardWindow[]).map((r) => (
+          {ranges.map((r) => (
             <button
               key={String(r)}
               type="button"
@@ -376,6 +384,11 @@ function ActivityTab() {
 function FriendsActivity() {
   const qc = useQueryClient()
   const [days, setDays] = useState<7 | 30>(7)
+  const { allows } = useAvailableWindows()
+  const ranges = ([7, 30] as const).filter((r) => allows(r))
+  useEffect(() => {
+    if (!ranges.includes(days) && ranges.length > 0) setDays(ranges[0])
+  }, [ranges.join(','), days])
 
   const query = useQuery({
     queryKey: ['activity', days],
@@ -399,7 +412,7 @@ function FriendsActivity() {
         role="radiogroup"
         aria-label="Window"
       >
-        {([7, 30] as const).map((d) => (
+        {ranges.map((d) => (
           <button
             key={d}
             type="button"
@@ -473,6 +486,11 @@ function FriendsActivity() {
 
 function ReceivedCheers() {
   const [days, setDays] = useState<7 | 30 | 90>(30)
+  const { allows } = useAvailableWindows()
+  const ranges = ([7, 30, 90] as const).filter((r) => allows(r))
+  useEffect(() => {
+    if (!ranges.includes(days) && ranges.length > 0) setDays(ranges[0])
+  }, [ranges.join(','), days])
   const query = useQuery({
     queryKey: ['cheers-received', days],
     queryFn: () => getReceivedCheersFn({ data: { days } }),
@@ -486,7 +504,7 @@ function ReceivedCheers() {
         role="radiogroup"
         aria-label="Window"
       >
-        {([7, 30, 90] as const).map((d) => (
+        {ranges.map((d) => (
           <button
             key={d}
             type="button"

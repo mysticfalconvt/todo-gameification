@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getStats, listCompletionHistory } from '../../server/functions/tasks'
+import { useAvailableWindows } from '../../lib/useAvailableWindows'
 
 export const Route = createFileRoute('/_authenticated/stats')({
   component: StatsPage,
@@ -11,10 +12,19 @@ type Range = 7 | 30 | 90 | 'all'
 
 function StatsPage() {
   const [days, setDays] = useState<Range>(30)
+  const { allows } = useAvailableWindows()
   const query = useQuery({
     queryKey: ['stats', days],
     queryFn: () => getStats({ data: { days } }),
   })
+  const ranges = ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r))
+  // Collapse to the nearest allowed range when the selected one vanishes
+  // (e.g., default 30 but user only has 10 days of history).
+  useEffect(() => {
+    if (!ranges.includes(days) && ranges.length > 0) {
+      setDays(ranges[0])
+    }
+  }, [ranges.join(','), days])
 
   const stats = query.data
 
@@ -35,7 +45,7 @@ function StatsPage() {
           role="radiogroup"
           aria-label="Window"
         >
-          {([7, 30, 90, 'all'] as Range[]).map((r) => (
+          {ranges.map((r) => (
             <button
               key={String(r)}
               type="button"

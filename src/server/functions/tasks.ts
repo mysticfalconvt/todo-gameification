@@ -73,6 +73,13 @@ export const deleteTask = createServerFn({ method: 'POST' })
     service.deleteTask(context.userId, data.taskId),
   )
 
+export const setTaskCategory = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { taskId: string; slug: string | null }) => data)
+  .handler(({ data, context }) =>
+    service.setTaskCategory(context.userId, data.taskId, data.slug),
+  )
+
 export const snoozeTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string; until: string | null }) => data)

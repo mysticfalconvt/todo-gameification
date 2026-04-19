@@ -17,6 +17,7 @@ import { getLlmStatus } from '../../../server/functions/config'
 import type { Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
+import { WeekdayPicker } from '../../../components/WeekdayPicker'
 
 export const Route = createFileRoute('/_authenticated/tasks/$taskId')({
   loader: async ({ params }) => {
@@ -29,35 +30,48 @@ export const Route = createFileRoute('/_authenticated/tasks/$taskId')({
   component: EditTaskPage,
 })
 
-type RecurrenceKind = 'none' | 'daily' | 'weekly_daily' | 'after_completion'
+type RecurrenceKind = 'none' | 'daily' | 'weekly' | 'after_completion'
 type DueKind = 'someday' | 'anytime' | 'timed'
 
 function recurrenceToKind(r: Recurrence | null): {
   kind: RecurrenceKind
   afterDays: number
+  weekdays: number[]
 } {
-  if (!r) return { kind: 'none', afterDays: 7 }
-  if (r.type === 'daily') return { kind: 'daily', afterDays: 7 }
-  if (r.type === 'weekly' && r.daysOfWeek.length === 7) {
-    return { kind: 'weekly_daily', afterDays: 7 }
+  if (!r) return { kind: 'none', afterDays: 7, weekdays: [1] }
+  if (r.type === 'daily')
+    return { kind: 'daily', afterDays: 7, weekdays: [1] }
+  if (r.type === 'weekly') {
+    // Legacy tasks saved as weekly with all seven days are semantically
+    // "every day" — keep them as 'daily' so the dropdown matches the
+    // cleaner option.
+    if (r.daysOfWeek.length === 7) {
+      return { kind: 'daily', afterDays: 7, weekdays: [1] }
+    }
+    return {
+      kind: 'weekly',
+      afterDays: 7,
+      weekdays: [...r.daysOfWeek].sort((a, b) => a - b),
+    }
   }
   if (r.type === 'after_completion') {
-    return { kind: 'after_completion', afterDays: r.days }
+    return { kind: 'after_completion', afterDays: r.days, weekdays: [1] }
   }
-  return { kind: 'none', afterDays: 7 }
+  return { kind: 'none', afterDays: 7, weekdays: [1] }
 }
 
 function buildRecurrence(
   kind: RecurrenceKind,
   afterDays: number,
+  weekdays: number[],
 ): Recurrence | null {
   switch (kind) {
     case 'none':
       return null
     case 'daily':
       return { type: 'daily' }
-    case 'weekly_daily':
-      return { type: 'weekly', daysOfWeek: [0, 1, 2, 3, 4, 5, 6] }
+    case 'weekly':
+      return { type: 'weekly', daysOfWeek: [...weekdays].sort((a, b) => a - b) }
     case 'after_completion':
       return { type: 'after_completion', days: afterDays }
   }
@@ -82,6 +96,7 @@ function EditTaskPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [kind, setKind] = useState<RecurrenceKind>('none')
   const [afterDays, setAfterDays] = useState(7)
+  const [weekdays, setWeekdays] = useState<number[]>([1])
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
@@ -97,6 +112,7 @@ function EditTaskPage() {
     const rc = recurrenceToKind(t.recurrence)
     setKind(rc.kind)
     setAfterDays(rc.afterDays)
+    setWeekdays(rc.weekdays)
     if (t.timeOfDay) {
       setDueKind('timed')
       setTimeOfDay(t.timeOfDay)
@@ -186,6 +202,14 @@ function EditTaskPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (
+      !isSomeday &&
+      recurrenceKind === 'weekly' &&
+      weekdays.length === 0
+    ) {
+      setError('Pick at least one day of the week.')
+      return
+    }
     save.mutate({
       taskId,
       title,
@@ -193,7 +217,7 @@ function EditTaskPage() {
       difficulty,
       recurrence: isSomeday
         ? null
-        : buildRecurrence(recurrenceKind, afterDays),
+        : buildRecurrence(recurrenceKind, afterDays, weekdays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       visibility,
     })
@@ -369,10 +393,19 @@ function EditTaskPage() {
           >
             <option value="none">One-off</option>
             <option value="daily">Every day</option>
-            <option value="weekly_daily">Every day of the week</option>
+            <option value="weekly">On specific days of the week</option>
             <option value="after_completion">N days after last done</option>
           </select>
         </label>
+
+        {recurrenceKind === 'weekly' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Days of the week
+            </legend>
+            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+          </fieldset>
+        ) : null}
 
         {recurrenceKind === 'after_completion' && !isSomeday ? (
           <label className="block">

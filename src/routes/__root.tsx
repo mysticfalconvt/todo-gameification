@@ -150,12 +150,6 @@ function AppNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
       <nav className="page-wrap flex items-center gap-4 py-3 text-sm font-semibold">
-        <Link
-          to={loggedIn ? '/today' : '/'}
-          className="text-[var(--sea-ink)] no-underline"
-        >
-          Todo&nbsp;XP
-        </Link>
         {loggedIn ? (
           <>
             <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
@@ -170,7 +164,11 @@ function AppNav() {
             <FriendsNavLink />
             <AdminNavLink />
           </>
-        ) : null}
+        ) : (
+          <Link to="/" className="text-[var(--sea-ink)] no-underline">
+            Todo&nbsp;XP
+          </Link>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {loggedIn ? <OfflineIndicator /> : null}
           {isPending ? null : loggedIn ? <SessionNav /> : <GuestNav />}

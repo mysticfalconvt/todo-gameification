@@ -77,6 +77,7 @@ export interface TodayInstance {
   dueAt: string
   timeOfDay: string | null
   snoozedUntil: string | null
+  createdAt: string
 }
 
 export interface SomedayInstance {
@@ -387,6 +388,24 @@ export async function deleteTask(
   return { id: result[0].id }
 }
 
+// Narrow patch for the bulk-select UI. Avoids round-tripping a full
+// task's title/difficulty/recurrence payload just to flip its category.
+// slug=null clears the category (→ uncategorized).
+export async function setTaskCategory(
+  userId: string,
+  taskId: string,
+  slug: string | null,
+): Promise<{ id: string }> {
+  if (!taskId) throw new Error('taskId required')
+  const result = await db
+    .update(tasks)
+    .set({ categorySlug: slug, updatedAt: new Date() })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+    .returning({ id: tasks.id })
+  if (result.length === 0) throw new Error('task not found')
+  return { id: result[0].id }
+}
+
 export async function countUncategorizedTasks(
   userId: string,
 ): Promise<number> {
@@ -568,6 +587,7 @@ export async function listTodayInstances(
       timeOfDay: tasks.timeOfDay,
       dueAt: taskInstances.dueAt,
       snoozedUntil: taskInstances.snoozedUntil,
+      createdAt: tasks.createdAt,
     })
     .from(taskInstances)
     .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
@@ -598,6 +618,7 @@ export async function listTodayInstances(
     dueAt: r.dueAt!.toISOString(),
     timeOfDay: r.timeOfDay,
     snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
+    createdAt: r.createdAt.toISOString(),
   }))
 }
 

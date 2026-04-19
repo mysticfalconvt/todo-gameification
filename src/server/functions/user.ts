@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db/client'
-import { user as userTable, userPrefs } from '../db/schema'
+import { events, user as userTable, userPrefs } from '../db/schema'
 import { authMiddleware } from '../middleware/auth'
 import {
   handleExists,
@@ -194,4 +194,28 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       await db.insert(userPrefs).values({ userId: context.userId, ...next })
     }
     return next
+  })
+
+// Reports the age of the viewer's event history so UI toggles can hide
+// windows that would just render empty data. Returns the first event
+// timestamp (any type) and a convenience daysOfHistory integer.
+export const getDataAvailability = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const row = await db
+      .select({ occurredAt: events.occurredAt })
+      .from(events)
+      .where(eq(events.userId, context.userId))
+      .orderBy(asc(events.occurredAt))
+      .limit(1)
+    const firstEventAt = row[0]?.occurredAt ?? null
+    const daysOfHistory = firstEventAt
+      ? Math.floor(
+          (Date.now() - firstEventAt.getTime()) / (24 * 60 * 60 * 1000),
+        )
+      : 0
+    return {
+      firstEventAt: firstEventAt?.toISOString() ?? null,
+      daysOfHistory,
+    }
   })

@@ -18,6 +18,7 @@ export interface SortOption {
 
 export const TODAY_SORTS: SortOption[] = [
   { key: 'due-asc', label: 'Due time' },
+  { key: 'created-desc', label: 'Recently added' },
   { key: 'title-asc', label: 'A → Z' },
   { key: 'xp-desc', label: 'XP high → low' },
   { key: 'xp-asc', label: 'XP low → high' },
