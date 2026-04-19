@@ -16,6 +16,8 @@ import {
   type PushSupportStatus,
 } from '../../lib/push'
 import { xpLabel } from '../../lib/xp-label'
+import { SortSelect } from '../../components/SortSelect'
+import { TODAY_SORTS, compareBy, useStoredSort } from '../../lib/sort'
 
 interface TodaySearch {
   complete?: string
@@ -129,9 +131,18 @@ function TodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.complete, search.snooze])
 
-  const instances = todayQuery.data ?? []
+  const rawInstances = todayQuery.data ?? []
   const somedayInstances = somedayQuery.data ?? []
   const progression = progressionQuery.data
+  const [sortKey, setSortKey] = useStoredSort(
+    'todo-xp-sort-today',
+    TODAY_SORTS,
+    'due-asc',
+  )
+  const instances = useMemo(
+    () => [...rawInstances].sort(compareBy(sortKey)),
+    [rawInstances, sortKey],
+  )
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -171,6 +182,16 @@ function TodayPage() {
       ) : null}
 
       <PushBanner />
+
+      {instances.length > 0 ? (
+        <div className="mb-3 flex items-center justify-end">
+          <SortSelect
+            value={sortKey}
+            options={TODAY_SORTS}
+            onChange={setSortKey}
+          />
+        </div>
+      ) : null}
 
       {todayQuery.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>

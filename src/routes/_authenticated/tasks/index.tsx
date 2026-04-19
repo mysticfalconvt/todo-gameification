@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { deleteTask, listAllTasks } from '../../../server/functions/tasks'
 import type { Recurrence } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
+import { SortSelect } from '../../../components/SortSelect'
+import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
   component: AllTasksPage,
@@ -56,16 +58,25 @@ function AllTasksPage() {
     })
   }, [tasks])
 
+  const [sortKey, setSortKey] = useStoredSort(
+    'todo-xp-sort-tasks',
+    TASKS_SORTS,
+    'created-desc',
+  )
+
   const filtered = useMemo(() => {
-    if (selected.size === 0) return tasks
-    return tasks.filter((t) => {
-      const tagSet = new Set(t.tags ?? [])
-      for (const s of selected) {
-        if (!tagSet.has(s)) return false
-      }
-      return true
-    })
-  }, [tasks, selected])
+    const base =
+      selected.size === 0
+        ? tasks
+        : tasks.filter((t) => {
+            const tagSet = new Set(t.tags ?? [])
+            for (const s of selected) {
+              if (!tagSet.has(s)) return false
+            }
+            return true
+          })
+    return [...base].sort(compareBy(sortKey))
+  }, [tasks, selected, sortKey])
 
   function toggleTag(tag: string) {
     setSelected((prev) => {
@@ -88,6 +99,10 @@ function AllTasksPage() {
         >
           + New task
         </Link>
+      </div>
+
+      <div className="mb-3 flex items-center justify-end">
+        <SortSelect value={sortKey} options={TASKS_SORTS} onChange={setSortKey} />
       </div>
 
       {allTags.length > 0 ? (
