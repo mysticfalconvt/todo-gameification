@@ -4,7 +4,34 @@
 import { and, desc, eq, gt, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { friendships, user as userTable, userPrefs } from '../db/schema'
+import { sendPushToUser } from '../push/broadcast'
 import { normalizeHandle } from './handles'
+
+// Best-effort friend-activity pushes. Swallow errors so the mutation
+// always succeeds even when VAPID is unconfigured or the recipient has
+// no devices — they'll still see the badge in /friends.
+async function fireSocialPush(
+  userId: string,
+  title: string,
+  body: string,
+  tag: string,
+): Promise<void> {
+  try {
+    await sendPushToUser(userId, { title, body, tag, url: '/friends' })
+  } catch (err) {
+    console.error('[social] push failed:', err)
+  }
+}
+
+async function loadDisplayName(
+  userId: string,
+): Promise<{ name: string; handle: string } | null> {
+  const row = await db.query.user.findFirst({
+    where: eq(userTable.id, userId),
+    columns: { name: true, handle: true },
+  })
+  return row ?? null
+}
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked'
 
@@ -115,6 +142,16 @@ export async function sendFriendRequest(
             eq(friendships.addresseeId, meId),
           ),
         )
+      // Notify the original requester that we just accepted their request.
+      const me = await loadDisplayName(meId)
+      if (me) {
+        await fireSocialPush(
+          target.id,
+          `${me.name} accepted your friend request`,
+          `You’re now friends.`,
+          `friend-accept-${meId}`,
+        )
+      }
       return { status: 'accepted', otherUserId: target.id }
     }
     return { status: 'already_pending', otherUserId: target.id }
@@ -125,6 +162,15 @@ export async function sendFriendRequest(
     addresseeId: target.id,
     status: 'pending',
   })
+  const me = await loadDisplayName(meId)
+  if (me) {
+    await fireSocialPush(
+      target.id,
+      `New friend request`,
+      `${me.name} (@${me.handle}) wants to connect.`,
+      `friend-request-${meId}`,
+    )
+  }
   return { status: 'sent', otherUserId: target.id }
 }
 
@@ -145,6 +191,16 @@ export async function acceptFriendRequest(
     .returning({ requesterId: friendships.requesterId })
   if (res.length === 0) {
     throw new Error('No pending request from that user.')
+  }
+  // Let the requester know their request landed.
+  const me = await loadDisplayName(meId)
+  if (me) {
+    await fireSocialPush(
+      requesterId,
+      `${me.name} accepted your friend request`,
+      `You’re now friends.`,
+      `friend-accept-${meId}`,
+    )
   }
 }
 

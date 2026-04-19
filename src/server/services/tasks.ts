@@ -8,7 +8,7 @@
 //
 // Validation lives here too (title non-empty, difficulty enum, timeOfDay
 // format, etc.) so any caller gets the same guarantees.
-import { and, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
@@ -77,6 +77,7 @@ export interface SomedayInstance {
   difficulty: Difficulty
   xpOverride: number | null
   categorySlug: string | null
+  createdAt: string
 }
 
 export interface TaskSummary {
@@ -125,6 +126,42 @@ export async function getUserTimeZone(userId: string): Promise<string> {
   return row?.timezone ?? 'UTC'
 }
 
+// Pulls the user's recent AI-scored tasks as calibration examples for the
+// score LLM. Dedupes by lowercased title so the model sees variety, not
+// the same chore repeated. `excludeTaskId` is used when re-analyzing an
+// existing task — we don't want its own prior score leaking into its new
+// prompt.
+async function loadRecentScoredExamples(
+  userId: string,
+  opts: { excludeTaskId?: string; limit?: number } = {},
+): Promise<Array<{ title: string; xp: number }>> {
+  const limit = Math.min(opts.limit ?? 15, 40)
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      xpOverride: tasks.xpOverride,
+      updatedAt: tasks.updatedAt,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.userId, userId), isNotNull(tasks.xpOverride)))
+    .orderBy(desc(tasks.updatedAt))
+    .limit(80)
+
+  const out: Array<{ title: string; xp: number }> = []
+  const seen = new Set<string>()
+  for (const r of rows) {
+    if (opts.excludeTaskId && r.id === opts.excludeTaskId) continue
+    if (r.xpOverride == null) continue
+    const key = r.title.trim().toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ title: r.title, xp: r.xpOverride })
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 function validateCreate(input: CreateTaskInput) {
   if (!input.title?.trim()) throw new Error('title is required')
   if (!['small', 'medium', 'large'].includes(input.difficulty)) {
@@ -165,7 +202,10 @@ export async function createTask(
     someday: input.someday,
   })
 
-  const categories = await listCategories(userId)
+  const [categories, recentScores] = await Promise.all([
+    listCategories(userId),
+    loadRecentScoredExamples(userId),
+  ])
 
   // Two separate LLM calls in parallel — score and categorize independently.
   // Keeping them split keeps each schema tight and reduces the chance of
@@ -175,6 +215,7 @@ export async function createTask(
       title: input.title.trim(),
       notes: input.notes,
       difficultyHint: input.difficulty,
+      recentScores,
     }),
     categorizeTask({
       title: input.title.trim(),
@@ -412,7 +453,10 @@ export async function reanalyzeTask(
   })
   if (!row) throw new Error('task not found')
 
-  const categories = await listCategories(userId)
+  const [categories, recentScores] = await Promise.all([
+    listCategories(userId),
+    loadRecentScoredExamples(userId, { excludeTaskId: taskId }),
+  ])
 
   // Two separate LLM calls, run in parallel.
   const [scored, categorization] = await Promise.all([
@@ -420,6 +464,7 @@ export async function reanalyzeTask(
       title: row.title,
       notes: row.notes,
       difficultyHint: row.difficulty as Difficulty,
+      recentScores,
     }),
     categorizeTask({
       title: row.title,
@@ -559,6 +604,7 @@ export async function listSomedayInstances(
     difficulty: r.difficulty as Difficulty,
     xpOverride: r.xpOverride,
     categorySlug: r.categorySlug,
+    createdAt: r.createdAt.toISOString(),
   }))
 }
 
