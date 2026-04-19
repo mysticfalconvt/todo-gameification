@@ -17,5 +17,15 @@ export type DomainEvent =
       instanceId: string
       occurredAt: Date
     }
+  | {
+      // Cheer-received: event belongs to the *recipient* (their progression
+      // picks up the XP on replay). giverUserId records who gave the cheer
+      // so the service layer can enforce anti-farming caps and dedupe.
+      type: 'task.cheered'
+      completionEventId: string
+      giverUserId: string
+      xp: number
+      occurredAt: Date
+    }
 
 export type DomainEventType = DomainEvent['type']

@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db } from './db/client'
 import * as schema from './db/schema'
 import { sendMail, isEmailConfigured } from './email'
+import { generateUniqueHandleFromName } from './services/handles'
 
 function appUrl(): string {
   return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(
@@ -55,6 +56,33 @@ export const auth = betterAuth({
         required: false,
         defaultValue: 'UTC',
         input: true,
+      },
+      handle: {
+        type: 'string',
+        required: false,
+        // Auto-generated on create via the databaseHooks.user.create hook.
+        // Not user-input at signup; editable later in /settings.
+        input: false,
+      },
+      profileVisibility: {
+        type: 'string',
+        required: false,
+        defaultValue: 'friends',
+        input: false,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (data) => {
+          const name =
+            typeof (data as { name?: unknown }).name === 'string'
+              ? (data as { name: string }).name
+              : ''
+          const handle = await generateUniqueHandleFromName(name)
+          return { data: { ...data, handle } }
+        },
       },
     },
   },

@@ -19,6 +19,7 @@ import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
@@ -27,6 +28,7 @@ import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
 import { Route as ApiPushVapidPublicKeyRouteImport } from './routes/api/push/vapid-public-key'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthenticatedUHandleRouteImport } from './routes/_authenticated/u.$handle'
 import { Route as AuthenticatedTasksNewRouteImport } from './routes/_authenticated/tasks/new'
 import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenticated/tasks/$taskId'
 import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
@@ -87,6 +89,11 @@ const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
@@ -127,6 +134,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUHandleRoute = AuthenticatedUHandleRouteImport.update({
+  id: '/u/$handle',
+  path: '/u/$handle',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTasksNewRoute = AuthenticatedTasksNewRouteImport.update({
   id: '/tasks/new',
@@ -188,6 +200,7 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/friends': typeof AuthenticatedFriendsRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -201,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
+  '/u/$handle': typeof AuthenticatedUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
@@ -217,6 +231,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/friends': typeof AuthenticatedFriendsRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -230,6 +245,7 @@ export interface FileRoutesByTo {
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
+  '/u/$handle': typeof AuthenticatedUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
@@ -248,6 +264,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_authenticated/friends': typeof AuthenticatedFriendsRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
@@ -261,6 +278,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/_authenticated/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/_authenticated/tasks/new': typeof AuthenticatedTasksNewRoute
+  '/_authenticated/u/$handle': typeof AuthenticatedUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/push/vapid-public-key': typeof ApiPushVapidPublicKeyRoute
@@ -279,6 +297,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/friends'
     | '/history'
     | '/stats'
     | '/today'
@@ -292,6 +311,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/tasks/$taskId'
     | '/tasks/new'
+    | '/u/$handle'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
@@ -308,6 +328,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/friends'
     | '/history'
     | '/stats'
     | '/today'
@@ -321,6 +342,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/tasks/$taskId'
     | '/tasks/new'
+    | '/u/$handle'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
@@ -338,6 +360,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_authenticated/friends'
     | '/_authenticated/history'
     | '/_authenticated/stats'
     | '/_authenticated/today'
@@ -351,6 +374,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/mcp'
     | '/_authenticated/tasks/$taskId'
     | '/_authenticated/tasks/new'
+    | '/_authenticated/u/$handle'
     | '/api/auth/$'
     | '/api/push/subscribe'
     | '/api/push/vapid-public-key'
@@ -459,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/friends': {
+      id: '/_authenticated/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof AuthenticatedFriendsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tasks/': {
       id: '/_authenticated/tasks/'
       path: '/tasks'
@@ -514,6 +545,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/u/$handle': {
+      id: '/_authenticated/u/$handle'
+      path: '/u/$handle'
+      fullPath: '/u/$handle'
+      preLoaderRoute: typeof AuthenticatedUHandleRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tasks/new': {
       id: '/_authenticated/tasks/new'
@@ -589,6 +627,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
@@ -597,11 +636,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsMcpRoute: typeof AuthenticatedSettingsMcpRoute
   AuthenticatedTasksTaskIdRoute: typeof AuthenticatedTasksTaskIdRoute
   AuthenticatedTasksNewRoute: typeof AuthenticatedTasksNewRoute
+  AuthenticatedUHandleRoute: typeof AuthenticatedUHandleRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
@@ -611,6 +652,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsMcpRoute: AuthenticatedSettingsMcpRoute,
   AuthenticatedTasksTaskIdRoute: AuthenticatedTasksTaskIdRoute,
   AuthenticatedTasksNewRoute: AuthenticatedTasksNewRoute,
+  AuthenticatedUHandleRoute: AuthenticatedUHandleRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
 }

@@ -1,8 +1,16 @@
 import { eq } from 'drizzle-orm'
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db/client'
-import { user as userTable } from '../db/schema'
+import { user as userTable, userPrefs } from '../db/schema'
 import { authMiddleware } from '../middleware/auth'
+import {
+  handleExists,
+  isValidHandle,
+  normalizeHandle,
+} from '../services/handles'
+
+const VISIBILITY_VALUES = ['public', 'friends', 'private'] as const
+type Visibility = (typeof VISIBILITY_VALUES)[number]
 
 export const updateTimezone = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
@@ -30,4 +38,117 @@ export const updateTimezone = createServerFn({ method: 'POST' })
       .set({ timezone: data.timezone, updatedAt: new Date() })
       .where(eq(userTable.id, context.userId))
     return { changed: true, timezone: data.timezone }
+  })
+
+// Returns the viewer's handle, profile visibility, and sharing prefs. The
+// prefs row is created lazily on first write; reads fall back to defaults.
+export const getProfile = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const [userRow, prefsRow] = await Promise.all([
+      db.query.user.findFirst({
+        where: eq(userTable.id, context.userId),
+        columns: { handle: true, profileVisibility: true, name: true },
+      }),
+      db.query.userPrefs.findFirst({
+        where: eq(userPrefs.userId, context.userId),
+      }),
+    ])
+    return {
+      handle: userRow?.handle ?? '',
+      profileVisibility: (userRow?.profileVisibility ?? 'friends') as Visibility,
+      shareProgression: prefsRow?.shareProgression ?? true,
+      shareActivity: prefsRow?.shareActivity ?? true,
+      shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
+    }
+  })
+
+export const updateHandle = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { handle: string }) => {
+    const normalized = normalizeHandle(data.handle)
+    if (!isValidHandle(normalized)) {
+      throw new Error(
+        'Handle must be 3–20 characters, lowercase letters, numbers, or underscores.',
+      )
+    }
+    return { handle: normalized }
+  })
+  .handler(async ({ data, context }) => {
+    const existing = await db.query.user.findFirst({
+      where: eq(userTable.id, context.userId),
+      columns: { handle: true },
+    })
+    if (existing?.handle === data.handle) {
+      return { changed: false, handle: data.handle }
+    }
+    if (await handleExists(data.handle, context.userId)) {
+      throw new Error('That handle is already taken.')
+    }
+    await db
+      .update(userTable)
+      .set({ handle: data.handle, updatedAt: new Date() })
+      .where(eq(userTable.id, context.userId))
+    return { changed: true, handle: data.handle }
+  })
+
+export const updateProfileVisibility = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { visibility: string }) => {
+    if (!VISIBILITY_VALUES.includes(data.visibility as Visibility)) {
+      throw new Error('invalid visibility')
+    }
+    return { visibility: data.visibility as Visibility }
+  })
+  .handler(async ({ data, context }) => {
+    await db
+      .update(userTable)
+      .set({ profileVisibility: data.visibility, updatedAt: new Date() })
+      .where(eq(userTable.id, context.userId))
+    return { visibility: data.visibility }
+  })
+
+export const updatePrefs = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: {
+      shareProgression?: boolean
+      shareActivity?: boolean
+      shareTaskTitles?: boolean
+    }) => {
+      return {
+        shareProgression:
+          typeof data.shareProgression === 'boolean'
+            ? data.shareProgression
+            : undefined,
+        shareActivity:
+          typeof data.shareActivity === 'boolean'
+            ? data.shareActivity
+            : undefined,
+        shareTaskTitles:
+          typeof data.shareTaskTitles === 'boolean'
+            ? data.shareTaskTitles
+            : undefined,
+      }
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const existing = await db.query.userPrefs.findFirst({
+      where: eq(userPrefs.userId, context.userId),
+    })
+    const next = {
+      shareProgression: data.shareProgression ?? existing?.shareProgression ?? true,
+      shareActivity: data.shareActivity ?? existing?.shareActivity ?? true,
+      shareTaskTitles:
+        data.shareTaskTitles ?? existing?.shareTaskTitles ?? false,
+    }
+    if (existing) {
+      await db
+        .update(userPrefs)
+        .set(next)
+        .where(eq(userPrefs.userId, context.userId))
+    } else {
+      await db.insert(userPrefs).values({ userId: context.userId, ...next })
+    }
+    return next
   })

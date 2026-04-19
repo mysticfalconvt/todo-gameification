@@ -148,6 +148,16 @@ export function applyEvent(
 
     case 'task.skipped':
       return state
+
+    case 'task.cheered': {
+      // Flat XP bonus; cheers don't extend streaks.
+      const xp = state.xp + event.xp
+      return {
+        ...state,
+        xp,
+        level: levelFor(xp),
+      }
+    }
   }
 }
 

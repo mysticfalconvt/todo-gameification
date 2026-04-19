@@ -24,6 +24,24 @@ import {
   listCategories,
   updateCategory,
 } from '../../../server/functions/categories'
+import {
+  getProfile,
+  updateHandle,
+  updatePrefs,
+  updateProfileVisibility,
+} from '../../../server/functions/user'
+import {
+  acceptFriendRequestFn,
+  cancelFriendRequestFn,
+  declineFriendRequestFn,
+  listBlockedFn,
+  listFriendsFn,
+  listIncomingFn,
+  listOutgoingFn,
+  removeFriendFn,
+  sendFriendRequestFn,
+  unblockUserFn,
+} from '../../../server/functions/social'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
@@ -38,6 +56,8 @@ function SettingsPage() {
         Profile & settings
       </h1>
       <ProfileSection user={session?.user} />
+      <PrivacySection />
+      <FriendsSection />
       <AppearanceSection />
       <CategoriesSection />
       <PasswordSection />
@@ -467,30 +487,58 @@ function ProfileSection({
     | { id: string; name: string; email: string; [k: string]: unknown }
     | undefined
 }) {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
   const [name, setName] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const [handle, setHandle] = useState('')
+  const [savedField, setSavedField] = useState<null | 'name' | 'handle'>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [handleError, setHandleError] = useState<string | null>(null)
+  const [pendingName, setPendingName] = useState(false)
+  const [pendingHandle, setPendingHandle] = useState(false)
 
   useEffect(() => {
     if (user?.name) setName(user.name)
   }, [user?.id, user?.name])
+  useEffect(() => {
+    if (profileQuery.data?.handle) setHandle(profileQuery.data.handle)
+  }, [profileQuery.data?.handle])
 
-  async function onSave(e: React.FormEvent) {
+  async function onSaveName(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    setError(null)
-    setSaved(false)
-    setPending(true)
+    setNameError(null)
+    setSavedField(null)
+    setPendingName(true)
     try {
       const { error: err } = await authClient.updateUser({ name })
       if (err) throw new Error(err.message ?? 'Failed to update name')
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setSavedField('name')
+      setTimeout(() => setSavedField(null), 2000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update name')
+      setNameError(e instanceof Error ? e.message : 'Failed to update name')
     } finally {
-      setPending(false)
+      setPendingName(false)
+    }
+  }
+
+  async function onSaveHandle(e: React.FormEvent) {
+    e.preventDefault()
+    setHandleError(null)
+    setSavedField(null)
+    setPendingHandle(true)
+    try {
+      await updateHandle({ data: { handle } })
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      setSavedField('handle')
+      setTimeout(() => setSavedField(null), 2000)
+    } catch (e) {
+      setHandleError(e instanceof Error ? e.message : 'Failed to update handle')
+    } finally {
+      setPendingHandle(false)
     }
   }
 
@@ -507,7 +555,7 @@ function ProfileSection({
         <dt className="font-semibold">Timezone</dt>
         <dd className="text-[var(--sea-ink)]">{tz}</dd>
       </dl>
-      <form onSubmit={onSave} className="space-y-3">
+      <form onSubmit={onSaveName} className="mb-4 space-y-3">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Display name
@@ -519,23 +567,516 @@ function ProfileSection({
             className="field-input"
           />
         </label>
-        {error ? (
+        {nameError ? (
           <p className="text-sm text-red-600" role="alert">
-            {error}
+            {nameError}
           </p>
         ) : null}
-        {saved ? (
+        {savedField === 'name' ? (
           <p className="text-sm text-[var(--palm)]">Saved.</p>
         ) : null}
         <button
           type="submit"
-          disabled={pending || !user || name === user?.name}
+          disabled={pendingName || !user || name === user?.name}
           className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
         >
-          {pending ? 'Saving…' : 'Save'}
+          {pendingName ? 'Saving…' : 'Save name'}
+        </button>
+      </form>
+      <form onSubmit={onSaveHandle} className="space-y-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Handle
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[var(--sea-ink-soft)]">@</span>
+            <input
+              type="text"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value.toLowerCase())}
+              minLength={3}
+              maxLength={20}
+              pattern="[a-z0-9_]{3,20}"
+              className="field-input"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          <span className="mt-1 block text-xs text-[var(--sea-ink-soft)]">
+            3–20 characters. Lowercase letters, numbers, underscores.
+          </span>
+        </label>
+        {handleError ? (
+          <p className="text-sm text-red-600" role="alert">
+            {handleError}
+          </p>
+        ) : null}
+        {savedField === 'handle' ? (
+          <p className="text-sm text-[var(--palm)]">Saved.</p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={
+            pendingHandle ||
+            !handle ||
+            handle === profileQuery.data?.handle ||
+            profileQuery.isLoading
+          }
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {pendingHandle ? 'Saving…' : 'Save handle'}
         </button>
       </form>
     </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Privacy
+// ---------------------------------------------------------------------------
+
+const VISIBILITY_OPTIONS = [
+  {
+    value: 'public',
+    label: 'Public',
+    hint: 'Anyone signed in can view your profile and global leaderboard.',
+  },
+  {
+    value: 'friends',
+    label: 'Friends only',
+    hint: 'Only accepted friends can see your profile and activity.',
+  },
+  {
+    value: 'private',
+    label: 'Private',
+    hint: 'Hidden from leaderboards. Friends still see your name.',
+  },
+] as const
+
+function PrivacySection() {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+
+  const setVisibility = useMutation({
+    mutationFn: (visibility: string) =>
+      updateProfileVisibility({ data: { visibility } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  const setPref = useMutation({
+    mutationFn: (patch: {
+      shareProgression?: boolean
+      shareActivity?: boolean
+      shareTaskTitles?: boolean
+    }) => updatePrefs({ data: patch }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  const p = profileQuery.data
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">Privacy</h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Control who can find your profile and what friends see.
+      </p>
+
+      <fieldset className="mb-5">
+        <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+          Profile visibility
+        </legend>
+        <div className="space-y-2">
+          {VISIBILITY_OPTIONS.map((opt) => {
+            const checked = p?.profileVisibility === opt.value
+            return (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
+                  checked
+                    ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
+                    : 'border-[var(--line)] bg-[var(--option-bg)]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="profile-visibility"
+                  value={opt.value}
+                  checked={checked}
+                  onChange={() => setVisibility.mutate(opt.value)}
+                  className="mt-1"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+                    {opt.label}
+                  </span>
+                  <span className="block text-xs text-[var(--sea-ink-soft)]">
+                    {opt.hint}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+          Friend sharing
+        </legend>
+        <div className="space-y-2">
+          <PrefToggle
+            label="Share level, XP, and streaks"
+            hint="Appears in the friends leaderboard."
+            checked={p?.shareProgression ?? true}
+            onChange={(v) => setPref.mutate({ shareProgression: v })}
+          />
+          <PrefToggle
+            label="Share task completions"
+            hint="Shows up in the activity feed when you finish a task."
+            checked={p?.shareActivity ?? true}
+            onChange={(v) => setPref.mutate({ shareActivity: v })}
+          />
+          <PrefToggle
+            label="Show task titles"
+            hint="Otherwise activity just says “completed a task.”"
+            checked={p?.shareTaskTitles ?? false}
+            onChange={(v) => setPref.mutate({ shareTaskTitles: v })}
+          />
+        </div>
+      </fieldset>
+    </section>
+  )
+}
+
+function PrefToggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-1"
+      />
+      <span className="flex-1">
+        <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+          {label}
+        </span>
+        <span className="block text-xs text-[var(--sea-ink-soft)]">{hint}</span>
+      </span>
+    </label>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Friends
+// ---------------------------------------------------------------------------
+
+function FriendsSection() {
+  const qc = useQueryClient()
+  const friendsQuery = useQuery({
+    queryKey: ['friends'],
+    queryFn: () => listFriendsFn(),
+  })
+  const incomingQuery = useQuery({
+    queryKey: ['friends', 'incoming'],
+    queryFn: () => listIncomingFn(),
+  })
+  const outgoingQuery = useQuery({
+    queryKey: ['friends', 'outgoing'],
+    queryFn: () => listOutgoingFn(),
+  })
+  const blockedQuery = useQuery({
+    queryKey: ['friends', 'blocked'],
+    queryFn: () => listBlockedFn(),
+  })
+
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ['friends'] })
+  }
+
+  const [handleInput, setHandleInput] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+
+  const send = useMutation({
+    mutationFn: (handle: string) =>
+      sendFriendRequestFn({ data: { handle } }),
+    onSuccess: (res) => {
+      setHandleInput('')
+      setAddError(null)
+      invalidateAll()
+      if (res.status === 'sent') toast.success('Friend request sent.')
+      else if (res.status === 'accepted')
+        toast.success('You’re now friends — they had already sent a request.')
+      else if (res.status === 'already_pending')
+        toast.message('Request already pending.')
+      else if (res.status === 'already_friends')
+        toast.message('Already friends.')
+    },
+    onError: (err) => {
+      setAddError(err instanceof Error ? err.message : 'Failed to send request.')
+    },
+  })
+
+  const accept = useMutation({
+    mutationFn: (requesterId: string) =>
+      acceptFriendRequestFn({ data: { requesterId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Accept failed'),
+  })
+  const decline = useMutation({
+    mutationFn: (requesterId: string) =>
+      declineFriendRequestFn({ data: { requesterId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Decline failed'),
+  })
+  const cancel = useMutation({
+    mutationFn: (addresseeId: string) =>
+      cancelFriendRequestFn({ data: { addresseeId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Cancel failed'),
+  })
+  const remove = useMutation({
+    mutationFn: (otherUserId: string) =>
+      removeFriendFn({ data: { otherUserId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Remove failed'),
+  })
+  const unblock = useMutation({
+    mutationFn: (targetUserId: string) =>
+      unblockUserFn({ data: { targetUserId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Unblock failed'),
+  })
+
+  const friends = friendsQuery.data ?? []
+  const incoming = incomingQuery.data ?? []
+  const outgoing = outgoingQuery.data ?? []
+  const blocked = blockedQuery.data ?? []
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const h = handleInput.trim().replace(/^@/, '')
+    if (!h) return
+    send.mutate(h)
+  }
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">Friends</h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Find people by their handle to add them.
+      </p>
+
+      <form onSubmit={onSubmit} className="mb-5 flex gap-2">
+        <div className="flex flex-1 items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3">
+          <span className="text-[var(--sea-ink-soft)]">@</span>
+          <input
+            type="text"
+            value={handleInput}
+            onChange={(e) => setHandleInput(e.target.value.toLowerCase())}
+            placeholder="friend_handle"
+            className="w-full bg-transparent py-2 text-sm outline-none"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={send.isPending || !handleInput.trim()}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {send.isPending ? 'Sending…' : 'Send request'}
+        </button>
+      </form>
+      {addError ? (
+        <p className="-mt-3 mb-4 text-sm text-red-600" role="alert">
+          {addError}
+        </p>
+      ) : null}
+
+      {incoming.length > 0 ? (
+        <FriendList
+          title={`Incoming requests (${incoming.length})`}
+          rows={incoming.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => accept.mutate(r.userId)}
+                  disabled={accept.isPending}
+                  className="rounded-full bg-[var(--lagoon-deep)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decline.mutate(r.userId)}
+                  disabled={decline.isPending}
+                  className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+                >
+                  Decline
+                </button>
+              </div>
+            ),
+          }))}
+        />
+      ) : null}
+
+      {outgoing.length > 0 ? (
+        <FriendList
+          title={`Sent (${outgoing.length})`}
+          rows={outgoing.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <button
+                type="button"
+                onClick={() => cancel.mutate(r.userId)}
+                disabled={cancel.isPending}
+                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            ),
+          }))}
+        />
+      ) : null}
+
+      <FriendList
+        title={`Friends (${friends.length})`}
+        empty="No friends yet. Send a request above."
+        rows={friends.map((r) => ({
+          userId: r.userId,
+          handle: r.handle,
+          name: r.name,
+          trailing: (
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirm(`Remove @${r.handle} from friends?`)) return
+                remove.mutate(r.userId)
+              }}
+              disabled={remove.isPending}
+              className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+            >
+              Remove
+            </button>
+          ),
+        }))}
+      />
+
+      {blocked.length > 0 ? (
+        <FriendList
+          title={`Blocked (${blocked.length})`}
+          rows={blocked.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <button
+                type="button"
+                onClick={() => unblock.mutate(r.userId)}
+                disabled={unblock.isPending}
+                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+              >
+                Unblock
+              </button>
+            ),
+          }))}
+        />
+      ) : null}
+    </section>
+  )
+}
+
+function FriendList({
+  title,
+  empty,
+  rows,
+}: {
+  title: string
+  empty?: string
+  rows: Array<{
+    userId: string
+    handle: string
+    name: string
+    trailing: React.ReactNode
+  }>
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        {title}
+      </h3>
+      {rows.length === 0 ? (
+        empty ? (
+          <p className="text-sm text-[var(--sea-ink-soft)]">{empty}</p>
+        ) : null
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li
+              key={r.userId}
+              className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
+            >
+              <Initials name={r.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
+                  {r.name}
+                </p>
+                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                  @{r.handle}
+                </p>
+              </div>
+              {r.trailing}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function Initials({ name }: { name: string }) {
+  const letters = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+  return (
+    <span
+      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--lagoon-deep)] text-xs font-bold text-white"
+      aria-hidden
+    >
+      {letters || '?'}
+    </span>
   )
 }
 

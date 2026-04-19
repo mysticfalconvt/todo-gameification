@@ -111,6 +111,9 @@ function RootShell({ children }: { children: ReactNode }) {
                 <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                   Stats
                 </Link>
+                <Link to="/friends" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  Friends
+                </Link>
                 <div className="ml-auto flex items-center gap-3">
                   <OfflineIndicator />
                   <SessionNav />

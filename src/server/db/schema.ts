@@ -24,6 +24,14 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   timezone: text('timezone').notNull().default('UTC'),
+  // Public-facing identifier used for friend search and profile URLs.
+  // Lowercase alphanumeric + underscore, 3–20 chars. Unique case-insensitive.
+  handle: text('handle').notNull().unique(),
+  profileVisibility: text('profile_visibility', {
+    enum: ['public', 'friends', 'private'],
+  })
+    .notNull()
+    .default('friends'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -160,6 +168,41 @@ export const apiTokens = pgTable('api_tokens', {
   lastUsedAt: timestamp('last_used_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   expiresAt: timestamp('expires_at'),
+})
+
+// Directed friendship row. One row per send; accepted friendships still
+// live as a single row (queried with OR on either side). Blocks are
+// one-directional: the blocker's row carries status='blocked'.
+export const friendships = pgTable(
+  'friendships',
+  {
+    requesterId: text('requester_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    addresseeId: text('addressee_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status', {
+      enum: ['pending', 'accepted', 'blocked'],
+    })
+      .notNull()
+      .default('pending'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    respondedAt: timestamp('responded_at'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.requesterId, t.addresseeId] }),
+    index('friendships_addressee_status_idx').on(t.addresseeId, t.status),
+  ],
+)
+
+export const userPrefs = pgTable('user_prefs', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  shareProgression: boolean('share_progression').notNull().default(true),
+  shareActivity: boolean('share_activity').notNull().default(true),
+  shareTaskTitles: boolean('share_task_titles').notNull().default(false),
 })
 
 export const pushSubscriptions = pgTable('push_subscriptions', {
