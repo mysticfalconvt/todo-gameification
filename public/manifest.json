@@ -3,25 +3,25 @@
   "name": "Todo Gameification",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "icon.svg?v=2",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any"
     },
     {
-      "src": "logo192.png",
+      "src": "logo192.png?v=2",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "logo512.png",
+      "src": "logo512.png?v=2",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "favicon.ico",
+      "src": "favicon.ico?v=2",
       "sizes": "48x48 32x32 16x16",
       "type": "image/x-icon"
     }

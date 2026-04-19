@@ -4,7 +4,7 @@
 // filenames mean stale JS/CSS is usually harmless — but bumping on schema or
 // API contract changes is a fast way to flush stale shells on everyone's
 // phones.)
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const ASSET_CACHE = `todo-xp-assets-${CACHE_VERSION}`
 const HTML_CACHE = `todo-xp-html-${CACHE_VERSION}`
 const API_CACHE = `todo-xp-api-${CACHE_VERSION}`
@@ -36,9 +36,11 @@ function isAuthRequest(url) {
 }
 
 function isHashedAsset(url) {
-  // Vite emits hashed files under /assets/<name>-<hash>.<ext>
-  return url.pathname.startsWith('/assets/') ||
-    /\.(?:js|css|woff2?|ttf|png|svg|jpg|jpeg|webp|ico)$/.test(url.pathname)
+  // Vite emits hashed files under /assets/<name>-<hash>.<ext>. Only those
+  // are safe to cache-first forever — root-level files like /icon.svg,
+  // /favicon.ico, /logo192.png change when we ship a new branding and
+  // must not be pinned by the SW.
+  return url.pathname.startsWith('/assets/')
 }
 
 async function cacheFirst(request, cacheName) {
