@@ -14,13 +14,6 @@ export const Route = createFileRoute('/_authenticated/tasks/new')({
 type RecurrenceKind = 'none' | 'daily' | 'weekly_daily' | 'after_completion'
 type DueKind = 'someday' | 'anytime' | 'timed'
 
-export function parseTags(input: string): string[] {
-  return input
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean)
-}
-
 function buildRecurrence(
   kind: RecurrenceKind,
   afterDays: number,
@@ -48,7 +41,6 @@ function NewTaskPage() {
   const [afterDays, setAfterDays] = useState(7)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
-  const [tagsInput, setTagsInput] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const isSomeday = dueKind === 'someday'
@@ -61,7 +53,6 @@ function NewTaskPage() {
       recurrence: Recurrence | null
       timeOfDay: string | null
       someday: boolean
-      tags: string[]
     }) => createTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['today'] })
@@ -85,7 +76,6 @@ function NewTaskPage() {
         : buildRecurrence(recurrenceKind, afterDays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       someday: isSomeday,
-      tags: parseTags(tagsInput),
     })
   }
 
@@ -186,22 +176,6 @@ function NewTaskPage() {
               Someday tasks don't repeat.
             </p>
           ) : null}
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Tags (optional)
-          </span>
-          <input
-            type="text"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            placeholder="e.g. home, health, work"
-            className="field-input"
-          />
-          <span className="mt-1 block text-xs text-[var(--sea-ink-soft)]">
-            Comma-separated. Lowercased, spaces become hyphens.
-          </span>
         </label>
 
         {recurrenceKind === 'after_completion' && !isSomeday ? (

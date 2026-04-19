@@ -8,6 +8,7 @@ import {
   listSomedayInstances,
   listTodayInstances,
 } from '../../server/functions/tasks'
+import { listCategories } from '../../server/functions/categories'
 import { getCoachSummary } from '../../server/functions/coach'
 import { runOrQueue } from '../../lib/offline-queue'
 import {
@@ -59,6 +60,18 @@ function TodayPage() {
     queryKey: ['recent-activity'],
     queryFn: () => listRecentActivity(),
   })
+
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
+  })
+  const catBySlug = useMemo(() => {
+    const m = new Map<string, { label: string; color: string }>()
+    for (const c of categoriesQuery.data ?? []) {
+      m.set(c.slug, { label: c.label, color: c.color })
+    }
+    return m
+  }, [categoriesQuery.data])
 
   function optimisticRemove(instanceId: string) {
     return async () => {
@@ -213,13 +226,17 @@ function TodayPage() {
                 className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-[var(--sea-ink)]">
-                  {inst.title}
+                <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
+                  <CategoryDot slug={inst.categorySlug} map={catBySlug} />
+                  <span className="truncate">{inst.title}</span>
                 </p>
                 <p className="text-xs text-[var(--sea-ink-soft)]">
                   {dueLabel(inst.dueAt, inst.timeOfDay)}
                   {' • '}
                   {xpLabel(inst.difficulty, inst.xpOverride)}
+                  {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
+                    <> • {catBySlug.get(inst.categorySlug)!.label}</>
+                  ) : null}
                 </p>
               </div>
               <div className="flex flex-shrink-0 items-center gap-1">
@@ -264,11 +281,15 @@ function TodayPage() {
                   className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--sea-ink)]">
-                    {inst.title}
+                  <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
+                    <CategoryDot slug={inst.categorySlug} map={catBySlug} />
+                    <span className="truncate">{inst.title}</span>
                   </p>
                   <p className="text-xs text-[var(--sea-ink-soft)]">
                     {xpLabel(inst.difficulty, inst.xpOverride)}
+                    {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
+                      <> • {catBySlug.get(inst.categorySlug)!.label}</>
+                    ) : null}
                   </p>
                 </div>
               </li>
@@ -457,6 +478,27 @@ function ActivityStrip({ days }: { days: string[] }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function CategoryDot({
+  slug,
+  map,
+}: {
+  slug: string | null
+  map: Map<string, { label: string; color: string }>
+}) {
+  const cat = slug ? map.get(slug) : null
+  return (
+    <span
+      aria-hidden
+      title={cat?.label ?? 'Uncategorized'}
+      className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+      style={{
+        backgroundColor: cat?.color ?? 'transparent',
+        border: cat ? 'none' : '1px dashed var(--line)',
+      }}
+    />
   )
 }
 

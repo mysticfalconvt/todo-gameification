@@ -80,11 +80,11 @@ export const snoozeTask = createServerFn({ method: 'POST' })
     service.snoozeTask(context.userId, data.taskId, data.until),
   )
 
-export const rescoreTask = createServerFn({ method: 'POST' })
+export const reanalyzeTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string }) => data)
   .handler(({ data, context }) =>
-    service.rescoreTask(context.userId, data.taskId),
+    service.reanalyzeTask(context.userId, data.taskId),
   )
 
 export const getProgression = createServerFn({ method: 'GET' })
@@ -94,6 +94,13 @@ export const getProgression = createServerFn({ method: 'GET' })
 export const listRecentActivity = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.listRecentActivity(context.userId))
+
+export const categoryCounts = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { scope: 'active' | 'completed' }) => data)
+  .handler(({ data, context }) =>
+    service.categoryCounts(context.userId, data.scope),
+  )
 
 export const listCompletionHistory = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

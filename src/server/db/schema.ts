@@ -1,10 +1,10 @@
-import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -85,10 +85,7 @@ export const tasks = pgTable('tasks', {
   xpOverride: integer('xp_override'),
   recurrence: jsonb('recurrence').$type<Recurrence>(),
   timeOfDay: text('time_of_day'),
-  tags: text('tags')
-    .array()
-    .notNull()
-    .default(sql`ARRAY[]::text[]`),
+  categorySlug: text('category_slug'),
   snoozeUntil: timestamp('snooze_until'),
   visibility: text('visibility', { enum: ['private', 'friends', 'public'] })
     .notNull()
@@ -136,6 +133,21 @@ export const progression = pgTable('progression', {
   lastCompletionAt: timestamp('last_completion_at'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
+export const userCategories = pgTable(
+  'user_categories',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    label: text('label').notNull(),
+    color: text('color').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.slug] })],
+)
 
 export const apiTokens = pgTable('api_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),

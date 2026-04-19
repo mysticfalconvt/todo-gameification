@@ -8,10 +8,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteTask,
   getTask,
-  rescoreTask,
+  reanalyzeTask,
   snoozeTask,
   updateTask,
 } from '../../../server/functions/tasks'
+import { listCategories } from '../../../server/functions/categories'
 import { getLlmStatus } from '../../../server/functions/config'
 import type { Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
@@ -82,7 +83,6 @@ function EditTaskPage() {
   const [afterDays, setAfterDays] = useState(7)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
-  const [tagsInput, setTagsInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
@@ -104,7 +104,6 @@ function EditTaskPage() {
       // 'anytime'; user can switch to 'someday' if desired.
       setDueKind('anytime')
     }
-    setTagsInput((t.tags ?? []).join(', '))
     setLoadedFor(t.id)
   }, [taskQuery.data, loadedFor])
 
@@ -119,7 +118,6 @@ function EditTaskPage() {
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
-      tags: string[]
     }) => updateTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -133,8 +131,8 @@ function EditTaskPage() {
     },
   })
 
-  const rescore = useMutation({
-    mutationFn: () => rescoreTask({ data: { taskId } }),
+  const reanalyze = useMutation({
+    mutationFn: () => reanalyzeTask({ data: { taskId } }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['task', taskId] })
       await qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -142,9 +140,17 @@ function EditTaskPage() {
       await qc.invalidateQueries({ queryKey: ['someday'] })
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Failed to re-score')
+      setError(err instanceof Error ? err.message : 'Failed to re-analyze')
     },
   })
+
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
+  })
+  const categories = categoriesQuery.data ?? []
+  const currentCategory =
+    categories.find((c) => c.slug === taskQuery.data?.categorySlug) ?? null
 
   const snooze = useMutation({
     mutationFn: (until: string | null) =>
@@ -185,10 +191,6 @@ function EditTaskPage() {
         ? null
         : buildRecurrence(recurrenceKind, afterDays),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
-      tags: tagsInput
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
     })
   }
 
@@ -243,33 +245,51 @@ function EditTaskPage() {
         </label>
 
         {llmEnabled ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-                Current XP
-              </p>
-              <p className="text-sm text-[var(--sea-ink)]">
-                {task.xpOverride ?? '—'}
-                {rescore.data?.scored ? (
-                  <span className="ml-2 text-xs text-[var(--sea-ink-soft)]">
-                    ({rescore.data.scored.tier})
-                  </span>
-                ) : null}
-              </p>
-              {rescore.data?.scored?.reasoning ? (
-                <p className="mt-1 text-xs italic text-[var(--sea-ink-soft)]">
-                  {rescore.data.scored.reasoning}
-                </p>
-              ) : null}
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                    Current XP
+                  </p>
+                  <p className="text-sm text-[var(--sea-ink)]">
+                    {task.xpOverride ?? '—'}
+                    {reanalyze.data?.scored ? (
+                      <span className="ml-2 text-xs text-[var(--sea-ink-soft)]">
+                        ({reanalyze.data.scored.tier})
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                    Category
+                  </p>
+                  {currentCategory ? (
+                    <p className="inline-flex items-center gap-1.5 text-sm text-[var(--sea-ink)]">
+                      <span
+                        aria-hidden
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: currentCategory.color }}
+                      />
+                      {currentCategory.label}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[var(--sea-ink-soft)]">
+                      Uncategorized
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => reanalyze.mutate()}
+                disabled={reanalyze.isPending}
+                className="rounded-full border border-[var(--line)] bg-[var(--option-bg-hover)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+              >
+                {reanalyze.isPending ? 'Re-analyzing…' : 'Re-analyze with AI'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => rescore.mutate()}
-              disabled={rescore.isPending}
-              className="rounded-full border border-[var(--line)] bg-[var(--option-bg-hover)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-            >
-              {rescore.isPending ? 'Re-scoring…' : 'Re-score with AI'}
-            </button>
           </div>
         ) : (
           <label className="block">
@@ -363,22 +383,6 @@ function EditTaskPage() {
             />
           </label>
         ) : null}
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Tags
-          </span>
-          <input
-            type="text"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            placeholder="e.g. home, health, work"
-            className="field-input"
-          />
-          <span className="mt-1 block text-xs text-[var(--sea-ink-soft)]">
-            Comma-separated. Lowercased, spaces become hyphens.
-          </span>
-        </label>
 
         <fieldset className="rounded-xl border border-[var(--line)] p-3">
           <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">

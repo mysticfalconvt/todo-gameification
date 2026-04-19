@@ -3,9 +3,11 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { deleteTask, listAllTasks } from '../../../server/functions/tasks'
+import { listCategories } from '../../../server/functions/categories'
 import type { Recurrence } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
 import { SortSelect } from '../../../components/SortSelect'
+import { CategoryHistogram } from '../../../components/CategoryHistogram'
 import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
@@ -13,14 +15,22 @@ export const Route = createFileRoute('/_authenticated/tasks/')({
 })
 
 type TaskRow = Awaited<ReturnType<typeof listAllTasks>>[number]
+type Category = Awaited<ReturnType<typeof listCategories>>[number]
+
+const UNCATEGORIZED = '__uncategorized__'
 
 function AllTasksPage() {
   const qc = useQueryClient()
-  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
     queryFn: () => listAllTasks(),
+  })
+
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
   })
 
   const remove = useMutation({
@@ -44,18 +54,25 @@ function AllTasksPage() {
   })
 
   const tasks = tasksQuery.data ?? []
+  const categories = categoriesQuery.data ?? []
 
-  const allTags = useMemo(() => {
+  const catBySlug = useMemo(() => {
+    const m = new Map<string, Category>()
+    for (const c of categories) m.set(c.slug, c)
+    return m
+  }, [categories])
+
+  const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>()
+    let uncategorized = 0
     for (const t of tasks) {
-      for (const tag of t.tags ?? []) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      if (t.categorySlug) {
+        counts.set(t.categorySlug, (counts.get(t.categorySlug) ?? 0) + 1)
+      } else {
+        uncategorized += 1
       }
     }
-    return Array.from(counts.entries()).sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1]
-      return a[0].localeCompare(b[0])
-    })
+    return { counts, uncategorized }
   }, [tasks])
 
   const [sortKey, setSortKey] = useStoredSort(
@@ -66,26 +83,13 @@ function AllTasksPage() {
 
   const filtered = useMemo(() => {
     const base =
-      selected.size === 0
+      selectedCategory === null
         ? tasks
-        : tasks.filter((t) => {
-            const tagSet = new Set(t.tags ?? [])
-            for (const s of selected) {
-              if (!tagSet.has(s)) return false
-            }
-            return true
-          })
+        : selectedCategory === UNCATEGORIZED
+          ? tasks.filter((t) => !t.categorySlug)
+          : tasks.filter((t) => t.categorySlug === selectedCategory)
     return [...base].sort(compareBy(sortKey))
-  }, [tasks, selected, sortKey])
-
-  function toggleTag(tag: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(tag)) next.delete(tag)
-      else next.add(tag)
-      return next
-    })
-  }
+  }, [tasks, selectedCategory, sortKey])
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -101,40 +105,68 @@ function AllTasksPage() {
         </Link>
       </div>
 
+      <CategoryHistogram />
+
       <div className="mb-3 flex items-center justify-end">
         <SortSelect value={sortKey} options={TASKS_SORTS} onChange={setSortKey} />
       </div>
 
-      {allTags.length > 0 ? (
+      {categories.length > 0 ? (
         <div className="mb-5 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Tags
-          </span>
-          {allTags.map(([tag, count]) => {
-            const isOn = selected.has(tag)
+          <button
+            type="button"
+            onClick={() => setSelectedCategory(null)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              selectedCategory === null
+                ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+            }`}
+          >
+            All
+            <span className="ml-1 text-[10px] opacity-70">{tasks.length}</span>
+          </button>
+          {categories.map((c) => {
+            const count = categoryCounts.counts.get(c.slug) ?? 0
+            const on = selectedCategory === c.slug
             return (
               <button
-                key={tag}
+                key={c.slug}
                 type="button"
-                onClick={() => toggleTag(tag)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                  isOn
+                onClick={() => setSelectedCategory(on ? null : c.slug)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  on
                     ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
                     : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
                 }`}
               >
-                {tag}
-                <span className="ml-1 text-[10px] opacity-70">{count}</span>
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: c.color }}
+                />
+                {c.label}
+                <span className="text-[10px] opacity-70">{count}</span>
               </button>
             )
           })}
-          {selected.size > 0 ? (
+          {categoryCounts.uncategorized > 0 ? (
             <button
               type="button"
-              onClick={() => setSelected(new Set())}
-              className="rounded-full px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] underline-offset-2 hover:underline"
+              onClick={() =>
+                setSelectedCategory(
+                  selectedCategory === UNCATEGORIZED ? null : UNCATEGORIZED,
+                )
+              }
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                selectedCategory === UNCATEGORIZED
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
+              }`}
             >
-              Clear
+              Uncategorized
+              <span className="ml-1 text-[10px] opacity-70">
+                {categoryCounts.uncategorized}
+              </span>
             </button>
           ) : null}
         </div>
@@ -144,8 +176,8 @@ function AllTasksPage() {
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : filtered.length === 0 ? (
         <p className="text-[var(--sea-ink-soft)]">
-          {selected.size > 0 ? (
-            <>No tasks match the selected tags.</>
+          {selectedCategory ? (
+            <>No tasks in this category.</>
           ) : (
             <>
               No tasks yet.{' '}
@@ -158,54 +190,56 @@ function AllTasksPage() {
         </p>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((t) => (
-            <li
-              key={t.id}
-              className="island-shell flex items-center gap-3 rounded-xl p-3"
-            >
-              <Link
-                to="/tasks/$taskId"
-                params={{ taskId: t.id }}
-                className="min-w-0 flex-1 no-underline"
+          {filtered.map((t) => {
+            const cat = t.categorySlug ? catBySlug.get(t.categorySlug) : null
+            return (
+              <li
+                key={t.id}
+                className="island-shell flex items-center gap-3 rounded-xl p-3"
               >
-                <p className="truncate font-semibold text-[var(--sea-ink)]">
-                  {t.title}
-                </p>
-                <p className="text-xs text-[var(--sea-ink-soft)]">
-                  {xpLabel(t.difficulty, t.xpOverride)}
-                  {' • '}
-                  {recurrenceLabel(t.recurrence)}
-                  {t.tags && t.tags.length > 0 ? (
-                    <>
-                      {' • '}
-                      <span className="font-mono">
-                        {t.tags.map((tag) => `#${tag}`).join(' ')}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-              </Link>
-              <Link
-                to="/tasks/$taskId"
-                params={{ taskId: t.id }}
-                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline"
-              >
-                Edit
-              </Link>
-              <button
-                type="button"
-                aria-label={`Delete ${t.title}`}
-                onClick={() => {
-                  if (confirm(`Delete "${t.title}"?`)) {
-                    remove.mutate(t.id)
-                  }
-                }}
-                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
-              >
-                Delete
-              </button>
-            </li>
-          ))}
+                <span
+                  aria-hidden
+                  title={cat?.label ?? 'Uncategorized'}
+                  className="h-3 w-3 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: cat?.color ?? 'transparent', border: cat ? 'none' : '1px dashed var(--line)' }}
+                />
+                <Link
+                  to="/tasks/$taskId"
+                  params={{ taskId: t.id }}
+                  className="min-w-0 flex-1 no-underline"
+                >
+                  <p className="truncate font-semibold text-[var(--sea-ink)]">
+                    {t.title}
+                  </p>
+                  <p className="text-xs text-[var(--sea-ink-soft)]">
+                    {xpLabel(t.difficulty, t.xpOverride)}
+                    {' • '}
+                    {recurrenceLabel(t.recurrence)}
+                    {cat ? ` • ${cat.label}` : ''}
+                  </p>
+                </Link>
+                <Link
+                  to="/tasks/$taskId"
+                  params={{ taskId: t.id }}
+                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline"
+                >
+                  Edit
+                </Link>
+                <button
+                  type="button"
+                  aria-label={`Delete ${t.title}`}
+                  onClick={() => {
+                    if (confirm(`Delete "${t.title}"?`)) {
+                      remove.mutate(t.id)
+                    }
+                  }}
+                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
+                >
+                  Delete
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </main>

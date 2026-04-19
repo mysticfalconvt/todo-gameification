@@ -8,7 +8,7 @@
 //
 // Validation lives here too (title non-empty, difficulty enum, timeOfDay
 // format, etc.) so any caller gets the same guarantees.
-import { and, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
@@ -27,6 +27,8 @@ import {
 } from '../../domain/gamification'
 import { scheduleReminder } from '../boss'
 import { scoreTask } from '../llm/scoreTask'
+import { categorizeTask } from '../llm/categorizeTask'
+import { listCategories } from './categories'
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -39,7 +41,6 @@ export interface CreateTaskInput {
   recurrence: Recurrence | null
   timeOfDay: string | null
   someday: boolean
-  tags?: string[]
 }
 
 export interface UpdateTaskInput {
@@ -49,22 +50,12 @@ export interface UpdateTaskInput {
   difficulty: Difficulty
   recurrence: Recurrence | null
   timeOfDay: string | null
-  tags?: string[]
-}
-
-function cleanTags(raw: string[] | undefined): string[] {
-  if (!raw) return []
-  const seen = new Set<string>()
-  for (const t of raw) {
-    const clean = t.trim().toLowerCase().replace(/\s+/g, '-')
-    if (clean && clean.length <= 40) seen.add(clean)
-  }
-  return Array.from(seen).sort()
 }
 
 export interface CreateTaskResult {
   id: string
   scored: { xp: number; tier: string; reasoning: string } | null
+  categorization: { slug: string; reasoning: string } | null
 }
 
 export interface TodayInstance {
@@ -73,6 +64,7 @@ export interface TodayInstance {
   title: string
   difficulty: Difficulty
   xpOverride: number | null
+  categorySlug: string | null
   dueAt: string
   timeOfDay: string | null
   snoozedUntil: string | null
@@ -84,6 +76,7 @@ export interface SomedayInstance {
   title: string
   difficulty: Difficulty
   xpOverride: number | null
+  categorySlug: string | null
 }
 
 export interface TaskSummary {
@@ -94,7 +87,7 @@ export interface TaskSummary {
   xpOverride: number | null
   recurrence: Recurrence | null
   timeOfDay: string | null
-  tags: string[]
+  categorySlug: string | null
   snoozeUntil: string | null
   createdAt: string
 }
@@ -172,13 +165,24 @@ export async function createTask(
     someday: input.someday,
   })
 
-  const scored = await scoreTask({
-    title: input.title.trim(),
-    notes: input.notes,
-    difficultyHint: input.difficulty,
-  })
+  const categories = await listCategories(userId)
 
-  const tags = cleanTags(input.tags)
+  // Two separate LLM calls in parallel — score and categorize independently.
+  // Keeping them split keeps each schema tight and reduces the chance of
+  // malformed structured output.
+  const [scored, categorization] = await Promise.all([
+    scoreTask({
+      title: input.title.trim(),
+      notes: input.notes,
+      difficultyHint: input.difficulty,
+    }),
+    categorizeTask({
+      title: input.title.trim(),
+      notes: input.notes,
+      categories: categories.map((c) => ({ slug: c.slug, label: c.label })),
+    }),
+  ])
+
   const result = await db.transaction(async (tx) => {
     const [task] = await tx
       .insert(tasks)
@@ -190,7 +194,7 @@ export async function createTask(
         xpOverride: scored?.xp ?? null,
         recurrence: input.recurrence,
         timeOfDay: input.someday ? null : input.timeOfDay,
-        tags,
+        categorySlug: categorization?.slug ?? null,
       })
       .returning()
 
@@ -214,6 +218,9 @@ export async function createTask(
     scored: scored
       ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning }
       : null,
+    categorization: categorization
+      ? { slug: categorization.slug, reasoning: categorization.reasoning }
+      : null,
   }
 }
 
@@ -227,7 +234,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
       xpOverride: tasks.xpOverride,
       recurrence: tasks.recurrence,
       timeOfDay: tasks.timeOfDay,
-      tags: tasks.tags,
+      categorySlug: tasks.categorySlug,
       snoozeUntil: tasks.snoozeUntil,
       createdAt: tasks.createdAt,
     })
@@ -243,7 +250,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
     xpOverride: r.xpOverride,
     recurrence: r.recurrence,
     timeOfDay: r.timeOfDay,
-    tags: r.tags ?? [],
+    categorySlug: r.categorySlug,
     snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
   }))
@@ -266,7 +273,7 @@ export async function getTask(
     xpOverride: row.xpOverride,
     recurrence: row.recurrence,
     timeOfDay: row.timeOfDay,
-    tags: row.tags ?? [],
+    categorySlug: row.categorySlug,
     snoozeUntil: row.snoozeUntil?.toISOString() ?? null,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
@@ -279,20 +286,16 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<{ id: string }> {
   validateUpdate(input)
-  const setValues: Record<string, unknown> = {
-    title: input.title.trim(),
-    notes: input.notes,
-    difficulty: input.difficulty,
-    recurrence: input.recurrence,
-    timeOfDay: input.timeOfDay,
-    updatedAt: new Date(),
-  }
-  if (input.tags !== undefined) {
-    setValues.tags = cleanTags(input.tags)
-  }
   const result = await db
     .update(tasks)
-    .set(setValues)
+    .set({
+      title: input.title.trim(),
+      notes: input.notes,
+      difficulty: input.difficulty,
+      recurrence: input.recurrence,
+      timeOfDay: input.timeOfDay,
+      updatedAt: new Date(),
+    })
     .where(and(eq(tasks.id, input.taskId), eq(tasks.userId, userId)))
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
@@ -313,14 +316,95 @@ export async function deleteTask(
   return { id: result[0].id }
 }
 
-export async function rescoreTask(
+export async function countUncategorizedTasks(
+  userId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.active, true),
+        isNull(tasks.categorySlug),
+      ),
+    )
+  return rows.length
+}
+
+export interface BackfillResult {
+  attempted: number
+  assigned: number
+  skipped: number
+}
+
+export async function backfillCategories(
+  userId: string,
+): Promise<BackfillResult> {
+  const categories = await listCategories(userId)
+  if (categories.length === 0) {
+    return { attempted: 0, assigned: 0, skipped: 0 }
+  }
+  const categoryList = categories.map((c) => ({
+    slug: c.slug,
+    label: c.label,
+  }))
+
+  const pending = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      notes: tasks.notes,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.active, true),
+        isNull(tasks.categorySlug),
+      ),
+    )
+
+  let assigned = 0
+  let skipped = 0
+
+  // One task at a time — the LM Studio instance is a single-tenant box, so
+  // parallel calls would starve everything else hitting it. A single backfill
+  // of 20 tasks takes ~30–60s; that's fine as a one-shot.
+  for (const t of pending) {
+    try {
+      const categorization = await categorizeTask({
+        title: t.title,
+        notes: t.notes,
+        categories: categoryList,
+      })
+      if (!categorization) {
+        skipped += 1
+        continue
+      }
+      await db
+        .update(tasks)
+        .set({ categorySlug: categorization.slug, updatedAt: new Date() })
+        .where(and(eq(tasks.id, t.id), eq(tasks.userId, userId)))
+      assigned += 1
+    } catch (err) {
+      console.error('backfill failed for task', t.id, err)
+      skipped += 1
+    }
+  }
+
+  return { attempted: pending.length, assigned, skipped }
+}
+
+export async function reanalyzeTask(
   userId: string,
   taskId: string,
 ): Promise<{
   id: string
   xpOverride: number | null
-  previousXpOverride: number | null
+  categorySlug: string | null
   scored: { xp: number; tier: string; reasoning: string } | null
+  categorization: { slug: string; reasoning: string } | null
 }> {
   if (!taskId) throw new Error('taskId required')
   const row = await db.query.tasks.findFirst({
@@ -328,33 +412,43 @@ export async function rescoreTask(
   })
   if (!row) throw new Error('task not found')
 
-  const scored = await scoreTask({
-    title: row.title,
-    notes: row.notes,
-    difficultyHint: row.difficulty as Difficulty,
-  })
+  const categories = await listCategories(userId)
 
-  if (!scored) {
-    // LLM not configured / failed. Leave the override alone and return null.
-    return {
-      id: row.id,
-      xpOverride: row.xpOverride,
-      previousXpOverride: row.xpOverride,
-      scored: null,
-    }
+  // Two separate LLM calls, run in parallel.
+  const [scored, categorization] = await Promise.all([
+    scoreTask({
+      title: row.title,
+      notes: row.notes,
+      difficultyHint: row.difficulty as Difficulty,
+    }),
+    categorizeTask({
+      title: row.title,
+      notes: row.notes,
+      categories: categories.map((c) => ({ slug: c.slug, label: c.label })),
+    }),
+  ])
+
+  const setValues: Record<string, unknown> = { updatedAt: new Date() }
+  if (scored) setValues.xpOverride = scored.xp
+  if (categorization) setValues.categorySlug = categorization.slug
+
+  if (Object.keys(setValues).length > 1) {
+    await db
+      .update(tasks)
+      .set(setValues)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
   }
 
-  const updated = await db
-    .update(tasks)
-    .set({ xpOverride: scored.xp, updatedAt: new Date() })
-    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
-    .returning({ id: tasks.id, xpOverride: tasks.xpOverride })
-
   return {
-    id: updated[0].id,
-    xpOverride: updated[0].xpOverride,
-    previousXpOverride: row.xpOverride,
-    scored: { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning },
+    id: row.id,
+    xpOverride: scored?.xp ?? row.xpOverride,
+    categorySlug: categorization?.slug ?? row.categorySlug,
+    scored: scored
+      ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning }
+      : null,
+    categorization: categorization
+      ? { slug: categorization.slug, reasoning: categorization.reasoning }
+      : null,
   }
 }
 
@@ -395,6 +489,7 @@ export async function listTodayInstances(
       title: tasks.title,
       difficulty: tasks.difficulty,
       xpOverride: tasks.xpOverride,
+      categorySlug: tasks.categorySlug,
       timeOfDay: tasks.timeOfDay,
       dueAt: taskInstances.dueAt,
       snoozedUntil: taskInstances.snoozedUntil,
@@ -424,6 +519,7 @@ export async function listTodayInstances(
     title: r.title,
     difficulty: r.difficulty as Difficulty,
     xpOverride: r.xpOverride,
+    categorySlug: r.categorySlug,
     dueAt: r.dueAt!.toISOString(),
     timeOfDay: r.timeOfDay,
     snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
@@ -440,6 +536,7 @@ export async function listSomedayInstances(
       title: tasks.title,
       difficulty: tasks.difficulty,
       xpOverride: tasks.xpOverride,
+      categorySlug: tasks.categorySlug,
       createdAt: tasks.createdAt,
     })
     .from(taskInstances)
@@ -461,6 +558,7 @@ export async function listSomedayInstances(
     title: r.title,
     difficulty: r.difficulty as Difficulty,
     xpOverride: r.xpOverride,
+    categorySlug: r.categorySlug,
   }))
 }
 
@@ -818,6 +916,82 @@ export async function listCompletionHistory(
 
   // Silence unused-local warning on Row (helps future typing).
   void ({} as Row)
+}
+
+export interface CategoryCount {
+  slug: string | null
+  count: number
+}
+
+/**
+ * Per-category counts for the /tasks histogram. "active" counts currently
+ * active tasks; "completed" counts task.completed events in the last 30 days,
+ * resolved to the owning task's CURRENT category (so if a task was
+ * re-categorized recently its historical completions follow the new slug).
+ */
+export async function categoryCounts(
+  userId: string,
+  scope: 'active' | 'completed',
+): Promise<CategoryCount[]> {
+  const counts = new Map<string | null, number>()
+  const bump = (slug: string | null) =>
+    counts.set(slug, (counts.get(slug) ?? 0) + 1)
+
+  if (scope === 'active') {
+    const rows = await db
+      .select({ categorySlug: tasks.categorySlug })
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
+    for (const r of rows) bump(r.categorySlug)
+  } else {
+    const since = new Date(Date.now() - 30 * 24 * 3_600_000)
+    const completions = await db
+      .select({ payload: events.payload })
+      .from(events)
+      .where(
+        and(
+          eq(events.userId, userId),
+          eq(events.type, 'task.completed'),
+          isNotNull(events.occurredAt),
+          gte(events.occurredAt, since),
+        ),
+      )
+    const taskIds = Array.from(
+      new Set(
+        completions
+          .map((e) => {
+            const p =
+              e.payload && typeof e.payload === 'object'
+                ? (e.payload as Record<string, unknown>)
+                : {}
+            return typeof p['taskId'] === 'string'
+              ? (p['taskId'] as string)
+              : null
+          })
+          .filter((v): v is string => Boolean(v)),
+      ),
+    )
+    const catByTask = new Map<string, string | null>()
+    if (taskIds.length > 0) {
+      const titled = await db
+        .select({ id: tasks.id, categorySlug: tasks.categorySlug })
+        .from(tasks)
+        .where(inArray(tasks.id, taskIds))
+      for (const t of titled) catByTask.set(t.id, t.categorySlug)
+    }
+    for (const e of completions) {
+      const p =
+        e.payload && typeof e.payload === 'object'
+          ? (e.payload as Record<string, unknown>)
+          : {}
+      const tid = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+      if (!tid) continue
+      if (!catByTask.has(tid)) continue
+      bump(catByTask.get(tid) ?? null)
+    }
+  }
+
+  return Array.from(counts.entries()).map(([slug, count]) => ({ slug, count }))
 }
 
 export async function listRecentActivity(userId: string): Promise<string[]> {

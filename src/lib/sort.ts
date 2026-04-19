@@ -9,6 +9,7 @@ export type SortKey =
   | 'xp-asc'
   | 'created-desc'
   | 'created-asc'
+  | 'category-asc'
 
 export interface SortOption {
   key: SortKey
@@ -20,6 +21,7 @@ export const TODAY_SORTS: SortOption[] = [
   { key: 'title-asc', label: 'A → Z' },
   { key: 'xp-desc', label: 'XP high → low' },
   { key: 'xp-asc', label: 'XP low → high' },
+  { key: 'category-asc', label: 'Category' },
 ]
 
 export const TASKS_SORTS: SortOption[] = [
@@ -28,6 +30,7 @@ export const TASKS_SORTS: SortOption[] = [
   { key: 'title-asc', label: 'A → Z' },
   { key: 'xp-desc', label: 'XP high → low' },
   { key: 'xp-asc', label: 'XP low → high' },
+  { key: 'category-asc', label: 'Category' },
 ]
 
 interface SortableCommon {
@@ -36,6 +39,7 @@ interface SortableCommon {
   xpOverride: number | null
   dueAt?: string
   createdAt?: string
+  categorySlug?: string | null
 }
 
 function effectiveXp(row: SortableCommon): number {
@@ -59,6 +63,16 @@ export function compareBy<T extends SortableCommon>(
       return (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
     case 'created-asc':
       return (a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+    case 'category-asc':
+      return (a, b) => {
+        // Uncategorized sorts to the bottom; otherwise alphabetical by slug
+        // (user's display labels also sort closely, since slug derives from
+        // the label). Tie-break on title so rows stay stable within a group.
+        const as = a.categorySlug ?? '~'
+        const bs = b.categorySlug ?? '~'
+        if (as !== bs) return as.localeCompare(bs)
+        return a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+      }
   }
 }
 

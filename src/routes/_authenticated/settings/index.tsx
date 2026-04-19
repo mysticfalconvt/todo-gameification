@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import { authClient, signOut, useSession } from '../../../lib/auth-client'
 import { ThemePicker } from '../../../components/ThemeToggle'
 import {
@@ -15,6 +16,14 @@ import {
   listApiTokens,
   revokeApiToken,
 } from '../../../server/functions/api-tokens'
+import {
+  backfillCategories,
+  countUncategorizedTasks,
+  createCategory,
+  deleteCategory,
+  listCategories,
+  updateCategory,
+} from '../../../server/functions/categories'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
@@ -30,11 +39,271 @@ function SettingsPage() {
       </h1>
       <ProfileSection user={session?.user} />
       <AppearanceSection />
+      <CategoriesSection />
       <PasswordSection />
       <NotificationsSection />
       <TokensSection />
       <SignOutSection />
     </main>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Categories
+// ---------------------------------------------------------------------------
+
+function CategoriesSection() {
+  const qc = useQueryClient()
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
+  })
+
+  const [newLabel, setNewLabel] = useState('')
+  const [newColor, setNewColor] = useState('#4fb8b2')
+
+  const create = useMutation({
+    mutationFn: (input: { label: string; color: string }) =>
+      createCategory({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      setNewLabel('')
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Create failed'),
+  })
+
+  const uncategorizedQuery = useQuery({
+    queryKey: ['uncategorized-count'],
+    queryFn: () => countUncategorizedTasks(),
+  })
+
+  const backfill = useMutation({
+    mutationFn: () => backfillCategories(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
+      qc.invalidateQueries({ queryKey: ['someday'] })
+      qc.invalidateQueries({ queryKey: ['uncategorized-count'] })
+      if (res.assigned > 0) {
+        toast.success(
+          `Categorized ${res.assigned} task${res.assigned === 1 ? '' : 's'}${res.skipped > 0 ? ` (${res.skipped} skipped)` : ''}.`,
+        )
+      } else if (res.skipped > 0) {
+        toast.error(
+          `Couldn't categorize ${res.skipped} task${res.skipped === 1 ? '' : 's'}. Check the LLM connection.`,
+        )
+      } else {
+        toast.message('Nothing to do.')
+      }
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Backfill failed'),
+  })
+
+  const uncategorized = uncategorizedQuery.data ?? 0
+
+  const remove = useMutation({
+    mutationFn: (slug: string) => deleteCategory({ data: { slug } }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
+      if (result.reassigned > 0) {
+        toast.message(
+          `Removed. ${result.reassigned} task${result.reassigned === 1 ? '' : 's'} became uncategorized.`,
+        )
+      }
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Delete failed'),
+  })
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+        Categories
+      </h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        The AI picks one of these when you create a task. Add new ones or
+        remove ones you don't use. Deleting a category un-sets it on existing
+        tasks; they become "uncategorized" and you can re-analyze to reassign.
+      </p>
+
+      {categoriesQuery.isLoading ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : (
+        <ul className="mb-4 space-y-2">
+          {(categoriesQuery.data ?? []).map((c) => (
+            <CategoryRow key={c.slug} category={c} onDelete={remove.mutate} />
+          ))}
+        </ul>
+      )}
+
+      {uncategorized > 0 ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            {uncategorized} task{uncategorized === 1 ? '' : 's'} still
+            uncategorized. Run the AI to assign categories.
+          </p>
+          <button
+            type="button"
+            onClick={() => backfill.mutate()}
+            disabled={backfill.isPending}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+          >
+            {backfill.isPending ? 'Categorizing…' : `Categorize ${uncategorized}`}
+          </button>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!newLabel.trim()) return
+          create.mutate({ label: newLabel, color: newColor })
+        }}
+        className="flex flex-wrap items-end gap-3"
+      >
+        <label className="block flex-1 min-w-[12rem]">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            New category
+          </span>
+          <input
+            type="text"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="e.g. Parenting"
+            maxLength={40}
+            className="field-input"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Color
+          </span>
+          <input
+            type="color"
+            value={newColor}
+            onChange={(e) => setNewColor(e.target.value)}
+            className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={create.isPending || !newLabel.trim()}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {create.isPending ? 'Adding…' : 'Add'}
+        </button>
+      </form>
+    </section>
+  )
+}
+
+function CategoryRow({
+  category,
+  onDelete,
+}: {
+  category: Awaited<ReturnType<typeof listCategories>>[number]
+  onDelete: (slug: string) => void
+}) {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [label, setLabel] = useState(category.label)
+  const [color, setColor] = useState(category.color)
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateCategory({
+        data: { slug: category.slug, label, color },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      setEditing(false)
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  if (editing) {
+    return (
+      <li className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] p-2">
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="h-8 w-10 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+        />
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          maxLength={40}
+          className="field-input flex-1 min-w-[10rem]"
+        />
+        <button
+          type="button"
+          onClick={() => save.mutate()}
+          disabled={save.isPending || !label.trim()}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setLabel(category.label)
+            setColor(category.color)
+            setEditing(false)
+          }}
+          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+        >
+          Cancel
+        </button>
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-2">
+      <span
+        aria-hidden
+        className="h-3 w-3 flex-shrink-0 rounded-full"
+        style={{ backgroundColor: category.color }}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="text-sm font-semibold text-[var(--sea-ink)]">
+          {category.label}
+        </span>
+        <span className="ml-2 font-mono text-xs text-[var(--sea-ink-soft)]">
+          {category.slug}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (
+            confirm(
+              `Delete "${category.label}"? Tasks in this category become uncategorized.`,
+            )
+          ) {
+            onDelete(category.slug)
+          }
+        }}
+        className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
+      >
+        Delete
+      </button>
+    </li>
   )
 }
 
