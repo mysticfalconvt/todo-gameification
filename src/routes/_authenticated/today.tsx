@@ -19,6 +19,14 @@ import {
 import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
 import { TODAY_SORTS, compareBy, useStoredSort } from '../../lib/sort'
+import {
+  DAY_PART_LABEL,
+  TIMED_DAY_PARTS,
+  currentDayPart,
+  isBucketCurrentOrPast,
+  partForTimeOfDay,
+  type DayPart,
+} from '../../domain/dayParts'
 
 interface TodaySearch {
   complete?: string
@@ -213,49 +221,15 @@ function TodayPage() {
           Nothing due today. Treat yourself to a break.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {instances.map((inst) => (
-            <li
-              key={inst.instanceId}
-              className="island-shell flex items-center gap-3 rounded-xl p-3"
-            >
-              <button
-                type="button"
-                aria-label={`Complete ${inst.title}`}
-                onClick={() => complete.mutate(inst.instanceId)}
-                className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
-                  <CategoryDot slug={inst.categorySlug} map={catBySlug} />
-                  <span className="truncate">{inst.title}</span>
-                </p>
-                <p className="text-xs text-[var(--sea-ink-soft)]">
-                  {dueLabel(inst.dueAt, inst.timeOfDay)}
-                  {' • '}
-                  {xpLabel(inst.difficulty, inst.xpOverride)}
-                  {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
-                    <> • {catBySlug.get(inst.categorySlug)!.label}</>
-                  ) : null}
-                </p>
-              </div>
-              <div className="flex flex-shrink-0 items-center gap-1">
-                <IconButton
-                  label={`Snooze ${inst.title} for 1 hour`}
-                  onClick={() => snooze.mutate({ instanceId: inst.instanceId, hours: 1 })}
-                >
-                  ⏰ 1h
-                </IconButton>
-                <IconButton
-                  label={`Skip ${inst.title}`}
-                  onClick={() => skip.mutate(inst.instanceId)}
-                >
-                  ⏭ Skip
-                </IconButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <TodayBuckets
+          instances={instances}
+          catBySlug={catBySlug}
+          onComplete={(id) => complete.mutate(id)}
+          onSnooze={(id) =>
+            snooze.mutate({ instanceId: id, hours: 1 })
+          }
+          onSkip={(id) => skip.mutate(id)}
+        />
       )}
 
       {somedayInstances.length > 0 ? (
@@ -487,6 +461,160 @@ function ActivityStrip({ days }: { days: string[] }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function TodayBuckets({
+  instances,
+  catBySlug,
+  onComplete,
+  onSnooze,
+  onSkip,
+}: {
+  instances: TodayInstance[]
+  catBySlug: Map<string, { label: string; color: string }>
+  onComplete: (instanceId: string) => void
+  onSnooze: (instanceId: string) => void
+  onSkip: (instanceId: string) => void
+}) {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  const current = currentDayPart(new Date(), timeZone)
+
+  // Group by day-part but keep the existing sort order within each group.
+  const byPart = new Map<DayPart, TodayInstance[]>()
+  for (const inst of instances) {
+    const part = partForTimeOfDay(inst.timeOfDay)
+    const arr = byPart.get(part) ?? []
+    arr.push(inst)
+    byPart.set(part, arr)
+  }
+
+  const anytime = byPart.get('anytime') ?? []
+  const timedNow: Array<{ part: DayPart; rows: TodayInstance[] }> = []
+  const timedLater: Array<{ part: DayPart; rows: TodayInstance[] }> = []
+  for (const part of TIMED_DAY_PARTS) {
+    const rows = byPart.get(part)
+    if (!rows || rows.length === 0) continue
+    if (isBucketCurrentOrPast(part, current)) {
+      timedNow.push({ part, rows })
+    } else {
+      timedLater.push({ part, rows })
+    }
+  }
+
+  const laterCount = timedLater.reduce((acc, g) => acc + g.rows.length, 0)
+
+  return (
+    <div className="space-y-6">
+      {anytime.length > 0 ? (
+        <BucketList
+          rows={anytime}
+          catBySlug={catBySlug}
+          onComplete={onComplete}
+          onSnooze={onSnooze}
+          onSkip={onSkip}
+        />
+      ) : null}
+
+      {timedNow.map((g) => (
+        <section key={g.part}>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            {DAY_PART_LABEL[g.part]}
+          </h2>
+          <BucketList
+            rows={g.rows}
+            catBySlug={catBySlug}
+            onComplete={onComplete}
+            onSnooze={onSnooze}
+            onSkip={onSkip}
+          />
+        </section>
+      ))}
+
+      {timedLater.length > 0 ? (
+        <details className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Later today ({laterCount})
+          </summary>
+          <div className="mt-3 space-y-4">
+            {timedLater.map((g) => (
+              <section key={g.part}>
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  {DAY_PART_LABEL[g.part]}
+                </h2>
+                <BucketList
+                  rows={g.rows}
+                  catBySlug={catBySlug}
+                  onComplete={onComplete}
+                  onSnooze={onSnooze}
+                  onSkip={onSkip}
+                />
+              </section>
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  )
+}
+
+function BucketList({
+  rows,
+  catBySlug,
+  onComplete,
+  onSnooze,
+  onSkip,
+}: {
+  rows: TodayInstance[]
+  catBySlug: Map<string, { label: string; color: string }>
+  onComplete: (instanceId: string) => void
+  onSnooze: (instanceId: string) => void
+  onSkip: (instanceId: string) => void
+}) {
+  return (
+    <ul className="space-y-2">
+      {rows.map((inst) => (
+        <li
+          key={inst.instanceId}
+          className="island-shell flex items-center gap-3 rounded-xl p-3"
+        >
+          <button
+            type="button"
+            aria-label={`Complete ${inst.title}`}
+            onClick={() => onComplete(inst.instanceId)}
+            className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
+              <CategoryDot slug={inst.categorySlug} map={catBySlug} />
+              <span className="truncate">{inst.title}</span>
+            </p>
+            <p className="text-xs text-[var(--sea-ink-soft)]">
+              {dueLabel(inst.dueAt, inst.timeOfDay)}
+              {' • '}
+              {xpLabel(inst.difficulty, inst.xpOverride)}
+              {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
+                <> • {catBySlug.get(inst.categorySlug)!.label}</>
+              ) : null}
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <IconButton
+              label={`Snooze ${inst.title} for 1 hour`}
+              onClick={() => onSnooze(inst.instanceId)}
+            >
+              ⏰ 1h
+            </IconButton>
+            <IconButton
+              label={`Skip ${inst.title}`}
+              onClick={() => onSkip(inst.instanceId)}
+            >
+              ⏭ Skip
+            </IconButton>
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 

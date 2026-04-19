@@ -208,7 +208,7 @@ export async function createTask(
 
   if (result.dueAt && result.dueAt > new Date()) {
     await scheduleReminder(
-      { taskInstanceId: result.instanceId, kind: 'due' },
+      { taskInstanceId: result.instanceId, attempt: 1 },
       result.dueAt,
     ).catch((e) => console.error('scheduleReminder failed', e))
   }
@@ -683,7 +683,7 @@ export async function completeInstance(
 
   if (txResult.materialized && txResult.materialized.dueAt > new Date()) {
     await scheduleReminder(
-      { taskInstanceId: txResult.materialized.instanceId, kind: 'due' },
+      { taskInstanceId: txResult.materialized.instanceId, attempt: 1 },
       txResult.materialized.dueAt,
     ).catch((e) => console.error('scheduleReminder failed', e))
   }
@@ -755,7 +755,7 @@ export async function skipInstance(
 
   if (txResult.materialized && txResult.materialized.dueAt > new Date()) {
     await scheduleReminder(
-      { taskInstanceId: txResult.materialized.instanceId, kind: 'due' },
+      { taskInstanceId: txResult.materialized.instanceId, attempt: 1 },
       txResult.materialized.dueAt,
     ).catch((e) => console.error('scheduleReminder failed', e))
   }

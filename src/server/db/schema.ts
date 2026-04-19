@@ -32,6 +32,11 @@ export const user = pgTable('user', {
   })
     .notNull()
     .default('friends'),
+  // Quiet hours suppress reminder-escalation pushes (not first-time
+  // reminders the user explicitly scheduled). Stored as local HH:MM
+  // strings; null on either side means "no quiet window."
+  quietHoursStart: text('quiet_hours_start'),
+  quietHoursEnd: text('quiet_hours_end'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

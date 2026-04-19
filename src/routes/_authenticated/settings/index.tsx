@@ -29,6 +29,7 @@ import {
   updateHandle,
   updatePrefs,
   updateProfileVisibility,
+  updateQuietHours,
 } from '../../../server/functions/user'
 import {
   acceptFriendRequestFn,
@@ -472,7 +473,122 @@ function NotificationsSection() {
           {working ? 'Enabling…' : 'Enable notifications'}
         </button>
       )}
+
+      <QuietHoursSub />
     </section>
+  )
+}
+
+function QuietHoursSub() {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!profileQuery.data) return
+    setStart(profileQuery.data.quietHoursStart ?? '')
+    setEnd(profileQuery.data.quietHoursEnd ?? '')
+  }, [profileQuery.data?.quietHoursStart, profileQuery.data?.quietHoursEnd])
+
+  const save = useMutation({
+    mutationFn: (input: { start: string | null; end: string | null }) =>
+      updateQuietHours({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      setSaved(true)
+      setError(null)
+      setTimeout(() => setSaved(false), 2000)
+    },
+    onError: (err) =>
+      setError(err instanceof Error ? err.message : 'Failed to save.'),
+  })
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const s = start.trim() || null
+    const en = end.trim() || null
+    if ((s && !en) || (!s && en)) {
+      setError('Set both a start and end time, or leave both blank.')
+      return
+    }
+    save.mutate({ start: s, end: en })
+  }
+
+  function onClear() {
+    save.mutate({ start: null, end: null })
+  }
+
+  const current = profileQuery.data
+  const hasWindow = Boolean(current?.quietHoursStart && current?.quietHoursEnd)
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="mt-6 space-y-3 border-t border-[var(--line)] pt-5"
+    >
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--sea-ink)]">
+          Quiet hours
+        </h3>
+        <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+          Nudges for unfinished tasks won’t fire in this window. First-time
+          reminders for tasks you’ve scheduled still go through.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-[var(--sea-ink-soft)]">
+          From
+          <input
+            type="time"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className="field-input w-auto"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm text-[var(--sea-ink-soft)]">
+          until
+          <input
+            type="time"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            className="field-input w-auto"
+          />
+        </label>
+      </div>
+      {error ? (
+        <p className="text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {saved ? (
+        <p className="text-sm text-[var(--palm)]">Saved.</p>
+      ) : null}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {save.isPending ? 'Saving…' : 'Save quiet hours'}
+        </button>
+        {hasWindow ? (
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={save.isPending}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+    </form>
   )
 }
 

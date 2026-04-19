@@ -48,7 +48,13 @@ export const getProfile = createServerFn({ method: 'GET' })
     const [userRow, prefsRow] = await Promise.all([
       db.query.user.findFirst({
         where: eq(userTable.id, context.userId),
-        columns: { handle: true, profileVisibility: true, name: true },
+        columns: {
+          handle: true,
+          profileVisibility: true,
+          name: true,
+          quietHoursStart: true,
+          quietHoursEnd: true,
+        },
       }),
       db.query.userPrefs.findFirst({
         where: eq(userPrefs.userId, context.userId),
@@ -60,7 +66,44 @@ export const getProfile = createServerFn({ method: 'GET' })
       shareProgression: prefsRow?.shareProgression ?? true,
       shareActivity: prefsRow?.shareActivity ?? true,
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
+      quietHoursStart: userRow?.quietHoursStart ?? null,
+      quietHoursEnd: userRow?.quietHoursEnd ?? null,
     }
+  })
+
+export const updateQuietHours = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: { start: string | null; end: string | null }) => {
+      const parsed = (v: string | null): string | null => {
+        if (v === null || v === '') return null
+        if (!/^\d{2}:\d{2}$/.test(v)) {
+          throw new Error('Time must be HH:MM.')
+        }
+        const [h, m] = v.split(':').map(Number)
+        if (h < 0 || h > 23 || m < 0 || m > 59) {
+          throw new Error('Time must be between 00:00 and 23:59.')
+        }
+        return v
+      }
+      return { start: parsed(data.start), end: parsed(data.end) }
+    },
+  )
+  .handler(async ({ data, context }) => {
+    // Allow setting both or clearing both; a half-set window makes no sense.
+    const normalized =
+      data.start && data.end
+        ? { start: data.start, end: data.end }
+        : { start: null, end: null }
+    await db
+      .update(userTable)
+      .set({
+        quietHoursStart: normalized.start,
+        quietHoursEnd: normalized.end,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, context.userId))
+    return normalized
   })
 
 export const updateHandle = createServerFn({ method: 'POST' })

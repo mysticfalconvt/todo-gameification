@@ -50,6 +50,13 @@
       "when": 1776800000000,
       "tag": "0006_social",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776810000000,
+      "tag": "0007_quiet_hours",
+      "breakpoints": true
     }
   ]
 }

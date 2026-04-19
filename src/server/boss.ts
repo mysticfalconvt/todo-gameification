@@ -1,5 +1,7 @@
 import { PgBoss } from 'pg-boss'
 import {
+  ESCALATION_INTERVAL_MS,
+  MAX_REMINDER_ATTEMPTS,
   sendReminderHandler,
   type SendReminderJobData,
 } from './jobs/sendReminder'
@@ -47,10 +49,12 @@ export async function scheduleReminder(
     'send-reminder',
     data,
     {
-      singletonKey: `reminder-${data.taskInstanceId}-${data.kind}`,
+      singletonKey: `reminder-${data.taskInstanceId}-${data.attempt ?? 1}`,
       retryLimit: 3,
       retryBackoff: true,
     },
     fireAt,
   )
 }
+
+export { ESCALATION_INTERVAL_MS, MAX_REMINDER_ATTEMPTS }
