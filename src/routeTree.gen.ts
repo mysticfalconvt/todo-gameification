@@ -25,6 +25,8 @@ import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscrib
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthenticatedTasksNewRouteImport } from './routes/_authenticated/tasks/new'
 import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenticated/tasks/$taskId'
+import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
+import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
 import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
 import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
 import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
@@ -113,6 +115,18 @@ const AuthenticatedTasksTaskIdRoute =
     path: '/tasks/$taskId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsMcpRoute =
+  AuthenticatedSettingsMcpRouteImport.update({
+    id: '/settings/mcp',
+    path: '/settings/mcp',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsHomeAssistantRoute =
+  AuthenticatedSettingsHomeAssistantRouteImport.update({
+    id: '/settings/home-assistant',
+    path: '/settings/home-assistant',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsApiDocsRoute =
   AuthenticatedSettingsApiDocsRouteImport.update({
     id: '/settings/api-docs',
@@ -155,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
+  '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
+  '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -178,6 +194,8 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
+  '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
+  '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -203,6 +221,8 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/_authenticated/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
+  '/_authenticated/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
+  '/_authenticated/settings/mcp': typeof AuthenticatedSettingsMcpRoute
   '/_authenticated/tasks/$taskId': typeof AuthenticatedTasksTaskIdRoute
   '/_authenticated/tasks/new': typeof AuthenticatedTasksNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -228,6 +248,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/signup'
     | '/settings/api-docs'
+    | '/settings/home-assistant'
+    | '/settings/mcp'
     | '/tasks/$taskId'
     | '/tasks/new'
     | '/api/auth/$'
@@ -251,6 +273,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/signup'
     | '/settings/api-docs'
+    | '/settings/home-assistant'
+    | '/settings/mcp'
     | '/tasks/$taskId'
     | '/tasks/new'
     | '/api/auth/$'
@@ -275,6 +299,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/signup'
     | '/_authenticated/settings/api-docs'
+    | '/_authenticated/settings/home-assistant'
+    | '/_authenticated/settings/mcp'
     | '/_authenticated/tasks/$taskId'
     | '/_authenticated/tasks/new'
     | '/api/auth/$'
@@ -425,6 +451,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksTaskIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/mcp': {
+      id: '/_authenticated/settings/mcp'
+      path: '/settings/mcp'
+      fullPath: '/settings/mcp'
+      preLoaderRoute: typeof AuthenticatedSettingsMcpRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/home-assistant': {
+      id: '/_authenticated/settings/home-assistant'
+      path: '/settings/home-assistant'
+      fullPath: '/settings/home-assistant'
+      preLoaderRoute: typeof AuthenticatedSettingsHomeAssistantRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/api-docs': {
       id: '/_authenticated/settings/api-docs'
       path: '/settings/api-docs'
@@ -473,6 +513,8 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
   AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
+  AuthenticatedSettingsHomeAssistantRoute: typeof AuthenticatedSettingsHomeAssistantRoute
+  AuthenticatedSettingsMcpRoute: typeof AuthenticatedSettingsMcpRoute
   AuthenticatedTasksTaskIdRoute: typeof AuthenticatedTasksTaskIdRoute
   AuthenticatedTasksNewRoute: typeof AuthenticatedTasksNewRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -482,6 +524,9 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
   AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,
+  AuthenticatedSettingsHomeAssistantRoute:
+    AuthenticatedSettingsHomeAssistantRoute,
+  AuthenticatedSettingsMcpRoute: AuthenticatedSettingsMcpRoute,
   AuthenticatedTasksTaskIdRoute: AuthenticatedTasksTaskIdRoute,
   AuthenticatedTasksNewRoute: AuthenticatedTasksNewRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,

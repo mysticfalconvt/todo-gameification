@@ -224,40 +224,24 @@ function ApiDocsPage() {
 
       <section className="island-shell max-w-3xl rounded-2xl p-5">
         <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          MCP (for LLM agents)
+          Other access paths
         </h2>
-        <p className="mb-3 text-sm text-[var(--sea-ink-soft)]">
-          A Model Context Protocol server is mounted at{' '}
-          <code className="font-mono">/api/mcp</code>. It exposes the same
-          operations as the REST API (list_today, create_task,
-          complete_instance, snooze_task, etc.) as typed MCP tools, so
-          Claude Desktop and other MCP clients can call them directly. Auth is
-          the same Bearer <code className="font-mono">tgx_</code> token.
-        </p>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-          Claude Desktop config
-        </p>
-        <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
-          Add to <code className="font-mono">claude_desktop_config.json</code>{' '}
-          (and restart Claude Desktop):
-        </p>
-        <pre className="mb-3 overflow-x-auto rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs">
-{`{
-  "mcpServers": {
-    "todo-xp": {
-      "url": "${BASE}/api/mcp",
-      "headers": {
-        "Authorization": "Bearer tgx_xxxxxxxxxxxxxxxxxxxx"
-      }
-    }
-  }
-}`}
-        </pre>
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          Any MCP client that supports Streamable HTTP transport (URL +
-          headers) works the same way — open-interpreter, Cline, custom
-          agents, etc.
-        </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--sea-ink-soft)]">
+          <li>
+            <Link to="/settings/mcp" className="font-semibold text-[var(--lagoon-deep)]">
+              MCP server
+            </Link>
+            {' '}— same tools wrapped as an MCP server at{' '}
+            <code className="font-mono">/api/mcp</code> for Claude Desktop and
+            other LLM clients.
+          </li>
+          <li>
+            <Link to="/settings/home-assistant" className="font-semibold text-[var(--lagoon-deep)]">
+              Home Assistant
+            </Link>
+            {' '}— ready-to-paste sensor + command YAML.
+          </li>
+        </ul>
       </section>
 
       <section className="island-shell max-w-3xl rounded-2xl p-5">

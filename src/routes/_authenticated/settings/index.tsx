@@ -297,19 +297,12 @@ function TokensSection() {
     <details className="island-shell max-w-2xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-[var(--sea-ink)]">API tokens</h2>
+          <h2 className="text-lg font-bold text-[var(--sea-ink)]">API access</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {tokens.length === 0
               ? 'No tokens yet.'
-              : `${tokens.length} active token${tokens.length === 1 ? '' : 's'}.`}
-            {' '}
-            <Link
-              to="/settings/api-docs"
-              className="font-semibold text-[var(--lagoon-deep)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              See request / response docs →
-            </Link>
+              : `${tokens.length} active token${tokens.length === 1 ? '' : 's'}.`}{' '}
+            Tokens work for REST, MCP, and Home Assistant.
           </p>
         </div>
         <span
@@ -322,6 +315,23 @@ function TokensSection() {
       </summary>
 
       <div className="space-y-4 border-t border-[var(--line)] p-5">
+        <nav className="grid gap-2 sm:grid-cols-3">
+          <DocLink
+            to="/settings/api-docs"
+            label="REST API"
+            detail="Endpoints, request & response shapes."
+          />
+          <DocLink
+            to="/settings/mcp"
+            label="MCP (for LLMs)"
+            detail="Claude Desktop config + tool inventory."
+          />
+          <DocLink
+            to="/settings/home-assistant"
+            label="Home Assistant"
+            detail="Copy-paste sensor & command YAML."
+          />
+        </nav>
 
       <div className="island-shell rounded-2xl p-5">
         <h3 className="mb-3 text-sm font-semibold text-[var(--sea-ink)]">
@@ -437,6 +447,27 @@ function TokensSection() {
 
       </div>
     </details>
+  )
+}
+
+function DocLink({
+  to,
+  label,
+  detail,
+}: {
+  to: '/settings/api-docs' | '/settings/mcp' | '/settings/home-assistant'
+  label: string
+  detail: string
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={(e) => e.stopPropagation()}
+      className="block rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3 no-underline transition hover:bg-[var(--option-bg-hover)]"
+    >
+      <p className="text-sm font-semibold text-[var(--sea-ink)]">{label}</p>
+      <p className="mt-0.5 text-xs text-[var(--sea-ink-soft)]">{detail}</p>
+    </Link>
   )
 }
 
