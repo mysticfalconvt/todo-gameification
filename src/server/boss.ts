@@ -6,6 +6,7 @@ import {
   type SendReminderJobData,
 } from './jobs/sendReminder'
 import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
+import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
 
 let instance: PgBoss | null = null
 let booting: Promise<PgBoss> | null = null
@@ -18,9 +19,14 @@ async function boot(): Promise<PgBoss> {
   await boss.start()
   await boss.createQueue('send-reminder')
   await boss.createQueue('cleanup-stale-subs')
+  await boss.createQueue('check-plant-risk')
   await boss.work('send-reminder', sendReminderHandler)
   await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
+  await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
   await boss.schedule('cleanup-stale-subs', '0 3 * * *')
+  // Runs at :00 every hour, UTC. The handler filters to users whose
+  // local hour is 18 and only sends to those with at-risk plants.
+  await boss.schedule('check-plant-risk', '0 * * * *')
   return boss
 }
 

@@ -18,6 +18,7 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
+import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
 import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
@@ -82,6 +83,11 @@ const AuthenticatedTodayRoute = AuthenticatedTodayRouteImport.update({
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
   path: '/stats',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedGardenRoute = AuthenticatedGardenRouteImport.update({
+  id: '/garden',
+  path: '/garden',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/friends': typeof AuthenticatedFriendsRoute
+  '/garden': typeof AuthenticatedGardenRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/friends': typeof AuthenticatedFriendsRoute
+  '/garden': typeof AuthenticatedGardenRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/friends': typeof AuthenticatedFriendsRoute
+  '/_authenticated/garden': typeof AuthenticatedGardenRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/friends'
+    | '/garden'
     | '/stats'
     | '/today'
     | '/api/mcp'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/friends'
+    | '/garden'
     | '/stats'
     | '/today'
     | '/api/mcp'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/_authenticated/admin'
     | '/_authenticated/friends'
+    | '/_authenticated/garden'
     | '/_authenticated/stats'
     | '/_authenticated/today'
     | '/api/mcp'
@@ -474,6 +486,13 @@ declare module '@tanstack/react-router' {
       path: '/stats'
       fullPath: '/stats'
       preLoaderRoute: typeof AuthenticatedStatsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/garden': {
+      id: '/_authenticated/garden'
+      path: '/garden'
+      fullPath: '/garden'
+      preLoaderRoute: typeof AuthenticatedGardenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/friends': {
@@ -629,6 +648,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
+  AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
   AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
@@ -644,6 +664,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
+  AuthenticatedGardenRoute: AuthenticatedGardenRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
   AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,

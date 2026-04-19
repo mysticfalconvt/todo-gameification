@@ -10,6 +10,7 @@ import {
 } from '../../server/functions/tasks'
 import { listCategories } from '../../server/functions/categories'
 import { getCoachSummary } from '../../server/functions/coach'
+import type { GardenView } from '../../server/services/garden'
 import { runOrQueue } from '../../lib/offline-queue'
 import {
   currentPushStatus,
@@ -102,10 +103,53 @@ function TodayPage() {
     }
   }
 
+  // Detects "this completion is the first watering today for that
+  // plant's category" by peeking at the cached garden + today list.
+  // Runs entirely client-side so the toast fires instantly without
+  // waiting for a round-trip. Returns the plant's human label so the
+  // toast can name the category.
+  function firstWateringInfo(instanceId: string): {
+    first: boolean
+    label: string
+  } {
+    const instance =
+      (qc.getQueryData<TodayInstance[]>(['today']) ?? []).find(
+        (i) => i.instanceId === instanceId,
+      ) ??
+      (qc.getQueryData<SomedayInstance[]>(['someday']) ?? []).find(
+        (i) => i.instanceId === instanceId,
+      )
+    const categorySlug = instance?.categorySlug ?? null
+    const garden = qc.getQueryData<GardenView>(['garden'])
+    const plant = garden?.plants.find(
+      (p) => p.categorySlug === categorySlug,
+    )
+    const label =
+      plant?.label ??
+      (categorySlug ? catBySlug.get(categorySlug)?.label : null) ??
+      'Uncategorized'
+    const todayLocal = new Date().toLocaleDateString()
+    const lastLocal = plant?.lastWateredAt
+      ? new Date(plant.lastWateredAt).toLocaleDateString()
+      : null
+    return { first: lastLocal !== todayLocal, label }
+  }
+
   const complete = useMutation({
     mutationFn: (instanceId: string) =>
       runOrQueue({ type: 'complete', instanceId }),
-    onMutate: (instanceId) => optimisticRemove(instanceId)(),
+    onMutate: async (instanceId) => {
+      const watering = firstWateringInfo(instanceId)
+      const removed = await optimisticRemove(instanceId)()
+      return { ...removed, watering }
+    },
+    onSuccess: (_data, _id, ctx) => {
+      if (ctx?.watering.first) {
+        toast.success(
+          `🌱 First watering today — ${ctx.watering.label} is perky.`,
+        )
+      }
+    },
     onError: (err, _id, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
       if (ctx?.prevSomeday) qc.setQueryData(['someday'], ctx.prevSomeday)
@@ -116,6 +160,7 @@ function TodayPage() {
       qc.invalidateQueries({ queryKey: ['someday'] })
       qc.invalidateQueries({ queryKey: ['progression'] })
       qc.invalidateQueries({ queryKey: ['recent-activity'] })
+      qc.invalidateQueries({ queryKey: ['garden'] })
     },
   })
 

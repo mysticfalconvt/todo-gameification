@@ -116,10 +116,11 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <div id="app">
+          <div id="app" className="pb-20 md:pb-0">
             <AppNav />
             <InstallPrompt />
             {children}
+            <MobileTabBar />
           </div>
           <Toaster position="bottom-right" richColors closeButton />
           {import.meta.env.DEV ? (
@@ -152,17 +153,32 @@ function AppNav() {
       <nav className="page-wrap flex items-center gap-4 py-3 text-sm font-semibold">
         {loggedIn ? (
           <>
-            <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-              Today
+            {/* Logged-in mobile: brand on top bar, primary links live in
+                the bottom tab bar below. On md+ screens we still show
+                the full row inline so desktop users don't lose one-hop
+                navigation. */}
+            <Link
+              to="/today"
+              className="text-[var(--sea-ink)] no-underline md:hidden"
+            >
+              Todo&nbsp;XP
             </Link>
-            <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-              Tasks
-            </Link>
-            <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-              Stats
-            </Link>
-            <FriendsNavLink />
-            <AdminNavLink />
+            <div className="hidden items-center gap-4 md:flex">
+              <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                Today
+              </Link>
+              <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                Tasks
+              </Link>
+              <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                Stats
+              </Link>
+              <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                Garden
+              </Link>
+              <FriendsNavLink />
+              <AdminNavLink />
+            </div>
           </>
         ) : (
           <Link to="/" className="text-[var(--sea-ink)] no-underline">
@@ -242,6 +258,83 @@ function AdminNavLink() {
       activeProps={{ className: 'nav-link is-active' }}
     >
       Admin
+    </Link>
+  )
+}
+
+// Phone-first bottom tab bar. Visible only on < md viewports so
+// desktop users keep their existing single-row top nav. Hidden
+// entirely when logged out; the marketing pages don't need it.
+function MobileTabBar() {
+  const { data: session, isPending } = useSession()
+  const loggedIn = Boolean(session?.user)
+  const admin = useQuery({
+    queryKey: ['is-admin'],
+    queryFn: () => getIsAdminFn(),
+    enabled: loggedIn,
+    staleTime: 5 * 60_000,
+  })
+  const pending = useQuery({
+    queryKey: ['friends', 'incoming'],
+    queryFn: () => listIncomingFn(),
+    enabled: loggedIn,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+  if (isPending || !loggedIn) return null
+  const friendCount = pending.data?.length ?? 0
+  const isAdmin = admin.data?.isAdmin === true
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--line)] bg-[var(--header-bg)] backdrop-blur-lg md:hidden"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      aria-label="Primary"
+    >
+      <div className="flex items-stretch">
+        <TabLink to="/today" icon="☀️" label="Today" />
+        <TabLink to="/tasks" icon="✅" label="Tasks" />
+        <TabLink to="/garden" icon="🪴" label="Garden" />
+        <TabLink to="/stats" icon="📊" label="Stats" />
+        <TabLink to="/friends" icon="👥" label="Friends" badge={friendCount} />
+        {isAdmin ? <TabLink to="/admin" icon="🛠" label="Admin" /> : null}
+      </div>
+    </nav>
+  )
+}
+
+function TabLink({
+  to,
+  icon,
+  label,
+  badge,
+}: {
+  to: string
+  icon: string
+  label: string
+  badge?: number
+}) {
+  return (
+    <Link
+      to={to}
+      className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-[var(--sea-ink-soft)] no-underline"
+      activeProps={{
+        className:
+          'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-[var(--lagoon-deep)] no-underline',
+      }}
+    >
+      <span className="text-xl leading-none" aria-hidden>
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+      {badge && badge > 0 ? (
+        <span
+          aria-label={`${badge} pending`}
+          className="absolute right-3 top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
+        >
+          {badge > 9 ? '9+' : badge}
+        </span>
+      ) : null}
     </Link>
   )
 }
