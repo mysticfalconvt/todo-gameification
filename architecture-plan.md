@@ -809,24 +809,13 @@ The REST handlers must not re-implement task logic. Before the API ships, extrac
 - Scoped tokens (read-only vs read-write). Deferred until use reveals the scopes.
 - Webhooks / outbound events.
 
-### MCP server (v0.4+)
+### MCP server (shipped)
 
-For LLM integration specifically, an **MCP server** is a cleaner fit than raw REST — tool discovery, streaming tool output, typed tool arguments. An MCP server can wrap the same `src/server/services/` functions and live alongside the REST API. Deferred to v0.4+ so we can ship something LLMs can *already* use via REST in v0.3.
+A Model Context Protocol server at `/api/mcp` wraps the same `src/server/services/` functions the REST API uses. Tools: `list_today`, `list_someday`, `list_tasks`, `get_task`, `create_task`, `complete_instance`, `skip_instance`, `snooze_instance`, `snooze_task`, `delete_task`, `get_progression`, `list_recent_activity`. Auth is the same `Authorization: Bearer tgx_…` header as REST. Stateless transport: one `WebStandardStreamableHTTPServerTransport` per request, so there's no session storage to maintain server-side. Claude Desktop picks it up via `claude_desktop_config.json` with a `url` + `headers` entry — the UI doc at `/settings/api-docs` has the copy-paste config.
 
 ### Home Assistant reference integration
 
-```yaml
-rest:
-  - resource: https://todo.example.com/api/v1/today
-    headers:
-      Authorization: Bearer tgx_xxxxxxxxxxxxxxxxxxxx
-    scan_interval: 300
-    sensor:
-      - name: todos_due_today
-        value_template: "{{ value_json.data | length }}"
-```
-
-Cross-reference this with the Home Assistant REST integration docs when wiring it up for real.
+Full copy-paste config lives at [`docs/home-assistant.md`](./docs/home-assistant.md): REST sensors (due-today count, level, XP, streak, longest streak), `rest_command` entries for complete/skip/snooze/create, a list-card example, and a troubleshooting section.
 
 ## Roadmap
 
