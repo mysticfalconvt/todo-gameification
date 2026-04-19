@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -10,9 +10,9 @@ import {
   skipInstance,
   snoozeInstance,
 } from '../../server/functions/tasks'
+import { getCoachSummary } from '../../server/functions/coach'
 import {
   currentPushStatus,
-  disablePushNotifications,
   enablePushNotifications,
   type PushSupportStatus,
 } from '../../lib/push'
@@ -133,13 +133,17 @@ function TodayPage() {
   return (
     <main className="page-wrap px-4 py-8">
       <header className="mb-6 flex items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="island-kicker mb-1">Today</p>
           <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
             {instances.length > 0
               ? `${instances.length} to knock out`
               : 'All clear'}
           </h1>
+          <CoachBlurb
+            instances={instances}
+            progression={progression}
+          />
         </div>
         <Link
           to="/tasks/new"
@@ -256,12 +260,16 @@ function PushBanner() {
   const [status, setStatus] = useState<PushSupportStatus>('unknown')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     currentPushStatus().then((s) => {
       if (!cancelled) setStatus(s)
     })
+    if (typeof localStorage !== 'undefined') {
+      setDismissed(localStorage.getItem(PUSH_DISMISS_KEY) === '1')
+    }
     return () => {
       cancelled = true
     }
@@ -280,44 +288,31 @@ function PushBanner() {
     }
   }
 
-  async function onDisable() {
-    setWorking(true)
-    setError(null)
-    try {
-      await disablePushNotifications()
-      setStatus('unknown')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to disable')
-    } finally {
-      setWorking(false)
-    }
+  function onHide() {
+    localStorage.setItem(PUSH_DISMISS_KEY, '1')
+    setDismissed(true)
   }
 
   if (status === 'unsupported') return null
-  if (status === 'enabled') {
-    return (
-      <div className="island-shell mb-6 flex items-center justify-between gap-3 rounded-xl p-3 text-sm">
-        <span className="text-[var(--sea-ink-soft)]">
-          Notifications on for this device.
-        </span>
-        <button
-          type="button"
-          onClick={onDisable}
-          disabled={working}
-          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-        >
-          Turn off
-        </button>
-      </div>
-    )
-  }
+  // When notifications are on, the disable/toggle lives on /settings so this
+  // surface stays focused on the work. Only show the prompt when they're off.
+  if (status === 'enabled') return null
+  if (dismissed) return null
   return (
     <div className="island-shell mb-6 flex flex-col gap-2 rounded-xl p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <span className="text-[var(--sea-ink-soft)]">
-        Get a push when tasks are due.
+        Get a push when tasks are due. You can always enable this from your
+        profile later.
       </span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {error ? <span className="text-xs text-red-600">{error}</span> : null}
+        <button
+          type="button"
+          onClick={onHide}
+          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+        >
+          Hide
+        </button>
         <button
           type="button"
           onClick={onEnable}
@@ -328,6 +323,61 @@ function PushBanner() {
         </button>
       </div>
     </div>
+  )
+}
+
+const PUSH_DISMISS_KEY = 'todo-xp-push-prompt-dismissed'
+
+function CoachBlurb({
+  instances,
+  progression,
+}: {
+  instances: TodayInstance[]
+  progression:
+    | { xp: number; currentStreak: number; longestStreak: number }
+    | undefined
+}) {
+  // A signature derived from the state the coach cares about. When it
+  // changes, the React Query key changes, so Query auto-fetches fresh copy.
+  //
+  // Included in the sig:
+  //  - open instance IDs (sorted) → completes / skips / snoozes / adds all flip this
+  //  - xp → any completion bumps this
+  //  - current streak → day rollovers flip this
+  //  - hour bucket (every 2h) → covers idle users via refetchInterval too
+  const signature = useMemo(() => {
+    const ids = instances
+      .map((i) => i.instanceId)
+      .sort()
+      .join(',')
+    const xp = progression?.xp ?? 0
+    const streak = progression?.currentStreak ?? 0
+    const hourBucket = Math.floor(Date.now() / (2 * 3_600_000))
+    return `${ids}|${xp}|${streak}|${hourBucket}`
+  }, [instances, progression?.xp, progression?.currentStreak])
+
+  const query = useQuery({
+    queryKey: ['coach', signature],
+    queryFn: () => getCoachSummary(),
+    // The key already encodes the freshness we care about, so keep each
+    // fetched summary around indefinitely (until its key is gc'd). A 2-hour
+    // refetchInterval covers the idle-user case.
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 4,
+    refetchInterval: 1000 * 60 * 60 * 2,
+    refetchOnWindowFocus: false,
+  })
+
+  if (query.isLoading) {
+    return (
+      <div className="mt-2 h-4 w-3/4 max-w-md animate-pulse rounded bg-[var(--option-bg)]" />
+    )
+  }
+  if (!query.data) return null
+  return (
+    <p className="mt-2 max-w-2xl text-sm italic text-[var(--sea-ink-soft)]">
+      {query.data.summary}
+    </p>
   )
 }
 

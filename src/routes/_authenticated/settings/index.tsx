@@ -4,6 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { authClient, useSession } from '../../../lib/auth-client'
 import {
+  currentPushStatus,
+  disablePushNotifications,
+  enablePushNotifications,
+  type PushSupportStatus,
+} from '../../../lib/push'
+import {
   createApiToken,
   listApiTokens,
   revokeApiToken,
@@ -23,8 +29,109 @@ function SettingsPage() {
       </h1>
       <ProfileSection user={session?.user} />
       <PasswordSection />
+      <NotificationsSection />
       <TokensSection />
     </main>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Push notifications
+// ---------------------------------------------------------------------------
+
+function NotificationsSection() {
+  const [status, setStatus] = useState<PushSupportStatus>('unknown')
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    currentPushStatus().then((s) => {
+      if (!cancelled) setStatus(s)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function onEnable() {
+    setWorking(true)
+    setError(null)
+    try {
+      await enablePushNotifications()
+      setStatus('enabled')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to enable')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function onDisable() {
+    setWorking(true)
+    setError(null)
+    try {
+      await disablePushNotifications()
+      setStatus('unknown')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to disable')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  if (status === 'unsupported') {
+    return (
+      <section className="island-shell max-w-xl rounded-2xl p-6">
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+          Notifications
+        </h2>
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          This browser doesn't support web push. Open the app on a device or
+          browser that does (Chrome / Samsung Internet on Android, or install
+          the PWA).
+        </p>
+      </section>
+    )
+  }
+
+  const enabled = status === 'enabled'
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+        Notifications
+      </h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        {enabled
+          ? 'Push notifications are on for this device. Reminders will fire at each task\'s due time.'
+          : 'Get a push when a task is due. You can turn it off any time.'}
+      </p>
+      {error ? (
+        <p className="mb-3 text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {enabled ? (
+        <button
+          type="button"
+          onClick={onDisable}
+          disabled={working}
+          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+        >
+          {working ? 'Turning off…' : 'Turn off'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onEnable}
+          disabled={working}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {working ? 'Enabling…' : 'Enable notifications'}
+        </button>
+      )}
+    </section>
   )
 }
 
