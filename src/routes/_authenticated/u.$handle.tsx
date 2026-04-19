@@ -215,7 +215,7 @@ function CategorySection({ userId }: { userId: string }) {
               onClick={() => setScope(s)}
               className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
                 scope === s
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -307,7 +307,7 @@ function Avatar({ name }: { name: string }) {
     .join('')
   return (
     <span
-      className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[var(--lagoon-deep)] text-lg font-bold text-white"
+      className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-lg font-bold text-[var(--btn-primary-fg)]"
       aria-hidden
     >
       {letters || '?'}

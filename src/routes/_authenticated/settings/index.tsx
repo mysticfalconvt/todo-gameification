@@ -350,14 +350,23 @@ function AppearanceSection() {
 
 function SignOutSection() {
   const router = useRouter()
+  const qc = useQueryClient()
   const [pending, setPending] = useState(false)
 
   async function onSignOut() {
     setPending(true)
     try {
       await signOut()
+      // Clear the persisted cache — otherwise admin flags, friends lists,
+      // etc. leak into the next account that signs in on this device.
+      qc.removeQueries()
+      try {
+        localStorage.removeItem('todo-xp-query-cache-v1')
+      } catch {
+        // no-op if storage is blocked
+      }
       await router.invalidate()
-      router.navigate({ to: '/auth/login' })
+      router.navigate({ to: '/' })
     } finally {
       setPending(false)
     }
@@ -1045,7 +1054,7 @@ function FriendsSection() {
                   type="button"
                   onClick={() => accept.mutate(r.userId)}
                   disabled={accept.isPending}
-                  className="rounded-full bg-[var(--lagoon-deep)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                  className="rounded-full bg-[var(--btn-primary-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-60"
                 >
                   Accept
                 </button>
@@ -1188,7 +1197,7 @@ function Initials({ name }: { name: string }) {
     .join('')
   return (
     <span
-      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--lagoon-deep)] text-xs font-bold text-white"
+      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]"
       aria-hidden
     >
       {letters || '?'}

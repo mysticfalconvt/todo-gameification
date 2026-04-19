@@ -44,7 +44,7 @@ function StatsPage() {
               onClick={() => setDays(r)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 days === r
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -335,7 +335,7 @@ function TopTasksSection({
               key={`${t.taskId}-${i}`}
               className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
             >
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--lagoon-deep)] text-xs font-bold text-white">
+              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]">
                 {i + 1}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--sea-ink)]">

@@ -23,6 +23,12 @@
   --option-bg-hover: rgba(255, 255, 255, 0.85);
   --hero-a: rgba(79, 184, 178, 0.36);
   --hero-b: rgba(47, 106, 74, 0.2);
+  /* Primary filled-button colors. We can't reuse --lagoon-deep for solid
+   * fills because it flips from dark teal in light mode to pale mint in
+   * dark mode, which hides white text. Keep these in sync with the
+   * dark-mode blocks below. */
+  --btn-primary-bg: #1f6e75;
+  --btn-primary-fg: #ffffff;
 }
 
 :root[data-theme="dark"] {
@@ -45,6 +51,8 @@
   --link-bg-hover: rgba(24, 44, 49, 0.85);
   --hero-a: rgba(96, 215, 207, 0.18);
   --hero-b: rgba(110, 200, 154, 0.12);
+  --btn-primary-bg: #8de5db;
+  --btn-primary-fg: #0a1418;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -70,11 +78,30 @@
     --option-bg-hover: rgba(32, 54, 60, 0.95);
     --hero-a: rgba(96, 215, 207, 0.18);
     --hero-b: rgba(110, 200, 154, 0.12);
+    --btn-primary-bg: #8de5db;
+    --btn-primary-fg: #0a1418;
   }
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Primary filled-button utility. Avoids Tailwind arbitrary-value JIT
+ * entirely so the button always has both bg and fg set, even in edge
+ * cases where the scanner misses one of the two. */
+.btn-primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border: 1px solid rgba(50, 143, 151, 0.3);
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 html,

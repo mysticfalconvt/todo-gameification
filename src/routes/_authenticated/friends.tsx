@@ -64,7 +64,7 @@ function FriendsPage() {
             onClick={() => setTab(t)}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
               tab === t
-                ? 'bg-[var(--lagoon-deep)] text-white'
+                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                 : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
             }`}
           >
@@ -113,7 +113,7 @@ function CategoriesTab() {
               onClick={() => setScope(s)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 scope === s
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -217,7 +217,7 @@ function LeaderboardTab() {
               onClick={() => setDays(r)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 days === r
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -242,7 +242,7 @@ function LeaderboardTab() {
               onClick={() => setScope(s)}
               className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition ${
                 scope === s
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -265,7 +265,7 @@ function LeaderboardTab() {
               onClick={() => setMetric(m)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 metric === m
-                  ? 'bg-[var(--lagoon-deep)] text-white'
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                   : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
               }`}
             >
@@ -300,7 +300,7 @@ function LeaderboardTab() {
                   params={{ handle: r.handle }}
                   className="flex items-center gap-3 rounded-xl p-3 no-underline"
                 >
-                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[var(--lagoon-deep)] text-xs font-bold text-white">
+                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]">
                     {r.rank}
                   </span>
                   <Initials name={r.name} />
@@ -348,7 +348,7 @@ function ActivityTab() {
           onClick={() => setSub('friends')}
           className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
             sub === 'friends'
-              ? 'bg-[var(--lagoon-deep)] text-white'
+              ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
               : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
           }`}
         >
@@ -361,7 +361,7 @@ function ActivityTab() {
           onClick={() => setSub('received')}
           className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
             sub === 'received'
-              ? 'bg-[var(--lagoon-deep)] text-white'
+              ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
               : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
           }`}
         >
@@ -408,7 +408,7 @@ function FriendsActivity() {
             onClick={() => setDays(d)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
               days === d
-                ? 'bg-[var(--lagoon-deep)] text-white'
+                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                 : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
             }`}
           >
@@ -495,7 +495,7 @@ function ReceivedCheers() {
             onClick={() => setDays(d)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
               days === d
-                ? 'bg-[var(--lagoon-deep)] text-white'
+                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                 : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
             }`}
           >
@@ -563,7 +563,7 @@ function Initials({ name }: { name: string }) {
     .join('')
   return (
     <span
-      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--palm)] text-xs font-bold text-white"
+      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]"
       aria-hidden
     >
       {letters || '?'}

@@ -100,25 +100,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         <QueryClientProvider client={queryClient}>
           <div id="app">
-            <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
-              <nav className="page-wrap flex items-center gap-4 py-3 text-sm font-semibold">
-                <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                  Today
-                </Link>
-                <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                  Tasks
-                </Link>
-                <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                  Stats
-                </Link>
-                <FriendsNavLink />
-                <AdminNavLink />
-                <div className="ml-auto flex items-center gap-3">
-                  <OfflineIndicator />
-                  <SessionNav />
-                </div>
-              </nav>
-            </header>
+            <AppNav />
             <InstallPrompt />
             {children}
           </div>
@@ -138,12 +120,73 @@ function RootShell({ children }: { children: ReactNode }) {
   )
 }
 
+// Split navs by session state. Logged-out users get a minimal marketing
+// nav (brand + log in / sign up); logged-in users get the full app nav.
+// While Better Auth's session is pending we show the marketing variant
+// so a refresh on a public page doesn't flash the full app nav to
+// strangers. Admin + friends links are always gated on a resolved
+// session so cached query data can't leak them past sign-out.
+function AppNav() {
+  const { data: session, isPending } = useSession()
+  const loggedIn = Boolean(session?.user)
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
+      <nav className="page-wrap flex items-center gap-4 py-3 text-sm font-semibold">
+        <Link
+          to={loggedIn ? '/today' : '/'}
+          className="text-[var(--sea-ink)] no-underline"
+        >
+          Todo&nbsp;XP
+        </Link>
+        {loggedIn ? (
+          <>
+            <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+              Today
+            </Link>
+            <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+              Tasks
+            </Link>
+            <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+              Stats
+            </Link>
+            <FriendsNavLink />
+            <AdminNavLink />
+          </>
+        ) : null}
+        <div className="ml-auto flex items-center gap-3">
+          {loggedIn ? <OfflineIndicator /> : null}
+          {isPending ? null : loggedIn ? <SessionNav /> : <GuestNav />}
+        </div>
+      </nav>
+    </header>
+  )
+}
+
+function GuestNav() {
+  return (
+    <div className="flex items-center gap-2">
+      <Link
+        to="/auth/login"
+        className="nav-link"
+        activeProps={{ className: 'nav-link is-active' }}
+      >
+        Log in
+      </Link>
+      <Link
+        to="/auth/signup"
+        className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] no-underline"
+      >
+        Sign up
+      </Link>
+    </div>
+  )
+}
+
 function FriendsNavLink() {
-  const { data: session } = useSession()
   const pending = useQuery({
     queryKey: ['friends', 'incoming'],
     queryFn: () => listIncomingFn(),
-    enabled: Boolean(session?.user),
     // Re-fetch occasionally so the badge catches requests that arrived on
     // another device while this tab was idle.
     refetchInterval: 60_000,
@@ -161,7 +204,7 @@ function FriendsNavLink() {
       {count > 0 ? (
         <span
           aria-label={`${count} pending friend ${count === 1 ? 'request' : 'requests'}`}
-          className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--lagoon-deep)] px-1 text-[10px] font-bold leading-none text-white"
+          className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
         >
           {count > 9 ? '9+' : count}
         </span>
@@ -171,11 +214,9 @@ function FriendsNavLink() {
 }
 
 function AdminNavLink() {
-  const { data: session } = useSession()
   const admin = useQuery({
     queryKey: ['is-admin'],
     queryFn: () => getIsAdminFn(),
-    enabled: Boolean(session?.user),
     staleTime: 5 * 60_000,
   })
   if (!admin.data?.isAdmin) return null

@@ -158,7 +158,7 @@ function ScopeButton({
       onClick={onClick}
       className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${
         on
-          ? 'bg-[var(--lagoon-deep)] text-white'
+          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
           : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
       }`}
     >
