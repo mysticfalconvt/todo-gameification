@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
-  completeInstance,
   getProgression,
   listRecentActivity,
   listSomedayInstances,
   listTodayInstances,
-  skipInstance,
-  snoozeInstance,
 } from '../../server/functions/tasks'
 import { getCoachSummary } from '../../server/functions/coach'
+import { runOrQueue } from '../../lib/offline-queue'
 import {
   currentPushStatus,
   enablePushNotifications,
@@ -77,11 +76,12 @@ function TodayPage() {
 
   const complete = useMutation({
     mutationFn: (instanceId: string) =>
-      completeInstance({ data: { instanceId } }),
+      runOrQueue({ type: 'complete', instanceId }),
     onMutate: (instanceId) => optimisticRemove(instanceId)(),
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
       if (ctx?.prevSomeday) qc.setQueryData(['someday'], ctx.prevSomeday)
+      toast.error(err instanceof Error ? err.message : 'Something went wrong')
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['today'] })
@@ -92,11 +92,13 @@ function TodayPage() {
   })
 
   const skip = useMutation({
-    mutationFn: (instanceId: string) => skipInstance({ data: { instanceId } }),
+    mutationFn: (instanceId: string) =>
+      runOrQueue({ type: 'skip', instanceId }),
     onMutate: (instanceId) => optimisticRemove(instanceId)(),
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
       if (ctx?.prevSomeday) qc.setQueryData(['someday'], ctx.prevSomeday)
+      toast.error(err instanceof Error ? err.message : 'Something went wrong')
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['today'] })
@@ -106,10 +108,11 @@ function TodayPage() {
 
   const snooze = useMutation({
     mutationFn: ({ instanceId, hours }: { instanceId: string; hours: number }) =>
-      snoozeInstance({ data: { instanceId, hours } }),
+      runOrQueue({ type: 'snooze', instanceId, hours }),
     onMutate: ({ instanceId }) => optimisticRemove(instanceId)(),
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
+      toast.error(err instanceof Error ? err.message : 'Snooze failed')
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['today'] }),
   })

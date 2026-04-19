@@ -61,6 +61,7 @@ export const updateTask = createServerFn({ method: 'POST' })
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
+      tags?: string[]
     }) => data,
   )
   .handler(({ data, context }) => service.updateTask(context.userId, data))
@@ -79,6 +80,13 @@ export const snoozeTask = createServerFn({ method: 'POST' })
     service.snoozeTask(context.userId, data.taskId, data.until),
   )
 
+export const rescoreTask = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { taskId: string }) => data)
+  .handler(({ data, context }) =>
+    service.rescoreTask(context.userId, data.taskId),
+  )
+
 export const getProgression = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.getProgression(context.userId))
@@ -86,3 +94,10 @@ export const getProgression = createServerFn({ method: 'GET' })
 export const listRecentActivity = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.listRecentActivity(context.userId))
+
+export const listCompletionHistory = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { days?: number } | undefined) => data ?? {})
+  .handler(({ data, context }) =>
+    service.listCompletionHistory(context.userId, data?.days ?? 30),
+  )

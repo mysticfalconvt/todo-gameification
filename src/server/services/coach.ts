@@ -23,8 +23,13 @@ STYLE:
 - If they've missed days recently, be gentle and low-friction — suggest the smallest task to restart momentum.
 - Never list out the remaining tasks (the UI already shows that). Speak to the human, not to a dashboard.
 
-OUTPUT:
-Return ONLY the text the user should see. No preamble, no quotes, no markdown formatting beyond plain sentences.`
+OUTPUT RULES — STRICT:
+- Return ONLY the finished sentence(s) the user should see.
+- No preamble, no commentary, no quotes around the output, no markdown.
+- Never emit channel markers, reasoning traces, XML-like tags (for example "<channel>", "<analysis>", "<think>"), control tokens, JSON, or section headers.
+- Never prefix with "Here is" / "Sure, " / "Response:" / similar scaffolding.
+- If you have nothing useful to say, still write 1–2 honest sentences rather than emitting empty or structural output.
+- The first character of your reply must be a regular letter or digit, not a bracket or punctuation.`
 
 export interface CoachSummary {
   summary: string
@@ -182,7 +187,48 @@ export async function generateCoachSummary(
     timeoutMs: 15_000,
   })
 
-  const trimmed = raw?.trim().replace(/^"|"$/g, '').trim()
-  if (!trimmed) return null
-  return { summary: trimmed, generatedAt: new Date().toISOString() }
+  const cleaned = sanitizeCoachOutput(raw)
+  if (!cleaned) return null
+  return { summary: cleaned, generatedAt: new Date().toISOString() }
+}
+
+/**
+ * Strip common reasoning-model artifacts that leak past the system prompt.
+ * Return null if there's nothing usable left — the UI will hide the panel.
+ */
+function sanitizeCoachOutput(raw: string | null): string | null {
+  if (!raw) return null
+  let s = raw
+
+  // Drop everything before and including a closing reasoning/channel tag
+  // (e.g. a stray "...</analysis>Actual message" pattern).
+  const closeTag = /<\/[a-z_-]{2,20}>/gi
+  let match: RegExpExecArray | null
+  let lastClose = -1
+  while ((match = closeTag.exec(s)) !== null) {
+    lastClose = match.index + match[0].length
+  }
+  if (lastClose >= 0) s = s.slice(lastClose)
+
+  // Strip any remaining tag-like markers on their own lines or inline.
+  s = s.replace(/<[a-z_\s-]{2,40}\/?>/gi, '')
+
+  // Strip common reasoning-model control tokens.
+  s = s.replace(
+    /<\|[^>|]{1,40}\|>/g,
+    '',
+  )
+
+  // Strip wrapping quotes/backticks, common conversational preambles.
+  s = s.trim()
+  s = s.replace(/^["'`]+|["'`]+$/g, '').trim()
+  s = s.replace(/^(?:response:|here(?:'s| is)?:?|sure[,.!:]?)\s+/i, '')
+  s = s.trim()
+
+  // Require a real sentence-ish result: starts with a letter or digit and is
+  // at least a handful of characters long.
+  if (s.length < 12) return null
+  if (!/^[\p{L}\p{N}]/u.test(s)) return null
+
+  return s
 }

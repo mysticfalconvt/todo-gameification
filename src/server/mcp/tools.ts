@@ -86,6 +86,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         recurrence: recurrenceSchema.nullable().default(null),
         timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().default(null),
         someday: z.boolean().default(false),
+        tags: z.array(z.string()).default([]),
       },
     },
     async (args) =>
@@ -97,6 +98,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
           recurrence: args.recurrence,
           timeOfDay: args.timeOfDay,
           someday: args.someday,
+          tags: args.tags,
         }),
       ),
   )

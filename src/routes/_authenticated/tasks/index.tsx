@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { deleteTask, listAllTasks } from '../../../server/functions/tasks'
 import type { Recurrence } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
@@ -12,6 +14,7 @@ type TaskRow = Awaited<ReturnType<typeof listAllTasks>>[number]
 
 function AllTasksPage() {
   const qc = useQueryClient()
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -28,8 +31,9 @@ function AllTasksPage() {
       )
       return { prev }
     },
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       if (ctx?.prev) qc.setQueryData(['tasks'], ctx.prev)
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -38,6 +42,39 @@ function AllTasksPage() {
   })
 
   const tasks = tasksQuery.data ?? []
+
+  const allTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const t of tasks) {
+      for (const tag of t.tags ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts.entries()).sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1]
+      return a[0].localeCompare(b[0])
+    })
+  }, [tasks])
+
+  const filtered = useMemo(() => {
+    if (selected.size === 0) return tasks
+    return tasks.filter((t) => {
+      const tagSet = new Set(t.tags ?? [])
+      for (const s of selected) {
+        if (!tagSet.has(s)) return false
+      }
+      return true
+    })
+  }, [tasks, selected])
+
+  function toggleTag(tag: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(tag)) next.delete(tag)
+      else next.add(tag)
+      return next
+    })
+  }
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -53,19 +90,60 @@ function AllTasksPage() {
         </Link>
       </div>
 
+      {allTags.length > 0 ? (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Tags
+          </span>
+          {allTags.map(([tag, count]) => {
+            const isOn = selected.has(tag)
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  isOn
+                    ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                    : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+                }`}
+              >
+                {tag}
+                <span className="ml-1 text-[10px] opacity-70">{count}</span>
+              </button>
+            )
+          })}
+          {selected.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="rounded-full px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] underline-offset-2 hover:underline"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {tasksQuery.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
-      ) : tasks.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <p className="text-[var(--sea-ink-soft)]">
-          No tasks yet.{' '}
-          <Link to="/tasks/new" className="font-semibold">
-            Create one
-          </Link>
-          .
+          {selected.size > 0 ? (
+            <>No tasks match the selected tags.</>
+          ) : (
+            <>
+              No tasks yet.{' '}
+              <Link to="/tasks/new" className="font-semibold">
+                Create one
+              </Link>
+              .
+            </>
+          )}
         </p>
       ) : (
         <ul className="space-y-2">
-          {tasks.map((t) => (
+          {filtered.map((t) => (
             <li
               key={t.id}
               className="island-shell flex items-center gap-3 rounded-xl p-3"
@@ -82,6 +160,14 @@ function AllTasksPage() {
                   {xpLabel(t.difficulty, t.xpOverride)}
                   {' • '}
                   {recurrenceLabel(t.recurrence)}
+                  {t.tags && t.tags.length > 0 ? (
+                    <>
+                      {' • '}
+                      <span className="font-mono">
+                        {t.tags.map((tag) => `#${tag}`).join(' ')}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </Link>
               <Link

@@ -19,45 +19,57 @@ function readStored(): Theme {
   return saved === 'light' || saved === 'dark' ? saved : 'system'
 }
 
-export function ThemeToggle() {
+function persist(theme: Theme): void {
+  if (typeof localStorage === 'undefined') return
+  if (theme === 'system') {
+    localStorage.removeItem(THEME_KEY)
+  } else {
+    localStorage.setItem(THEME_KEY, theme)
+  }
+}
+
+/** Three explicit buttons — meant for /settings. */
+export function ThemePicker() {
   const [theme, setTheme] = useState<Theme>('system')
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = readStored()
-    setTheme(stored)
-    applyTheme(stored)
-    setMounted(true)
+    setTheme(readStored())
   }, [])
 
-  function cycle() {
-    const next: Theme =
-      theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'
+  function select(next: Theme) {
     setTheme(next)
-    if (next === 'system') {
-      localStorage.removeItem(THEME_KEY)
-    } else {
-      localStorage.setItem(THEME_KEY, next)
-    }
+    persist(next)
     applyTheme(next)
   }
 
-  const glyph =
-    theme === 'system' ? '◐' : theme === 'light' ? '☀' : '☾'
-  const label =
-    theme === 'system' ? 'Auto' : theme === 'light' ? 'Light' : 'Dark'
+  const options: Array<{ value: Theme; label: string; glyph: string }> = [
+    { value: 'light', label: 'Light', glyph: '☀' },
+    { value: 'dark', label: 'Dark', glyph: '☾' },
+    { value: 'system', label: 'Auto', glyph: '◐' },
+  ]
 
   return (
-    <button
-      type="button"
-      onClick={cycle}
-      aria-label={`Theme: ${label} (click to change)`}
-      title={`Theme: ${label}`}
-      className="nav-link inline-flex items-center gap-1"
-      suppressHydrationWarning
-    >
-      <span aria-hidden>{glyph}</span>
-      <span className={mounted ? '' : 'opacity-0'}>{label}</span>
-    </button>
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Theme">
+      {options.map((o) => {
+        const selected = theme === o.value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => select(o.value)}
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition ${
+              selected
+                ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+            }`}
+          >
+            <span aria-hidden>{o.glyph}</span>
+            <span>{o.label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }

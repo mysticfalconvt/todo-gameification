@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { authClient, useSession } from '../../../lib/auth-client'
+import { Link, useRouter } from '@tanstack/react-router'
+import { authClient, signOut, useSession } from '../../../lib/auth-client'
+import { ThemePicker } from '../../../components/ThemeToggle'
 import {
   currentPushStatus,
   disablePushNotifications,
@@ -28,10 +29,61 @@ function SettingsPage() {
         Profile & settings
       </h1>
       <ProfileSection user={session?.user} />
+      <AppearanceSection />
       <PasswordSection />
       <NotificationsSection />
       <TokensSection />
+      <SignOutSection />
     </main>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+function AppearanceSection() {
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Appearance</h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Choose the color theme. Auto follows your system setting.
+      </p>
+      <ThemePicker />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sign out
+// ---------------------------------------------------------------------------
+
+function SignOutSection() {
+  const router = useRouter()
+  const [pending, setPending] = useState(false)
+
+  async function onSignOut() {
+    setPending(true)
+    try {
+      await signOut()
+      await router.invalidate()
+      router.navigate({ to: '/auth/login' })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <section className="max-w-xl">
+      <button
+        type="button"
+        onClick={onSignOut}
+        disabled={pending}
+        className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600 disabled:opacity-60"
+      >
+        {pending ? 'Signing out…' : 'Sign out'}
+      </button>
+    </section>
   )
 }
 

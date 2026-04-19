@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -84,6 +85,10 @@ export const tasks = pgTable('tasks', {
   xpOverride: integer('xp_override'),
   recurrence: jsonb('recurrence').$type<Recurrence>(),
   timeOfDay: text('time_of_day'),
+  tags: text('tags')
+    .array()
+    .notNull()
+    .default(sql`ARRAY[]::text[]`),
   snoozeUntil: timestamp('snooze_until'),
   visibility: text('visibility', { enum: ['private', 'friends', 'public'] })
     .notNull()

@@ -4,7 +4,6 @@ import {
   Link,
   Scripts,
   createRootRoute,
-  useRouter,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -12,13 +11,14 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { useEffect, type ReactNode } from 'react'
+import { Toaster } from 'sonner'
 
-import { signOut, useSession } from '../lib/auth-client'
+import { useSession } from '../lib/auth-client'
 import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
-import { ThemeToggle } from '../components/ThemeToggle'
 import { InstallPrompt } from '../components/InstallPrompt'
+import { OfflineIndicator } from '../components/OfflineIndicator'
 import '../styles.css'
 
 const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('todo-xp-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`
@@ -104,8 +104,11 @@ function RootShell({ children }: { children: ReactNode }) {
                 <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                   Tasks
                 </Link>
+                <Link to="/history" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  History
+                </Link>
                 <div className="ml-auto flex items-center gap-3">
-                  <ThemeToggle />
+                  <OfflineIndicator />
                   <SessionNav />
                 </div>
               </nav>
@@ -113,6 +116,7 @@ function RootShell({ children }: { children: ReactNode }) {
             <InstallPrompt />
             {children}
           </div>
+          <Toaster position="bottom-right" richColors closeButton />
           {import.meta.env.DEV ? (
             <TanStackDevtools
               config={{ position: 'bottom-right' }}
@@ -130,7 +134,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function SessionNav() {
   const { data, isPending } = useSession()
-  const router = useRouter()
 
   useEffect(() => {
     if (!data?.user) return
@@ -155,24 +158,13 @@ function SessionNav() {
     )
   }
 
-  async function onSignOut() {
-    await signOut()
-    await router.invalidate()
-    router.navigate({ to: '/auth/login' })
-  }
-
   return (
-    <div className="flex items-center gap-3">
-      <Link
-        to="/settings"
-        className="nav-link"
-        activeProps={{ className: 'nav-link is-active' }}
-      >
-        {data.user.name}
-      </Link>
-      <button type="button" onClick={onSignOut} className="nav-link">
-        Sign out
-      </button>
-    </div>
+    <Link
+      to="/settings"
+      className="nav-link"
+      activeProps={{ className: 'nav-link is-active' }}
+    >
+      {data.user.name}
+    </Link>
   )
 }

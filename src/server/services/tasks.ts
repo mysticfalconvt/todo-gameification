@@ -8,7 +8,7 @@
 //
 // Validation lives here too (title non-empty, difficulty enum, timeOfDay
 // format, etc.) so any caller gets the same guarantees.
-import { and, eq, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
@@ -39,6 +39,7 @@ export interface CreateTaskInput {
   recurrence: Recurrence | null
   timeOfDay: string | null
   someday: boolean
+  tags?: string[]
 }
 
 export interface UpdateTaskInput {
@@ -48,6 +49,17 @@ export interface UpdateTaskInput {
   difficulty: Difficulty
   recurrence: Recurrence | null
   timeOfDay: string | null
+  tags?: string[]
+}
+
+function cleanTags(raw: string[] | undefined): string[] {
+  if (!raw) return []
+  const seen = new Set<string>()
+  for (const t of raw) {
+    const clean = t.trim().toLowerCase().replace(/\s+/g, '-')
+    if (clean && clean.length <= 40) seen.add(clean)
+  }
+  return Array.from(seen).sort()
 }
 
 export interface CreateTaskResult {
@@ -82,6 +94,7 @@ export interface TaskSummary {
   xpOverride: number | null
   recurrence: Recurrence | null
   timeOfDay: string | null
+  tags: string[]
   snoozeUntil: string | null
   createdAt: string
 }
@@ -165,6 +178,7 @@ export async function createTask(
     difficultyHint: input.difficulty,
   })
 
+  const tags = cleanTags(input.tags)
   const result = await db.transaction(async (tx) => {
     const [task] = await tx
       .insert(tasks)
@@ -176,6 +190,7 @@ export async function createTask(
         xpOverride: scored?.xp ?? null,
         recurrence: input.recurrence,
         timeOfDay: input.someday ? null : input.timeOfDay,
+        tags,
       })
       .returning()
 
@@ -212,6 +227,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
       xpOverride: tasks.xpOverride,
       recurrence: tasks.recurrence,
       timeOfDay: tasks.timeOfDay,
+      tags: tasks.tags,
       snoozeUntil: tasks.snoozeUntil,
       createdAt: tasks.createdAt,
     })
@@ -227,6 +243,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
     xpOverride: r.xpOverride,
     recurrence: r.recurrence,
     timeOfDay: r.timeOfDay,
+    tags: r.tags ?? [],
     snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
   }))
@@ -249,6 +266,7 @@ export async function getTask(
     xpOverride: row.xpOverride,
     recurrence: row.recurrence,
     timeOfDay: row.timeOfDay,
+    tags: row.tags ?? [],
     snoozeUntil: row.snoozeUntil?.toISOString() ?? null,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
@@ -261,16 +279,20 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<{ id: string }> {
   validateUpdate(input)
+  const setValues: Record<string, unknown> = {
+    title: input.title.trim(),
+    notes: input.notes,
+    difficulty: input.difficulty,
+    recurrence: input.recurrence,
+    timeOfDay: input.timeOfDay,
+    updatedAt: new Date(),
+  }
+  if (input.tags !== undefined) {
+    setValues.tags = cleanTags(input.tags)
+  }
   const result = await db
     .update(tasks)
-    .set({
-      title: input.title.trim(),
-      notes: input.notes,
-      difficulty: input.difficulty,
-      recurrence: input.recurrence,
-      timeOfDay: input.timeOfDay,
-      updatedAt: new Date(),
-    })
+    .set(setValues)
     .where(and(eq(tasks.id, input.taskId), eq(tasks.userId, userId)))
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
@@ -289,6 +311,51 @@ export async function deleteTask(
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
   return { id: result[0].id }
+}
+
+export async function rescoreTask(
+  userId: string,
+  taskId: string,
+): Promise<{
+  id: string
+  xpOverride: number | null
+  previousXpOverride: number | null
+  scored: { xp: number; tier: string; reasoning: string } | null
+}> {
+  if (!taskId) throw new Error('taskId required')
+  const row = await db.query.tasks.findFirst({
+    where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
+  })
+  if (!row) throw new Error('task not found')
+
+  const scored = await scoreTask({
+    title: row.title,
+    notes: row.notes,
+    difficultyHint: row.difficulty as Difficulty,
+  })
+
+  if (!scored) {
+    // LLM not configured / failed. Leave the override alone and return null.
+    return {
+      id: row.id,
+      xpOverride: row.xpOverride,
+      previousXpOverride: row.xpOverride,
+      scored: null,
+    }
+  }
+
+  const updated = await db
+    .update(tasks)
+    .set({ xpOverride: scored.xp, updatedAt: new Date() })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+    .returning({ id: tasks.id, xpOverride: tasks.xpOverride })
+
+  return {
+    id: updated[0].id,
+    xpOverride: updated[0].xpOverride,
+    previousXpOverride: row.xpOverride,
+    scored: { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning },
+  }
 }
 
 export async function snoozeTask(
@@ -638,6 +705,119 @@ export async function getProgression(
     currentStreak: row.currentStreak,
     longestStreak: row.longestStreak,
   }
+}
+
+export interface HistoryEntry {
+  instanceId: string
+  taskId: string | null
+  title: string
+  xp: number
+  completedAt: string
+}
+
+export interface HistoryDay {
+  date: string // YYYY-MM-DD in user tz
+  totalXp: number
+  items: HistoryEntry[]
+}
+
+export async function listCompletionHistory(
+  userId: string,
+  days = 30,
+): Promise<HistoryDay[]> {
+  const timeZone = await getUserTimeZone(userId)
+  const since = new Date(Date.now() - days * 24 * 3_600_000)
+
+  const rows = await db
+    .select({
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, userId),
+        eq(events.type, 'task.completed'),
+        isNotNull(events.occurredAt),
+      ),
+    )
+    .orderBy(events.occurredAt)
+
+  type Row = (typeof rows)[number]
+
+  const recent = rows.filter((r) => r.occurredAt && r.occurredAt >= since)
+
+  const taskIds = Array.from(
+    new Set(
+      recent
+        .map((r) => {
+          const p =
+            r.payload && typeof r.payload === 'object'
+              ? (r.payload as Record<string, unknown>)
+              : {}
+          return typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+        })
+        .filter((v): v is string => Boolean(v)),
+    ),
+  )
+  const titleMap = new Map<string, string>()
+  if (taskIds.length > 0) {
+    const titled = await db
+      .select({ id: tasks.id, title: tasks.title })
+      .from(tasks)
+      .where(inArray(tasks.id, taskIds))
+    for (const t of titled) titleMap.set(t.id, t.title)
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+
+  const byDay = new Map<string, HistoryDay>()
+  // Reverse: newest first
+  for (const r of [...recent].reverse()) {
+    if (!r.occurredAt) continue
+    const day = formatter.format(r.occurredAt)
+    const p =
+      r.payload && typeof r.payload === 'object'
+        ? (r.payload as Record<string, unknown>)
+        : {}
+    const taskId =
+      typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+    const instanceId =
+      typeof p['instanceId'] === 'string' ? (p['instanceId'] as string) : ''
+    const xpOverride =
+      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
+    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
+    const base =
+      xpOverride ??
+      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+    const entry: HistoryEntry = {
+      instanceId,
+      taskId,
+      title: taskId ? titleMap.get(taskId) ?? '(deleted)' : '(unknown)',
+      xp: base,
+      completedAt: r.occurredAt.toISOString(),
+    }
+    const existing = byDay.get(day)
+    if (existing) {
+      existing.items.push(entry)
+      existing.totalXp += entry.xp
+    } else {
+      byDay.set(day, { date: day, totalXp: entry.xp, items: [entry] })
+    }
+  }
+
+  // Newest date first
+  return Array.from(byDay.values()).sort((a, b) =>
+    a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
+  )
+
+  // Silence unused-local warning on Row (helps future typing).
+  void ({} as Row)
 }
 
 export async function listRecentActivity(userId: string): Promise<string[]> {
