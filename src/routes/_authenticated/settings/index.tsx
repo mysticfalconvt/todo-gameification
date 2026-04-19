@@ -155,7 +155,7 @@ function CategoriesSection() {
         <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
       ) : (
         <ul className="mb-4 space-y-2">
-          {(categoriesQuery.data ?? []).map((c) => (
+          {(Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []).map((c) => (
             <CategoryRow key={c.slug} category={c} onDelete={remove.mutate} />
           ))}
         </ul>
@@ -995,10 +995,10 @@ function FriendsSection() {
       toast.error(err instanceof Error ? err.message : 'Unblock failed'),
   })
 
-  const friends = friendsQuery.data ?? []
-  const incoming = incomingQuery.data ?? []
-  const outgoing = outgoingQuery.data ?? []
-  const blocked = blockedQuery.data ?? []
+  const friends = Array.isArray(friendsQuery.data) ? friendsQuery.data : []
+  const incoming = Array.isArray(incomingQuery.data) ? incomingQuery.data : []
+  const outgoing = Array.isArray(outgoingQuery.data) ? outgoingQuery.data : []
+  const blocked = Array.isArray(blockedQuery.data) ? blockedQuery.data : []
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1385,7 +1385,7 @@ function TokensSection() {
     }
   }
 
-  const tokens = tokensQuery.data ?? []
+  const tokens = Array.isArray(tokensQuery.data) ? tokensQuery.data : []
 
   return (
     <details className="island-shell max-w-2xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">

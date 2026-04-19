@@ -152,7 +152,7 @@ function EditTaskPage() {
     queryKey: ['categories'],
     queryFn: () => listCategories(),
   })
-  const categories = categoriesQuery.data ?? []
+  const categories = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
   const currentCategory =
     categories.find((c) => c.slug === taskQuery.data?.categorySlug) ?? null
 

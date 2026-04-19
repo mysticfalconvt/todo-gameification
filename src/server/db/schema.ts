@@ -201,6 +201,24 @@ export const friendships = pgTable(
   ],
 )
 
+// Per-email audit log for outbound transactional mail (verification +
+// password reset). Used purely for rate limiting: we count recent sends
+// to the same address before dispatching another one. Email is stored
+// lowercased. Old rows can be pruned later — not urgent since volume is
+// tiny.
+export const emailSendLog = pgTable(
+  'email_send_log',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    email: text('email').notNull(),
+    kind: text('kind', {
+      enum: ['verification', 'password_reset'],
+    }).notNull(),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+  },
+  (t) => [index('email_send_log_email_kind_sent_idx').on(t.email, t.kind, t.sentAt)],
+)
+
 export const userPrefs = pgTable('user_prefs', {
   userId: text('user_id')
     .primaryKey()

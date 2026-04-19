@@ -4,6 +4,16 @@ import { db } from './db/client'
 import * as schema from './db/schema'
 import { sendMail, isEmailConfigured } from './email'
 import { generateUniqueHandleFromName } from './services/handles'
+import { recordAndCheck } from './services/emailRateLimit'
+
+// Constant-ish delay helper for the password-reset hook. Better Auth only
+// invokes sendResetPassword when a user exists, so an unknown-email path
+// returns instantly; padding the known-email path to a similar floor
+// removes the timing side-channel that would otherwise let an attacker
+// enumerate registered addresses.
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
 
 function appUrl(): string {
   return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(
@@ -28,12 +38,21 @@ export const auth = betterAuth({
     // otherwise users could sign up and be permanently locked out.
     requireEmailVerification: isEmailConfigured(),
     sendResetPassword: async ({ user, url }) => {
-      await sendMail({
-        to: user.email,
-        subject: 'Reset your Todo XP password',
-        text: `Click the link to reset your password: ${url}`,
-        html: resetPasswordHtml(url),
-      })
+      // Pad the known-email path so it takes similar time to the
+      // unknown-email path (which returns ~instantly without calling
+      // this hook). 300–500ms of jitter is cheap and masks SMTP RTT
+      // leakage without being user-visible.
+      const pad = sleep(300 + Math.floor(Math.random() * 200))
+      const ok = await recordAndCheck(user.email, 'password_reset')
+      if (ok) {
+        await sendMail({
+          to: user.email,
+          subject: 'Reset your Todo XP password',
+          text: `Click the link to reset your password: ${url}`,
+          html: resetPasswordHtml(url),
+        })
+      }
+      await pad
     },
   },
   emailVerification: {
@@ -41,6 +60,10 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
+      // Rate-limit to prevent a login-loop attacker from spamming an
+      // unverified user's inbox via sendOnSignIn.
+      const ok = await recordAndCheck(user.email, 'verification')
+      if (!ok) return
       await sendMail({
         to: user.email,
         subject: 'Verify your Todo XP email',
@@ -88,6 +111,23 @@ export const auth = betterAuth({
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30,
+  },
+  // Defense-in-depth: explicitly allowlist origins that may hold a
+  // session cookie. Better Auth defaults to just baseURL, but pinning
+  // this makes the trust boundary explicit if more origins ever get
+  // added later. Localhost stays usable in dev because BETTER_AUTH_URL
+  // is http://localhost:3000 there.
+  trustedOrigins: [process.env.BETTER_AUTH_URL].filter(
+    (v): v is string => Boolean(v),
+  ),
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: 'lax',
+      httpOnly: true,
+      // Secure only in prod; allowing insecure cookies in dev lets the
+      // local http://localhost flow keep working.
+      secure: process.env.NODE_ENV === 'production',
+    },
   },
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,

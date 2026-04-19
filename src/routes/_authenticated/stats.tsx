@@ -78,7 +78,7 @@ function HistorySection() {
     queryFn: () => listCompletionHistory({ data: { days: 30 } }),
   })
 
-  const allDays = query.data ?? []
+  const allDays = Array.isArray(query.data) ? query.data : []
   const days = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return allDays

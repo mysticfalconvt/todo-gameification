@@ -4,7 +4,7 @@
 // greppable and eligible for secret-scanning; only the SHA-256 hash is stored
 // at rest. The plaintext is only ever returned to the caller at creation
 // time; listing tokens shows the prefix and never the full value.
-import { randomBytes, createHash } from 'node:crypto'
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { apiTokens } from '../db/schema'
@@ -101,6 +101,14 @@ export async function revokeApiToken(
 /**
  * Verify a plaintext bearer token against the stored hashes.
  * Returns the userId on success, null otherwise. Bumps lastUsedAt on success.
+ *
+ * Note on timing-attack resistance: the match lookup uses a Postgres
+ * index on `hashed_token`, which is not a linear string-compare the way
+ * `===` in JS would be. We also defensively timingSafeEqual the stored
+ * hash against the recomputed one after the DB returns a row — a no-op
+ * in practice (they must match for the lookup to have succeeded) but it
+ * keeps the final compare explicit and constant-time regardless of
+ * future refactors.
  */
 export async function verifyApiToken(
   plaintext: string,
@@ -112,6 +120,10 @@ export async function verifyApiToken(
   })
   if (!row) return null
   if (row.expiresAt && row.expiresAt < new Date()) return null
+
+  const a = Buffer.from(hashedToken, 'hex')
+  const b = Buffer.from(row.hashedToken, 'hex')
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null
 
   // Fire-and-forget the lastUsedAt bump so we don't add latency to every call.
   db

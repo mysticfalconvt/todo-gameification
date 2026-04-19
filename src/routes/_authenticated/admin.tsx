@@ -103,7 +103,7 @@ function UsersTable() {
     'created-desc' | 'xp-desc' | 'completions-desc' | 'active-desc'
   >('created-desc')
 
-  const rows = [...(query.data ?? [])].sort((a, b) => {
+  const rows = [...(Array.isArray(query.data) ? query.data : [])].sort((a, b) => {
     switch (sort) {
       case 'xp-desc':
         return b.xp - a.xp
@@ -218,7 +218,7 @@ function RecentEvents() {
     queryFn: () => listAdminEventsFn({ data: { limit: 50 } }),
     refetchInterval: 30_000,
   })
-  const rows = query.data ?? []
+  const rows = Array.isArray(query.data) ? query.data : []
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-bold text-[var(--sea-ink)]">

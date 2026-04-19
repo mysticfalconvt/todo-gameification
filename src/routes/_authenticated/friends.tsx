@@ -89,7 +89,7 @@ function CategoriesTab() {
     queryKey: ['friends-categories', scope],
     queryFn: () => getFriendsCategoryHistogramsFn({ data: { scope } }),
   })
-  const rows = query.data ?? []
+  const rows = Array.isArray(query.data) ? query.data : []
 
   return (
     <div className="space-y-4">
@@ -195,7 +195,7 @@ function LeaderboardTab() {
     queryFn: () => getLeaderboardFn({ data: { scope, metric, days } }),
   })
 
-  const rows = query.data ?? []
+  const rows = Array.isArray(query.data) ? query.data : []
 
   return (
     <div className="space-y-6">
@@ -390,7 +390,7 @@ function FriendsActivity() {
       toast.error(err instanceof Error ? err.message : 'Cheer failed'),
   })
 
-  const rows = query.data ?? []
+  const rows = Array.isArray(query.data) ? query.data : []
 
   return (
     <div className="space-y-4">
@@ -477,7 +477,7 @@ function ReceivedCheers() {
     queryKey: ['cheers-received', days],
     queryFn: () => getReceivedCheersFn({ data: { days } }),
   })
-  const rows = query.data ?? []
+  const rows = Array.isArray(query.data) ? query.data : []
 
   return (
     <div className="space-y-4">

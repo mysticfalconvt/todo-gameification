@@ -54,8 +54,8 @@ function AllTasksPage() {
     },
   })
 
-  const tasks = tasksQuery.data ?? []
-  const categories = categoriesQuery.data ?? []
+  const tasks = Array.isArray(tasksQuery.data) ? tasksQuery.data : []
+  const categories = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
 
   const catBySlug = useMemo(() => {
     const m = new Map<string, Category>()

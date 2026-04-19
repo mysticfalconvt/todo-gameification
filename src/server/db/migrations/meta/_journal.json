@@ -57,6 +57,13 @@
       "when": 1776810000000,
       "tag": "0007_quiet_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776820000000,
+      "tag": "0008_email_send_log",
+      "breakpoints": true
     }
   ]
 }

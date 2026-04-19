@@ -75,7 +75,12 @@ function TodayPage() {
   })
   const catBySlug = useMemo(() => {
     const m = new Map<string, { label: string; color: string }>()
-    for (const c of categoriesQuery.data ?? []) {
+    // Defensive: a stale or corrupted persisted query entry could come
+    // back as something non-iterable. Fall back to an empty map instead
+    // of crashing the whole TodayPage.
+    const raw = categoriesQuery.data
+    const list = Array.isArray(raw) ? raw : []
+    for (const c of list) {
       m.set(c.slug, { label: c.label, color: c.color })
     }
     return m
@@ -152,8 +157,8 @@ function TodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.complete, search.snooze])
 
-  const rawInstances = todayQuery.data ?? []
-  const somedayInstances = somedayQuery.data ?? []
+  const rawInstances = Array.isArray(todayQuery.data) ? todayQuery.data : []
+  const somedayInstances = Array.isArray(somedayQuery.data) ? somedayQuery.data : []
   const progression = progressionQuery.data
   const [sortKey, setSortKey] = useStoredSort(
     'todo-xp-sort-today',
@@ -197,7 +202,7 @@ function TodayPage() {
             <Stat label="Longest" value={`${progression.longestStreak}d`} />
           </div>
           <div className="mt-4">
-            <ActivityStrip days={activityQuery.data ?? []} />
+            <ActivityStrip days={Array.isArray(activityQuery.data) ? activityQuery.data : []} />
           </div>
         </section>
       ) : null}
