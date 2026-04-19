@@ -19,6 +19,7 @@ import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
 import { listIncomingFn } from '../server/functions/social'
+import { getIsAdminFn } from '../server/functions/admin'
 import { InstallPrompt } from '../components/InstallPrompt'
 import { OfflineIndicator } from '../components/OfflineIndicator'
 import '../styles.css'
@@ -111,6 +112,7 @@ function RootShell({ children }: { children: ReactNode }) {
                   Stats
                 </Link>
                 <FriendsNavLink />
+                <AdminNavLink />
                 <div className="ml-auto flex items-center gap-3">
                   <OfflineIndicator />
                   <SessionNav />
@@ -164,6 +166,26 @@ function FriendsNavLink() {
           {count > 9 ? '9+' : count}
         </span>
       ) : null}
+    </Link>
+  )
+}
+
+function AdminNavLink() {
+  const { data: session } = useSession()
+  const admin = useQuery({
+    queryKey: ['is-admin'],
+    queryFn: () => getIsAdminFn(),
+    enabled: Boolean(session?.user),
+    staleTime: 5 * 60_000,
+  })
+  if (!admin.data?.isAdmin) return null
+  return (
+    <Link
+      to="/admin"
+      className="nav-link"
+      activeProps={{ className: 'nav-link is-active' }}
+    >
+      Admin
     </Link>
   )
 }
