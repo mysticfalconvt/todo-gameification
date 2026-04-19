@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
+  getAdminLlmMetricsFn,
   getAdminOpenInstancesFn,
   getAdminSummaryFn,
   getIsAdminFn,
   listAdminEventsFn,
   listAdminUsersFn,
 } from '../../server/functions/admin'
+import type { LlmMetricsWindow } from '../../server/services/llmTracking'
 
 export const Route = createFileRoute('/_authenticated/admin')({
   beforeLoad: async () => {
@@ -29,10 +31,149 @@ function AdminPage() {
         </h1>
       </header>
       <SummaryGrid />
+      <LlmMetricsSection />
       <UsersTable />
       <RecentEvents />
     </main>
   )
+}
+
+function LlmMetricsSection() {
+  const query = useQuery({
+    queryKey: ['admin', 'llm-metrics'],
+    queryFn: () => getAdminLlmMetricsFn(),
+    refetchInterval: 30_000,
+  })
+
+  const windows: LlmMetricsWindow[] = ['1m', '30m', '1h', '24h']
+  const data = query.data
+  const rows = data ? [data.overall, ...data.rows] : []
+
+  return (
+    <section className="space-y-3">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          LLM latency
+        </h2>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          Average + p95 per call kind, per window. Failures are calls that
+          errored or returned no usable output.
+        </p>
+      </header>
+      {query.isLoading || !data ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : (
+        <div className="island-shell overflow-x-auto rounded-2xl">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+              <tr>
+                <th className="px-3 py-2">Kind</th>
+                {windows.map((w) => (
+                  <th key={w} className="px-3 py-2" colSpan={2}>
+                    {w}
+                  </th>
+                ))}
+              </tr>
+              <tr className="text-[10px]">
+                <th className="px-3 py-1" />
+                {windows.map((w) => (
+                  <>
+                    <th key={`${w}-avg`} className="px-3 py-1">
+                      avg / p95
+                    </th>
+                    <th key={`${w}-n`} className="px-3 py-1">
+                      n · ok%
+                    </th>
+                  </>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.kind}
+                  className={`border-b border-[var(--line)] last:border-none ${
+                    r.kind === 'all'
+                      ? 'bg-[rgba(79,184,178,0.06)] font-semibold'
+                      : ''
+                  }`}
+                >
+                  <td className="px-3 py-2 text-[var(--sea-ink)]">
+                    {r.kind}
+                  </td>
+                  {windows.map((w) => {
+                    const cell = r.windows[w]
+                    const okPct =
+                      cell.count === 0
+                        ? '—'
+                        : `${Math.round((cell.successCount / cell.count) * 100)}%`
+                    return (
+                      <>
+                        <td key={`${r.kind}-${w}-avg`} className="px-3 py-2">
+                          {cell.count === 0 ? (
+                            <span className="text-[var(--sea-ink-soft)]">
+                              —
+                            </span>
+                          ) : (
+                            <span>
+                              {formatMs(cell.avgMs)} /{' '}
+                              <span className="text-[var(--sea-ink-soft)]">
+                                {formatMs(cell.p95Ms)}
+                              </span>
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          key={`${r.kind}-${w}-n`}
+                          className="px-3 py-2 text-[var(--sea-ink-soft)]"
+                        >
+                          {cell.count === 0
+                            ? '—'
+                            : `${cell.count} · ${okPct}`}
+                        </td>
+                      </>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data && data.recentFailures.length > 0 ? (
+        <details className="island-shell rounded-2xl p-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-[var(--sea-ink)]">
+            Recent failures ({data.recentFailures.length})
+          </summary>
+          <ul className="mt-3 space-y-1 text-xs">
+            {data.recentFailures.map((f, i) => (
+              <li
+                key={i}
+                className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
+              >
+                <span>{relativeTime(f.startedAt)}</span>
+                <span className="font-semibold text-[var(--sea-ink)]">
+                  {f.kind}
+                </span>
+                <span>{formatMs(f.durationMs)}</span>
+                {f.errorMessage ? (
+                  <code className="min-w-0 flex-1 truncate text-[11px]">
+                    {f.errorMessage}
+                  </code>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
+  )
+}
+
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`
 }
 
 function SummaryGrid() {

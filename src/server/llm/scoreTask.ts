@@ -1,4 +1,5 @@
 import type { Difficulty } from '../../domain/events'
+import { trackLlmCall } from '../services/llmTracking'
 
 // Each tier defines a window. The LLM picks both a tier (coarse bucket for
 // grouping / stats) and a specific XP value inside that window — so two
@@ -78,10 +79,16 @@ function isConfigured(): boolean {
 
 export async function scoreTask(
   input: ScoreInput,
-  { timeoutMs = 10_000 }: { timeoutMs?: number } = {},
+  opts: { timeoutMs?: number } = {},
 ): Promise<ScoreResult | null> {
   if (!isConfigured()) return null
+  return trackLlmCall('score', () => scoreTaskImpl(input, opts))
+}
 
+async function scoreTaskImpl(
+  input: ScoreInput,
+  { timeoutMs = 10_000 }: { timeoutMs?: number } = {},
+): Promise<ScoreResult | null> {
   const baseUrl = process.env.LLM_BASE_URL!.replace(/\/$/, '')
   const model = process.env.LLM_MODEL!
   const apiKey = process.env.LLM_API_KEY || 'lm-studio'

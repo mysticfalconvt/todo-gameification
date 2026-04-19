@@ -240,3 +240,21 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// Per-call audit log for outbound LLM requests. Used by the admin
+// dashboard to watch latency + success rate against the single LM Studio
+// instance — when load climbs, this is where it shows up. One row per
+// call, written fire-and-forget so tracking can't add latency to the
+// user-facing path. Old rows can be pruned; volume is tiny.
+export const llmCallLog = pgTable(
+  'llm_call_log',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    kind: text('kind').notNull(), // 'score' | 'categorize' | 'coach' | ...
+    startedAt: timestamp('started_at').notNull().defaultNow(),
+    durationMs: integer('duration_ms').notNull(),
+    success: boolean('success').notNull(),
+    errorMessage: text('error_message'),
+  },
+  (t) => [index('llm_call_log_started_idx').on(t.startedAt)],
+)
+

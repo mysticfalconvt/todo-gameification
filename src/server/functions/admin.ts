@@ -8,6 +8,7 @@ import {
   listRecentEvents,
   loadAdminSummary,
 } from '../services/admin'
+import { loadLlmMetrics } from '../services/llmTracking'
 
 // Cheap non-admin check used by the nav + route beforeLoad so the link is
 // only rendered for admins. Returns a plain boolean so no 403 handling is
@@ -34,3 +35,7 @@ export const listAdminEventsFn = createServerFn({ method: 'POST' })
 export const getAdminOpenInstancesFn = createServerFn({ method: 'GET' })
   .middleware([adminMiddleware])
   .handler(async () => countOpenInstances())
+
+export const getAdminLlmMetricsFn = createServerFn({ method: 'GET' })
+  .middleware([adminMiddleware])
+  .handler(async () => loadLlmMetrics())

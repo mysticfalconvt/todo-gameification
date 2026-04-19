@@ -10,6 +10,7 @@ import { events, tasks } from '../db/schema'
 import { callLlmChat } from '../llm/client'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
+import { trackLlmCall } from './llmTracking'
 
 const SYSTEM_PROMPT = `You are a warm, ADHD-aware companion for a gamified personal todo app. You speak to the user in one short blurb that shows up in the app.
 
@@ -293,15 +294,17 @@ export async function generateCoachSummary(
     timeZone,
   })
 
-  const raw = await callLlmChat({
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.7,
-    maxTokens: 200,
-    timeoutMs: 15_000,
-  })
+  const raw = await trackLlmCall('coach', () =>
+    callLlmChat({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      maxTokens: 200,
+      timeoutMs: 15_000,
+    }),
+  )
 
   const cleaned = sanitizeCoachOutput(raw)
   if (!cleaned) return null

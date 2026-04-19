@@ -64,6 +64,13 @@
       "when": 1776820000000,
       "tag": "0008_email_send_log",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776830000000,
+      "tag": "0009_llm_call_log",
+      "breakpoints": true
     }
   ]
 }
