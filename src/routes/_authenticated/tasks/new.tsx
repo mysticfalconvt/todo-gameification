@@ -37,6 +37,7 @@ function NewTaskPage() {
   const llmStatus = Route.useLoaderData()
   const llmEnabled = llmStatus.enabled
   const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [kind, setKind] = useState<RecurrenceKind>('none')
   const [afterDays, setAfterDays] = useState(7)
@@ -51,6 +52,7 @@ function NewTaskPage() {
   const mutation = useMutation({
     mutationFn: (input: {
       title: string
+      notes: string | null
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
@@ -73,6 +75,7 @@ function NewTaskPage() {
     setError(null)
     mutation.mutate({
       title,
+      notes: notes.trim() ? notes : null,
       difficulty,
       recurrence: isSomeday
         ? null
@@ -100,6 +103,19 @@ function NewTaskPage() {
             onChange={(e) => setTitle(e.target.value)}
             className="field-input"
             autoFocus
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Notes
+          </span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Optional — any details, links, or context."
+            className="field-input"
           />
         </label>
 

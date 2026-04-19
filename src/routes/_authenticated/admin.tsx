@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -77,14 +77,10 @@ function LlmMetricsSection() {
               <tr className="text-[10px]">
                 <th className="px-3 py-1" />
                 {windows.map((w) => (
-                  <>
-                    <th key={`${w}-avg`} className="px-3 py-1">
-                      avg / p95
-                    </th>
-                    <th key={`${w}-n`} className="px-3 py-1">
-                      n · ok%
-                    </th>
-                  </>
+                  <Fragment key={w}>
+                    <th className="px-3 py-1">avg / p95</th>
+                    <th className="px-3 py-1">n · ok%</th>
+                  </Fragment>
                 ))}
               </tr>
             </thead>
@@ -108,8 +104,8 @@ function LlmMetricsSection() {
                         ? '—'
                         : `${Math.round((cell.successCount / cell.count) * 100)}%`
                     return (
-                      <>
-                        <td key={`${r.kind}-${w}-avg`} className="px-3 py-2">
+                      <Fragment key={w}>
+                        <td className="px-3 py-2">
                           {cell.count === 0 ? (
                             <span className="text-[var(--sea-ink-soft)]">
                               —
@@ -124,14 +120,13 @@ function LlmMetricsSection() {
                           )}
                         </td>
                         <td
-                          key={`${r.kind}-${w}-n`}
                           className="px-3 py-2 text-[var(--sea-ink-soft)]"
                         >
                           {cell.count === 0
                             ? '—'
                             : `${cell.count} · ${okPct}`}
                         </td>
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tr>
