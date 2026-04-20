@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createTask } from '../../../server/functions/tasks'
 import { getLlmStatus } from '../../../server/functions/config'
-import type { Recurrence } from '../../../domain/recurrence'
+import type { DurationUnit, Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
@@ -13,12 +13,20 @@ export const Route = createFileRoute('/_authenticated/tasks/new')({
   component: NewTaskPage,
 })
 
-type RecurrenceKind = 'none' | 'daily' | 'weekly' | 'after_completion'
-type DueKind = 'someday' | 'anytime' | 'timed'
+type RecurrenceKind =
+  | 'none'
+  | 'daily'
+  | 'weekly'
+  | 'interval'
+  | 'after_completion'
+type DueKind = 'someday' | 'anytime' | 'timed' | 'in' | 'date'
 
 function buildRecurrence(
   kind: RecurrenceKind,
-  afterDays: number,
+  intervalAmount: number,
+  intervalUnit: DurationUnit,
+  afterAmount: number,
+  afterUnit: DurationUnit,
   weekdays: number[],
 ): Recurrence | null {
   switch (kind) {
@@ -28,8 +36,14 @@ function buildRecurrence(
       return { type: 'daily' }
     case 'weekly':
       return { type: 'weekly', daysOfWeek: [...weekdays].sort((a, b) => a - b) }
+    case 'interval':
+      return { type: 'interval', amount: intervalAmount, unit: intervalUnit }
     case 'after_completion':
-      return { type: 'after_completion', days: afterDays }
+      return {
+        type: 'after_completion',
+        amount: afterAmount,
+        unit: afterUnit,
+      }
   }
 }
 
@@ -42,10 +56,21 @@ function NewTaskPage() {
   const [notes, setNotes] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const [kind, setKind] = useState<RecurrenceKind>('none')
-  const [afterDays, setAfterDays] = useState(7)
+  const [afterAmount, setAfterAmount] = useState(7)
+  const [afterUnit, setAfterUnit] = useState<DurationUnit>('days')
+  const [intervalAmount, setIntervalAmount] = useState(2)
+  const [intervalUnit, setIntervalUnit] = useState<DurationUnit>('hours')
   const [weekdays, setWeekdays] = useState<number[]>([1]) // default Monday
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
+  const [inAmount, setInAmount] = useState(2)
+  const [inUnit, setInUnit] = useState<'minutes' | 'hours'>('hours')
+  const [dateStr, setDateStr] = useState(() => {
+    // Default to a week from today in the browser's local tz.
+    const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    return d.toISOString().slice(0, 10)
+  })
+  const [dateTime, setDateTime] = useState('')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +86,7 @@ function NewTaskPage() {
       timeOfDay: string | null
       someday: boolean
       visibility: TaskVisibility
+      dueAtOverride?: string | null
     }) => createTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['today'] })
@@ -84,16 +110,47 @@ function NewTaskPage() {
       setError('Pick at least one day of the week.')
       return
     }
+    let dueAtOverride: string | null = null
+    if (dueKind === 'in') {
+      const ms =
+        inUnit === 'minutes' ? inAmount * 60_000 : inAmount * 60 * 60_000
+      dueAtOverride = new Date(Date.now() + ms).toISOString()
+    } else if (dueKind === 'date') {
+      // Combine the picked date with optional time in the browser's
+      // local tz, then pass as ISO. If no time, anchor to 09:00 local
+      // (a sensible morning default for a date-only task).
+      const time = dateTime || '09:00'
+      const local = new Date(`${dateStr}T${time}:00`)
+      if (isNaN(local.getTime())) {
+        setError('Pick a valid date.')
+        return
+      }
+      dueAtOverride = local.toISOString()
+    }
+    const effectiveTimeOfDay =
+      dueKind === 'timed'
+        ? timeOfDay
+        : dueKind === 'date' && dateTime
+          ? dateTime
+          : null
     mutation.mutate({
       title,
       notes: notes.trim() ? notes : null,
       difficulty,
       recurrence: isSomeday
         ? null
-        : buildRecurrence(recurrenceKind, afterDays, weekdays),
-      timeOfDay: dueKind === 'timed' ? timeOfDay : null,
+        : buildRecurrence(
+            recurrenceKind,
+            intervalAmount,
+            intervalUnit,
+            afterAmount,
+            afterUnit,
+            weekdays,
+          ),
+      timeOfDay: effectiveTimeOfDay,
       someday: isSomeday,
       visibility,
+      dueAtOverride,
     })
   }
 
@@ -173,15 +230,84 @@ function NewTaskPage() {
               label="At a specific time"
               detail="100% XP within 1h of due; 80% later same day; 50% after."
             />
+            <DueOption
+              current={dueKind}
+              value="in"
+              onChange={setDueKind}
+              label="In a bit"
+              detail="Remind me N minutes or hours from now. Good for “fold laundry in 2h”."
+            />
+            <DueOption
+              current={dueKind}
+              value="date"
+              onChange={setDueKind}
+              label="On a specific date"
+              detail="Pick any calendar date (with optional time). One-off unless you also set recurrence."
+            />
           </div>
-          {dueKind === 'timed' ? (
+          {dueKind === 'date' ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                type="date"
+                required
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="field-input max-w-[12rem]"
+              />
+              <input
+                type="time"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+                placeholder="09:00"
+                className="field-input max-w-[10rem]"
+              />
+              <p className="w-full text-xs text-[var(--sea-ink-soft)]">
+                {dateTime
+                  ? `Due on ${dateStr} at ${dateTime}.`
+                  : `Due on ${dateStr} (defaults to 09:00 local if no time set).`}
+              </p>
+            </div>
+          ) : null}
+          {dueKind === 'in' ? (
             <div className="mt-3">
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={inAmount}
+                  onChange={(e) =>
+                    setInAmount(Math.max(1, Number(e.target.value) || 1))
+                  }
+                  className="field-input max-w-[6rem]"
+                />
+                <select
+                  value={inUnit}
+                  onChange={(e) =>
+                    setInUnit(e.target.value as 'minutes' | 'hours')
+                  }
+                  className="field-input max-w-[10rem]"
+                >
+                  <option value="minutes">minutes</option>
+                  <option value="hours">hours</option>
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+                {formatRelativeDue(inAmount, inUnit)}
+              </p>
+            </div>
+          ) : null}
+          {dueKind === 'timed' ? (
+            <div className="mt-3 space-y-1">
               <input
                 type="time"
                 required
                 value={timeOfDay}
                 onChange={(e) => setTimeOfDay(e.target.value)}
                 className="field-input max-w-[10rem]"
+              />
+              <PastTimeHint
+                time={timeOfDay}
+                recurring={recurrenceKind !== 'none'}
               />
             </div>
           ) : null}
@@ -200,7 +326,8 @@ function NewTaskPage() {
             <option value="none">One-off</option>
             <option value="daily">Every day</option>
             <option value="weekly">On specific days of the week</option>
-            <option value="after_completion">N days after last done</option>
+            <option value="interval">Every N minutes / hours / days</option>
+            <option value="after_completion">N after last done</option>
           </select>
           {isSomeday ? (
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
@@ -218,19 +345,32 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'after_completion' && !isSomeday ? (
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Days after completion
-            </span>
-            <input
-              type="number"
-              min={1}
-              value={afterDays}
-              onChange={(e) => setAfterDays(Number(e.target.value))}
-              className="field-input"
+        {recurrenceKind === 'interval' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Every
+            </legend>
+            <AmountUnitPicker
+              amount={intervalAmount}
+              unit={intervalUnit}
+              onAmountChange={setIntervalAmount}
+              onUnitChange={setIntervalUnit}
             />
-          </label>
+          </fieldset>
+        ) : null}
+
+        {recurrenceKind === 'after_completion' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              After completion
+            </legend>
+            <AmountUnitPicker
+              amount={afterAmount}
+              unit={afterUnit}
+              onAmountChange={setAfterAmount}
+              onUnitChange={setAfterUnit}
+            />
+          </fieldset>
         ) : null}
 
         <label className="block">
@@ -308,4 +448,74 @@ function DueOption({
       </span>
     </label>
   )
+}
+
+
+function PastTimeHint({
+  time,
+  recurring,
+}: {
+  time: string
+  recurring: boolean
+}) {
+  // Parse the user's HH:MM pick and compare against now in local clock
+  // time. A one-off past time fires today as overdue; a recurring task
+  // rolls to its next occurrence. Both are explicit here so there's no
+  // surprise at create time.
+  const m = /^(\d{2}):(\d{2})$/.exec(time)
+  if (!m) return null
+  const pickedMin = Number(m[1]) * 60 + Number(m[2])
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  if (pickedMin >= nowMin) return null
+  return (
+    <p className="text-xs text-[var(--sea-ink-soft)]">
+      {recurring
+        ? 'That time has passed today — the first instance will be tomorrow.'
+        : 'That time has passed today — this will be overdue right away.'}
+    </p>
+  )
+}
+
+function AmountUnitPicker({
+  amount,
+  unit,
+  onAmountChange,
+  onUnitChange,
+}: {
+  amount: number
+  unit: DurationUnit
+  onAmountChange: (n: number) => void
+  onUnitChange: (u: DurationUnit) => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <input
+        type="number"
+        min={1}
+        value={amount}
+        onChange={(e) => onAmountChange(Math.max(1, Number(e.target.value) || 1))}
+        className="field-input max-w-[6rem]"
+      />
+      <select
+        value={unit}
+        onChange={(e) => onUnitChange(e.target.value as DurationUnit)}
+        className="field-input max-w-[10rem]"
+      >
+        <option value="minutes">minutes</option>
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
+  )
+}
+
+function formatRelativeDue(amount: number, unit: 'minutes' | 'hours'): string {
+  const ms = unit === 'minutes' ? amount * 60_000 : amount * 60 * 60_000
+  const at = new Date(Date.now() + ms)
+  const clock = at.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  return `Will be due at about ${clock}.`
 }

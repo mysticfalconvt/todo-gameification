@@ -16,7 +16,8 @@ import {
 } from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 import { getLlmStatus } from '../../../server/functions/config'
-import type { Recurrence } from '../../../domain/recurrence'
+import type { DurationUnit, Recurrence } from '../../../domain/recurrence'
+import { resolveDuration } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
@@ -32,50 +33,87 @@ export const Route = createFileRoute('/_authenticated/tasks/$taskId')({
   component: EditTaskPage,
 })
 
-type RecurrenceKind = 'none' | 'daily' | 'weekly' | 'after_completion'
+type RecurrenceKind =
+  | 'none'
+  | 'daily'
+  | 'weekly'
+  | 'interval'
+  | 'after_completion'
 type DueKind = 'someday' | 'anytime' | 'timed'
 
-function recurrenceToKind(r: Recurrence | null): {
+interface RecurrenceForm {
   kind: RecurrenceKind
-  afterDays: number
+  intervalAmount: number
+  intervalUnit: DurationUnit
+  afterAmount: number
+  afterUnit: DurationUnit
   weekdays: number[]
-} {
-  if (!r) return { kind: 'none', afterDays: 7, weekdays: [1] }
-  if (r.type === 'daily')
-    return { kind: 'daily', afterDays: 7, weekdays: [1] }
+}
+
+const DEFAULT_FORM: RecurrenceForm = {
+  kind: 'none',
+  intervalAmount: 2,
+  intervalUnit: 'hours',
+  afterAmount: 7,
+  afterUnit: 'days',
+  weekdays: [1],
+}
+
+function recurrenceToForm(r: Recurrence | null): RecurrenceForm {
+  if (!r) return DEFAULT_FORM
+  if (r.type === 'daily') return { ...DEFAULT_FORM, kind: 'daily' }
   if (r.type === 'weekly') {
     // Legacy tasks saved as weekly with all seven days are semantically
     // "every day" — keep them as 'daily' so the dropdown matches the
     // cleaner option.
-    if (r.daysOfWeek.length === 7) {
-      return { kind: 'daily', afterDays: 7, weekdays: [1] }
-    }
+    if (r.daysOfWeek.length === 7) return { ...DEFAULT_FORM, kind: 'daily' }
     return {
+      ...DEFAULT_FORM,
       kind: 'weekly',
-      afterDays: 7,
       weekdays: [...r.daysOfWeek].sort((a, b) => a - b),
     }
   }
-  if (r.type === 'after_completion') {
-    return { kind: 'after_completion', afterDays: r.days, weekdays: [1] }
+  if (r.type === 'interval') {
+    const { amount, unit } = resolveDuration(r)
+    return {
+      ...DEFAULT_FORM,
+      kind: 'interval',
+      intervalAmount: amount,
+      intervalUnit: unit,
+    }
   }
-  return { kind: 'none', afterDays: 7, weekdays: [1] }
+  if (r.type === 'after_completion') {
+    const { amount, unit } = resolveDuration(r)
+    return {
+      ...DEFAULT_FORM,
+      kind: 'after_completion',
+      afterAmount: amount,
+      afterUnit: unit,
+    }
+  }
+  return DEFAULT_FORM
 }
 
-function buildRecurrence(
-  kind: RecurrenceKind,
-  afterDays: number,
-  weekdays: number[],
-): Recurrence | null {
-  switch (kind) {
+function buildRecurrence(f: RecurrenceForm): Recurrence | null {
+  switch (f.kind) {
     case 'none':
       return null
     case 'daily':
       return { type: 'daily' }
     case 'weekly':
-      return { type: 'weekly', daysOfWeek: [...weekdays].sort((a, b) => a - b) }
+      return { type: 'weekly', daysOfWeek: [...f.weekdays].sort((a, b) => a - b) }
+    case 'interval':
+      return {
+        type: 'interval',
+        amount: f.intervalAmount,
+        unit: f.intervalUnit,
+      }
     case 'after_completion':
-      return { type: 'after_completion', days: afterDays }
+      return {
+        type: 'after_completion',
+        amount: f.afterAmount,
+        unit: f.afterUnit,
+      }
   }
 }
 
@@ -96,9 +134,7 @@ function EditTaskPage() {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-  const [kind, setKind] = useState<RecurrenceKind>('none')
-  const [afterDays, setAfterDays] = useState(7)
-  const [weekdays, setWeekdays] = useState<number[]>([1])
+  const [form, setForm] = useState<RecurrenceForm>(DEFAULT_FORM)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
@@ -111,10 +147,7 @@ function EditTaskPage() {
     setTitle(t.title)
     setNotes(t.notes ?? '')
     setDifficulty(t.difficulty)
-    const rc = recurrenceToKind(t.recurrence)
-    setKind(rc.kind)
-    setAfterDays(rc.afterDays)
-    setWeekdays(rc.weekdays)
+    setForm(recurrenceToForm(t.recurrence))
     if (t.timeOfDay) {
       setDueKind('timed')
       setTimeOfDay(t.timeOfDay)
@@ -129,7 +162,7 @@ function EditTaskPage() {
   }, [taskQuery.data, loadedFor])
 
   const isSomeday = dueKind === 'someday'
-  const recurrenceKind = isSomeday ? 'none' : kind
+  const recurrenceKind: RecurrenceKind = isSomeday ? 'none' : form.kind
 
   const save = useMutation({
     mutationFn: (input: {
@@ -223,7 +256,7 @@ function EditTaskPage() {
     if (
       !isSomeday &&
       recurrenceKind === 'weekly' &&
-      weekdays.length === 0
+      form.weekdays.length === 0
     ) {
       setError('Pick at least one day of the week.')
       return
@@ -235,7 +268,7 @@ function EditTaskPage() {
       difficulty,
       recurrence: isSomeday
         ? null
-        : buildRecurrence(recurrenceKind, afterDays, weekdays),
+        : buildRecurrence({ ...form, kind: recurrenceKind }),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       visibility,
     })
@@ -405,14 +438,20 @@ function EditTaskPage() {
           </span>
           <select
             value={recurrenceKind}
-            onChange={(e) => setKind(e.target.value as RecurrenceKind)}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                kind: e.target.value as RecurrenceKind,
+              }))
+            }
             disabled={isSomeday}
             className="field-input"
           >
             <option value="none">One-off</option>
             <option value="daily">Every day</option>
             <option value="weekly">On specific days of the week</option>
-            <option value="after_completion">N days after last done</option>
+            <option value="interval">Every N minutes / hours / days</option>
+            <option value="after_completion">N after last done</option>
           </select>
         </label>
 
@@ -421,23 +460,47 @@ function EditTaskPage() {
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Days of the week
             </legend>
-            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+            <WeekdayPicker
+              value={form.weekdays}
+              onChange={(w) => setForm((f) => ({ ...f, weekdays: w }))}
+            />
+          </fieldset>
+        ) : null}
+
+        {recurrenceKind === 'interval' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Every
+            </legend>
+            <AmountUnitPicker
+              amount={form.intervalAmount}
+              unit={form.intervalUnit}
+              onAmountChange={(n) =>
+                setForm((f) => ({ ...f, intervalAmount: n }))
+              }
+              onUnitChange={(u) =>
+                setForm((f) => ({ ...f, intervalUnit: u }))
+              }
+            />
           </fieldset>
         ) : null}
 
         {recurrenceKind === 'after_completion' && !isSomeday ? (
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Days after completion
-            </span>
-            <input
-              type="number"
-              min={1}
-              value={afterDays}
-              onChange={(e) => setAfterDays(Number(e.target.value))}
-              className="field-input"
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              After completion
+            </legend>
+            <AmountUnitPicker
+              amount={form.afterAmount}
+              unit={form.afterUnit}
+              onAmountChange={(n) =>
+                setForm((f) => ({ ...f, afterAmount: n }))
+              }
+              onUnitChange={(u) =>
+                setForm((f) => ({ ...f, afterUnit: u }))
+              }
             />
-          </label>
+          </fieldset>
         ) : null}
 
         <label className="block">
@@ -633,5 +696,38 @@ function DueOption({
         </span>
       </span>
     </label>
+  )
+}
+
+function AmountUnitPicker({
+  amount,
+  unit,
+  onAmountChange,
+  onUnitChange,
+}: {
+  amount: number
+  unit: DurationUnit
+  onAmountChange: (n: number) => void
+  onUnitChange: (u: DurationUnit) => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <input
+        type="number"
+        min={1}
+        value={amount}
+        onChange={(e) => onAmountChange(Math.max(1, Number(e.target.value) || 1))}
+        className="field-input max-w-[6rem]"
+      />
+      <select
+        value={unit}
+        onChange={(e) => onUnitChange(e.target.value as DurationUnit)}
+        className="field-input max-w-[10rem]"
+      >
+        <option value="minutes">minutes</option>
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
   )
 }

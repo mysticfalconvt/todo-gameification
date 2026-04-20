@@ -62,6 +62,12 @@ export interface CreateTaskInput {
   timeOfDay: string | null
   someday: boolean
   visibility?: TaskVisibility
+  // Absolute due instant set by the client. When present, overrides
+  // the default firstDueAt(now, recurrence, timeOfDay) computation.
+  // Used by the "In N hours/minutes" picker so the first instance can
+  // land at any moment (not just a same-day HH:MM), while still
+  // letting `recurrence` drive later occurrences.
+  dueAtOverride?: string | null
 }
 
 export interface UpdateTaskInput {
@@ -230,13 +236,15 @@ export async function createTask(
   const now = new Date()
   const timeZone = await getUserTimeZone(userId)
 
-  const dueAt = firstDueAt({
-    now,
-    recurrence: input.recurrence,
-    timeOfDay: input.someday ? null : input.timeOfDay,
-    timeZone,
-    someday: input.someday,
-  })
+  const dueAt = input.dueAtOverride
+    ? new Date(input.dueAtOverride)
+    : firstDueAt({
+        now,
+        recurrence: input.recurrence,
+        timeOfDay: input.someday ? null : input.timeOfDay,
+        timeZone,
+        someday: input.someday,
+      })
 
   const [categories, recentScores] = await Promise.all([
     listCategories(userId),

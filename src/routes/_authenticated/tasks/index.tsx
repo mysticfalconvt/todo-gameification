@@ -9,6 +9,7 @@ import {
 } from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 import type { Recurrence } from '../../../domain/recurrence'
+import { resolveDuration } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
 import { SortSelect } from '../../../components/SortSelect'
 import { CategoryHistogram } from '../../../components/CategoryHistogram'
@@ -428,9 +429,19 @@ function recurrenceLabel(r: Recurrence | null) {
       return 'Daily'
     case 'weekly':
       return formatWeeklyLabel(r.daysOfWeek)
-    case 'interval':
-      return `Every ${r.days} days`
-    case 'after_completion':
-      return `${r.days}d after done`
+    case 'interval': {
+      const { amount, unit } = resolveDuration(r)
+      return `Every ${amount} ${shortUnit(amount, unit)}`
+    }
+    case 'after_completion': {
+      const { amount, unit } = resolveDuration(r)
+      return `${amount} ${shortUnit(amount, unit)} after done`
+    }
   }
+}
+
+function shortUnit(amount: number, unit: 'minutes' | 'hours' | 'days'): string {
+  const base =
+    unit === 'minutes' ? 'min' : unit === 'hours' ? 'hr' : 'day'
+  return amount === 1 ? base : `${base}s`
 }

@@ -1,15 +1,59 @@
 import { dayOfWeekInTz, nextOccurrenceAt, setTimeInTz } from './time'
+import { formatInTimeZone } from 'date-fns-tz'
+
+// Legacy `days: number` shape is still accepted on read; new writes use
+// the `amount + unit` shape so the same type can express "every 2 hours"
+// or "30 minutes after done." No SQL migration needed — `tasks.recurrence`
+// is jsonb and readers tolerate both shapes.
+export type DurationUnit = 'minutes' | 'hours' | 'days'
 
 export type Recurrence =
   | { type: 'daily' }
   | { type: 'weekly'; daysOfWeek: number[] }
-  | { type: 'interval'; days: number }
-  | { type: 'after_completion'; days: number }
+  | {
+      type: 'interval'
+      /** Legacy — kept for rows written before the unit split. */
+      days?: number
+      amount?: number
+      unit?: DurationUnit
+    }
+  | {
+      type: 'after_completion'
+      /** Legacy — kept for rows written before the unit split. */
+      days?: number
+      amount?: number
+      unit?: DurationUnit
+    }
 
-const MS_PER_DAY = 86_400_000
+const MS_PER_MINUTE = 60_000
+const MS_PER_HOUR = 60 * MS_PER_MINUTE
+const MS_PER_DAY = 24 * MS_PER_HOUR
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MS_PER_DAY)
+}
+
+function msForDuration(amount: number, unit: DurationUnit): number {
+  switch (unit) {
+    case 'minutes':
+      return amount * MS_PER_MINUTE
+    case 'hours':
+      return amount * MS_PER_HOUR
+    case 'days':
+      return amount * MS_PER_DAY
+  }
+}
+
+// Pull {amount, unit} from either the new shape or the legacy {days}.
+export function resolveDuration(r: {
+  days?: number
+  amount?: number
+  unit?: DurationUnit
+}): { amount: number; unit: DurationUnit } {
+  if (typeof r.amount === 'number' && r.unit) {
+    return { amount: r.amount, unit: r.unit }
+  }
+  return { amount: r.days ?? 1, unit: 'days' }
 }
 
 function startOfUtcDay(date: Date): Date {
@@ -69,13 +113,26 @@ export function computeNextDue(input: ComputeNextDueInput): Date {
     }
 
     case 'interval': {
-      const next = addDays(previousDueAt, recurrence.days)
-      return hasLocalPin ? setTimeInTz(next, timeOfDay!, timeZone!) : next
+      const { amount, unit } = resolveDuration(recurrence)
+      const next = new Date(
+        previousDueAt.getTime() + msForDuration(amount, unit),
+      )
+      // Only pin to a local clock time for day-granular schedules.
+      // Sub-day intervals (hours / minutes) are relative offsets and
+      // pinning them to HH:MM would snap them to a fixed hour daily.
+      return hasLocalPin && unit === 'days'
+        ? setTimeInTz(next, timeOfDay!, timeZone!)
+        : next
     }
 
     case 'after_completion': {
-      const next = addDays(completedAt, recurrence.days)
-      return hasLocalPin ? setTimeInTz(next, timeOfDay!, timeZone!) : next
+      const { amount, unit } = resolveDuration(recurrence)
+      const next = new Date(
+        completedAt.getTime() + msForDuration(amount, unit),
+      )
+      return hasLocalPin && unit === 'days'
+        ? setTimeInTz(next, timeOfDay!, timeZone!)
+        : next
     }
   }
 }
@@ -93,6 +150,18 @@ export function firstDueAt(options: {
   if (!timeOfDay) return now
 
   if (!recurrence || recurrence.type !== 'weekly') {
+    // For a one-off task the user explicitly picked a clock time for
+    // today, so a past-time pick should fire immediately (marked
+    // overdue) rather than silently rolling to tomorrow. Recurring
+    // tasks still use nextOccurrenceAt so they advance to the next
+    // scheduled occurrence.
+    if (!recurrence) {
+      const candidate = setTimeInTz(now, timeOfDay, timeZone)
+      const sameLocalDay =
+        formatInTimeZone(candidate, timeZone, 'yyyy-MM-dd') ===
+        formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
+      if (sameLocalDay) return candidate
+    }
     return nextOccurrenceAt(now, timeOfDay, timeZone)
   }
 

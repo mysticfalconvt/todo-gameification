@@ -142,11 +142,26 @@ describe('firstDueAt', () => {
     expect(formatLocal(result, 'America/Chicago')).toBe('2026-04-18 08:00')
   })
 
-  it('rolls to tomorrow local when HH:MM has already passed today', () => {
-    // now = 2026-04-18T16:00Z = 11:00 CDT → 08:00 already past, pick tomorrow
+  it('one-off past-time today fires immediately (overdue, not rolled to tomorrow)', () => {
+    // now = 2026-04-18T16:00Z = 11:00 CDT → 08:00 already past today.
+    // For a non-recurring task this is a reminder the user wants soon,
+    // not next day — surface it as overdue at 08:00 today.
     const result = firstDueAt({
       now: at('2026-04-18T16:00:00Z'),
       recurrence: null,
+      timeOfDay: '08:00',
+      timeZone: 'America/Chicago',
+    })
+    expect(formatLocal(result, 'America/Chicago')).toBe('2026-04-18 08:00')
+  })
+
+  it('recurring daily past-time today still rolls to tomorrow', () => {
+    // Same setup but with a daily recurrence — the next occurrence is
+    // tomorrow 08:00, which is what we want so the task doesn't
+    // perpetually show as overdue for its ongoing schedule.
+    const result = firstDueAt({
+      now: at('2026-04-18T16:00:00Z'),
+      recurrence: { type: 'daily' },
       timeOfDay: '08:00',
       timeZone: 'America/Chicago',
     })
