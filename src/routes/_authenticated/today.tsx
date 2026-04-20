@@ -301,7 +301,12 @@ function TodayPage() {
                   onClick={() => complete.mutate(inst.instanceId)}
                   className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
                 />
-                <div className="min-w-0 flex-1">
+                <Link
+                  to="/tasks/$taskId"
+                  params={{ taskId: inst.taskId }}
+                  className="min-w-0 flex-1 no-underline"
+                  aria-label={`Edit ${inst.title}`}
+                >
                   <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
                     <CategoryDot slug={inst.categorySlug} map={catBySlug} />
                     <span className="truncate">{inst.title}</span>
@@ -312,7 +317,7 @@ function TodayPage() {
                       <> • {catBySlug.get(inst.categorySlug)!.label}</>
                     ) : null}
                   </p>
-                </div>
+                </Link>
               </li>
             ))}
           </ul>
@@ -625,7 +630,12 @@ function BucketList({
             onClick={() => onComplete(inst.instanceId)}
             className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
           />
-          <div className="min-w-0 flex-1">
+          <Link
+            to="/tasks/$taskId"
+            params={{ taskId: inst.taskId }}
+            className="min-w-0 flex-1 no-underline"
+            aria-label={`Edit ${inst.title}`}
+          >
             <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
               <CategoryDot slug={inst.categorySlug} map={catBySlug} />
               <span className="truncate">{inst.title}</span>
@@ -638,7 +648,7 @@ function BucketList({
                 <> • {catBySlug.get(inst.categorySlug)!.label}</>
               ) : null}
             </p>
-          </div>
+          </Link>
           <div className="flex flex-shrink-0 items-center gap-1">
             <IconButton
               label={`Snooze ${inst.title} for 1 hour`}
