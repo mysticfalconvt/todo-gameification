@@ -9,6 +9,7 @@
 // Validation lives here too (title non-empty, difficulty enum, timeOfDay
 // format, etc.) so any caller gets the same guarantees.
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
   events,
@@ -574,7 +575,20 @@ export async function listTodayInstances(
   userId: string,
 ): Promise<TodayInstance[]> {
   const now = new Date()
-  const horizon = new Date(now.getTime() + 36 * 3_600_000)
+  const timeZone = await getUserTimeZone(userId)
+  // Horizon is the end of the user's local day (i.e., tomorrow's
+  // local midnight). This means:
+  // - A daily task you complete at 6pm doesn't re-appear in "today"
+  //   the moment its next instance (tomorrow 6pm) is materialized.
+  // - A task due tomorrow morning doesn't show up in tonight's list.
+  // Overdue instances (dueAt in the past) still pass because the
+  // filter is strictly "dueAt < horizon".
+  const todayLocal = formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
+  const [y, m, d] = todayLocal.split('-').map(Number)
+  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1))
+    .toISOString()
+    .slice(0, 10)} 00:00:00`
+  const horizon = fromZonedTime(tomorrowStr, timeZone)
 
   const rows = await db
     .select({
