@@ -8,7 +8,19 @@
 //
 // Validation lives here too (title non-empty, difficulty enum, timeOfDay
 // format, etc.) so any caller gets the same guarantees.
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from 'drizzle-orm'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
@@ -20,7 +32,7 @@ import {
 } from '../db/schema'
 import type { Recurrence } from '../../domain/recurrence'
 import { computeNextDue, firstDueAt } from '../../domain/recurrence'
-import { assertValidTimeOfDay } from '../../domain/time'
+import { assertValidTimeOfDay, setTimeInTz } from '../../domain/time'
 import type { Difficulty, DomainEvent } from '../../domain/events'
 import {
   INITIAL_PROGRESSION,
@@ -571,6 +583,88 @@ export async function snoozeTask(
 // Instances
 // ---------------------------------------------------------------------------
 
+// One-shot heal for tasks whose pending instance got pushed a day ahead
+// by the old 36-hour-horizon bug: a user checked off tomorrow's instance
+// yesterday, computeNextDue then scheduled the day-after-tomorrow's,
+// and the user's "today" list is now empty even though the habit is due.
+//
+// Only shifts instances where the most recent completion's local-day is
+// exactly one day before that instance's dueAt local-day. That's the
+// narrow signature of the bug; legit "complete tonight for tomorrow 6am"
+// is also matched but happens rarely — and if we shift a tomorrow task
+// back to today, the user will just re-complete it.
+async function repairDriftedRecurring(
+  userId: string,
+  timeZone: string,
+  endOfTodayLocal: Date,
+): Promise<void> {
+  const rows = await db
+    .select({
+      instanceId: taskInstances.id,
+      taskId: tasks.id,
+      instanceDueAt: taskInstances.dueAt,
+      timeOfDay: tasks.timeOfDay,
+      recurrence: tasks.recurrence,
+    })
+    .from(taskInstances)
+    .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
+    .where(
+      and(
+        eq(taskInstances.userId, userId),
+        isNull(taskInstances.completedAt),
+        isNull(taskInstances.skippedAt),
+        isNotNull(taskInstances.dueAt),
+        gte(taskInstances.dueAt, endOfTodayLocal),
+        eq(tasks.active, true),
+        isNotNull(tasks.timeOfDay),
+      ),
+    )
+
+  for (const row of rows) {
+    if (!row.recurrence || !row.timeOfDay || !row.instanceDueAt) continue
+    // Cap shift distance — don't touch instances scheduled more than a
+    // week out; those are almost certainly intentional.
+    const daysAhead =
+      (row.instanceDueAt.getTime() - endOfTodayLocal.getTime()) /
+      86_400_000
+    if (daysAhead > 7) continue
+
+    const latestCompleted = await db.query.taskInstances.findFirst({
+      where: and(
+        eq(taskInstances.taskId, row.taskId),
+        isNotNull(taskInstances.completedAt),
+      ),
+      orderBy: (t, { desc: d }) => [d(t.completedAt)],
+    })
+    if (!latestCompleted?.completedAt || !latestCompleted.dueAt) continue
+
+    const completedLocalDay = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(latestCompleted.completedAt)
+    const dueLocalDay = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(latestCompleted.dueAt)
+    if (completedLocalDay >= dueLocalDay) continue // completed on/after due day — normal
+
+    // Drift confirmed. Shift the pending instance to today at its
+    // task's timeOfDay in the user's tz.
+    const newDueAt = setTimeInTz(new Date(), row.timeOfDay, timeZone)
+    await db
+      .update(taskInstances)
+      .set({ dueAt: newDueAt })
+      .where(eq(taskInstances.id, row.instanceId))
+    console.info(
+      `[repair] shifted instance ${row.instanceId} from ${row.instanceDueAt.toISOString()} → ${newDueAt.toISOString()}`,
+    )
+  }
+}
+
 export async function listTodayInstances(
   userId: string,
 ): Promise<TodayInstance[]> {
@@ -589,6 +683,14 @@ export async function listTodayInstances(
     .toISOString()
     .slice(0, 10)} 00:00:00`
   const horizon = fromZonedTime(tomorrowStr, timeZone)
+
+  // Self-heal any tasks that drifted a day ahead from the old 36h
+  // horizon bug. Best-effort — if it errors we still render today.
+  try {
+    await repairDriftedRecurring(userId, timeZone, horizon)
+  } catch (err) {
+    console.error('[repairDriftedRecurring] failed:', err)
+  }
 
   const rows = await db
     .select({
@@ -671,6 +773,208 @@ export async function listSomedayInstances(
     categorySlug: r.categorySlug,
     createdAt: r.createdAt.toISOString(),
   }))
+}
+
+// Manual recovery for a wrong checkoff. Finds the most recently
+// completed instance for this task, un-completes it, deletes the
+// matching task.completed event from the log, and rebuilds progression
+// by replaying the surviving events from scratch. Full replay is the
+// only way to stay consistent with streak calculations without drifting
+// slowly over many undo/redo cycles.
+export async function reopenLastCompletion(
+  userId: string,
+  taskId: string,
+): Promise<{ instanceId: string }> {
+  if (!taskId) throw new Error('taskId required')
+  const timeZone = await getUserTimeZone(userId)
+
+  return db.transaction(async (tx) => {
+    // Ownership gate.
+    const task = await tx.query.tasks.findFirst({
+      where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
+      columns: { id: true },
+    })
+    if (!task) throw new Error('task not found')
+
+    const latest = await tx.query.taskInstances.findFirst({
+      where: and(
+        eq(taskInstances.taskId, taskId),
+        eq(taskInstances.userId, userId),
+        isNotNull(taskInstances.completedAt),
+      ),
+      orderBy: (t, { desc: d }) => [d(t.completedAt)],
+    })
+    if (!latest) throw new Error('no completed instance to reopen')
+
+    // Drop the corresponding task.completed event so the event log
+    // stays the source of truth for progression. We match on
+    // payload.instanceId which is unique per completion.
+    await tx
+      .delete(events)
+      .where(
+        and(
+          eq(events.userId, userId),
+          eq(events.type, 'task.completed'),
+          sql`${events.payload}->>'instanceId' = ${latest.id}`,
+        ),
+      )
+    // Also revoke any cheer events that landed on this completion so
+    // XP from cheers doesn't linger after the original is gone.
+    await tx
+      .delete(events)
+      .where(
+        and(
+          eq(events.userId, userId),
+          eq(events.type, 'task.cheered'),
+          sql`${events.payload}->>'completionEventId' IN (
+            SELECT id FROM ${events} WHERE ${events.userId} = ${userId}
+              AND ${events.type} = 'task.completed'
+              AND ${events.payload}->>'instanceId' = ${latest.id}
+          )`,
+        ),
+      )
+
+    await tx
+      .update(taskInstances)
+      .set({ completedAt: null })
+      .where(eq(taskInstances.id, latest.id))
+
+    // Also roll back the "next instance" that was materialized when
+    // this one got completed. A recurring task auto-created a future
+    // instance; reopening the current one should also remove the
+    // speculative follow-up so we don't end up with duplicates.
+    if (latest.dueAt) {
+      await tx
+        .delete(taskInstances)
+        .where(
+          and(
+            eq(taskInstances.taskId, taskId),
+            eq(taskInstances.userId, userId),
+            isNull(taskInstances.completedAt),
+            isNull(taskInstances.skippedAt),
+            gt(taskInstances.dueAt, latest.dueAt),
+          ),
+        )
+    }
+
+    await rebuildProgression(tx, userId, timeZone)
+    return { instanceId: latest.id }
+  })
+}
+
+// Replay all surviving events for this user through applyEvent and
+// write the result to the progression table. Used after reopening a
+// completion so XP/streak stay consistent with the event log.
+async function rebuildProgression(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: string,
+  timeZone: string,
+): Promise<void> {
+  const rows = await tx
+    .select({
+      type: events.type,
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(eq(events.userId, userId))
+    .orderBy(events.occurredAt)
+
+  let state = INITIAL_PROGRESSION
+  for (const r of rows) {
+    if (!r.occurredAt) continue
+    const p =
+      r.payload && typeof r.payload === 'object'
+        ? (r.payload as Record<string, unknown>)
+        : {}
+    const occurredAt = r.occurredAt
+    if (r.type === 'task.completed') {
+      state = applyEvent(
+        state,
+        {
+          type: 'task.completed',
+          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
+          instanceId:
+            typeof p['instanceId'] === 'string'
+              ? (p['instanceId'] as string)
+              : '',
+          difficulty:
+            (typeof p['difficulty'] === 'string'
+              ? (p['difficulty'] as Difficulty)
+              : 'medium') as Difficulty,
+          xpOverride:
+            typeof p['xpOverride'] === 'number'
+              ? (p['xpOverride'] as number)
+              : null,
+          dueAt:
+            typeof p['dueAt'] === 'string'
+              ? new Date(p['dueAt'] as string)
+              : null,
+          timeOfDay:
+            typeof p['timeOfDay'] === 'string'
+              ? (p['timeOfDay'] as string)
+              : null,
+          occurredAt,
+        },
+        { timeZone },
+      )
+    } else if (r.type === 'task.cheered') {
+      state = applyEvent(
+        state,
+        {
+          type: 'task.cheered',
+          completionEventId:
+            typeof p['completionEventId'] === 'string'
+              ? (p['completionEventId'] as string)
+              : '',
+          giverUserId:
+            typeof p['giverUserId'] === 'string'
+              ? (p['giverUserId'] as string)
+              : '',
+          xp: typeof p['xp'] === 'number' ? (p['xp'] as number) : 0,
+          occurredAt,
+        },
+        { timeZone },
+      )
+    } else if (r.type === 'friend.added') {
+      state = applyEvent(
+        state,
+        {
+          type: 'friend.added',
+          otherUserId:
+            typeof p['otherUserId'] === 'string'
+              ? (p['otherUserId'] as string)
+              : '',
+          xp: typeof p['xp'] === 'number' ? (p['xp'] as number) : 0,
+          occurredAt,
+        },
+        { timeZone },
+      )
+    }
+  }
+
+  const now = new Date()
+  await tx
+    .insert(progression)
+    .values({
+      userId,
+      xp: state.xp,
+      level: state.level,
+      currentStreak: state.currentStreak,
+      longestStreak: state.longestStreak,
+      lastCompletionAt: state.lastCompletionAt,
+    })
+    .onConflictDoUpdate({
+      target: progression.userId,
+      set: {
+        xp: state.xp,
+        level: state.level,
+        currentStreak: state.currentStreak,
+        longestStreak: state.longestStreak,
+        lastCompletionAt: state.lastCompletionAt,
+        updatedAt: now,
+      },
+    })
 }
 
 export async function completeInstance(

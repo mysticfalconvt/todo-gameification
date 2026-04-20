@@ -5,10 +5,12 @@ import {
   useParams,
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   deleteTask,
   getTask,
   reanalyzeTask,
+  reopenLastCompletion,
   snoozeTask,
   updateTask,
 } from '../../../server/functions/tasks'
@@ -197,6 +199,22 @@ function EditTaskPage() {
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to delete')
     },
+  })
+
+  const reopen = useMutation({
+    mutationFn: () => reopenLastCompletion({ data: { taskId } }),
+    onSuccess: async () => {
+      toast.success('Reopened the last completion.')
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['someday'] })
+      await qc.invalidateQueries({ queryKey: ['progression'] })
+      await qc.invalidateQueries({ queryKey: ['history'] })
+      await qc.invalidateQueries({ queryKey: ['garden'] })
+      await qc.invalidateQueries({ queryKey: ['recent-activity'] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to reopen'),
   })
 
   function onSubmit(e: React.FormEvent) {
@@ -496,6 +514,31 @@ function EditTaskPage() {
             {error}
           </p>
         ) : null}
+
+        <fieldset className="rounded-xl border border-[var(--line)] p-3">
+          <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Correction
+          </legend>
+          <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
+            Checked off the wrong one? Reopen the most recent completion
+            and it'll move back into your Today list. If the task is
+            recurring, the speculative follow-up instance is cleaned up
+            so you don't end up with duplicates. XP and streaks are
+            re-computed from the event log.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Reopen the most recent completion of this task?')) {
+                reopen.mutate()
+              }
+            }}
+            disabled={reopen.isPending}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+          >
+            {reopen.isPending ? 'Reopening…' : 'Reopen last completion'}
+          </button>
+        </fieldset>
 
         <div className="flex items-center justify-between gap-3 pt-2">
           <button
