@@ -1423,6 +1423,16 @@ export interface Stats {
   weekday: number[] // 0=Sun..6=Sat
   hour: number[] // 0..23
   topTasks: Array<{ taskId: string | null; title: string; count: number }>
+  // Aggregate distribution of completion time relative to scheduled timeOfDay,
+  // across all tasks that had a scheduled time. 10-minute buckets spanning
+  // ±180 minutes (37 buckets). offsetMin is the bucket center in minutes
+  // (negative = completed early, positive = late).
+  timingOffset: {
+    buckets: Array<{ offsetMin: number; count: number }>
+    totalScheduled: number
+    avgOffsetMin: number
+    withinThirtyCount: number
+  }
 }
 
 const MAX_ALL_TIME_DAYS = 365 * 10 // safety cap on the filled series
@@ -1467,6 +1477,12 @@ export async function getStats(
     hour: 'numeric',
     hour12: false,
   })
+  const timeFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 
   const weekdayIndex: Record<string, number> = {
     Sun: 0,
@@ -1477,6 +1493,16 @@ export async function getStats(
     Fri: 5,
     Sat: 6,
   }
+
+  const OFFSET_RANGE_MIN = 180
+  const OFFSET_BUCKET_SIZE = 10
+  const offsetBuckets = new Map<number, number>()
+  for (let b = -OFFSET_RANGE_MIN; b <= OFFSET_RANGE_MIN; b += OFFSET_BUCKET_SIZE) {
+    offsetBuckets.set(b, 0)
+  }
+  let timingTotal = 0
+  let offsetSum = 0
+  let withinThirty = 0
 
   const xpByDay = new Map<string, { xp: number; count: number }>()
   const weekday = [0, 0, 0, 0, 0, 0, 0]
@@ -1514,6 +1540,44 @@ export async function getStats(
     const taskId = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
     if (taskId) {
       taskCounts.set(taskId, (taskCounts.get(taskId) ?? 0) + 1)
+    }
+
+    const scheduledTod =
+      typeof p['timeOfDay'] === 'string' ? (p['timeOfDay'] as string) : null
+    if (scheduledTod) {
+      const [schedHStr, schedMStr] = scheduledTod.split(':')
+      const schedH = Number.parseInt(schedHStr ?? '', 10)
+      const schedM = Number.parseInt(schedMStr ?? '', 10)
+      if (Number.isFinite(schedH) && Number.isFinite(schedM)) {
+        const parts = timeFmt.formatToParts(r.occurredAt)
+        const actualH = Number.parseInt(
+          parts.find((x) => x.type === 'hour')?.value ?? '',
+          10,
+        )
+        const actualM = Number.parseInt(
+          parts.find((x) => x.type === 'minute')?.value ?? '',
+          10,
+        )
+        if (Number.isFinite(actualH) && Number.isFinite(actualM)) {
+          const scheduledMin = schedH * 60 + schedM
+          const actualMin = (actualH % 24) * 60 + actualM
+          // Wrap to [-720, 720] so a 23:00 task finished at 01:00 reads as
+          // +120 minutes late, not −1320.
+          let offset = actualMin - scheduledMin
+          if (offset > 720) offset -= 1440
+          else if (offset < -720) offset += 1440
+          const clamped = Math.max(
+            -OFFSET_RANGE_MIN,
+            Math.min(OFFSET_RANGE_MIN, offset),
+          )
+          const bucket =
+            Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
+          offsetBuckets.set(bucket, (offsetBuckets.get(bucket) ?? 0) + 1)
+          timingTotal += 1
+          offsetSum += offset
+          if (Math.abs(offset) <= 30) withinThirty += 1
+        }
+      }
     }
   }
 
@@ -1563,12 +1627,275 @@ export async function getStats(
     count,
   }))
 
+  const timingBuckets = Array.from(offsetBuckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([offsetMin, count]) => ({ offsetMin, count }))
+
   return {
     days: allTime ? fillDays : (days as number),
     xpByDay: xpSeries,
     weekday,
     hour,
     topTasks,
+    timingOffset: {
+      buckets: timingBuckets,
+      totalScheduled: timingTotal,
+      avgOffsetMin:
+        timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
+      withinThirtyCount: withinThirty,
+    },
+  }
+}
+
+export interface TaskStats {
+  days: number
+  task: {
+    id: string
+    title: string
+    timeOfDay: string | null
+    difficulty: string | null
+    recurrence: string | null
+    categorySlug: string | null
+    exists: boolean
+  }
+  completionCount: number
+  totalXp: number
+  xpByDay: Array<{ date: string; xp: number; count: number }>
+  timingOffset: {
+    buckets: Array<{ offsetMin: number; count: number }>
+    totalScheduled: number
+    avgOffsetMin: number
+    withinThirtyCount: number
+  } | null
+  recentCompletions: Array<{
+    instanceId: string | null
+    occurredAt: string
+    xp: number
+  }>
+}
+
+export async function getTaskStats(
+  userId: string,
+  taskId: string,
+  days: number | 'all',
+): Promise<TaskStats> {
+  const timeZone = await getUserTimeZone(userId)
+  const allTime = days === 'all'
+  const since = allTime
+    ? new Date(0)
+    : new Date(Date.now() - (days as number) * 24 * 3_600_000)
+
+  const taskRow = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      timeOfDay: tasks.timeOfDay,
+      difficulty: tasks.difficulty,
+      recurrence: tasks.recurrence,
+      categorySlug: tasks.categorySlug,
+      ownerId: tasks.userId,
+    })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1)
+    .then((rows) => rows[0] ?? null)
+
+  if (taskRow && taskRow.ownerId !== userId) {
+    throw new Error('task not found')
+  }
+
+  const rows = await db
+    .select({
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, userId),
+        eq(events.type, 'task.completed'),
+        isNotNull(events.occurredAt),
+        gte(events.occurredAt, since),
+        sql`${events.payload}->>'taskId' = ${taskId}`,
+      ),
+    )
+    .orderBy(events.occurredAt)
+
+  const dayFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const timeFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  const OFFSET_RANGE_MIN = 180
+  const OFFSET_BUCKET_SIZE = 10
+  const offsetBuckets = new Map<number, number>()
+  for (let b = -OFFSET_RANGE_MIN; b <= OFFSET_RANGE_MIN; b += OFFSET_BUCKET_SIZE) {
+    offsetBuckets.set(b, 0)
+  }
+  let timingTotal = 0
+  let offsetSum = 0
+  let withinThirty = 0
+
+  const xpByDay = new Map<string, { xp: number; count: number }>()
+  const recent: Array<{
+    instanceId: string | null
+    occurredAt: string
+    xp: number
+  }> = []
+  let completionCount = 0
+  let totalXp = 0
+  let hasAnyScheduled = false
+
+  for (const r of rows) {
+    if (!r.occurredAt) continue
+    const p =
+      r.payload && typeof r.payload === 'object'
+        ? (r.payload as Record<string, unknown>)
+        : {}
+    const xpOverride =
+      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
+    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
+    const xp =
+      xpOverride ??
+      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+    const instanceId =
+      typeof p['instanceId'] === 'string' ? (p['instanceId'] as string) : null
+
+    completionCount += 1
+    totalXp += xp
+
+    const dayKey = dayFmt.format(r.occurredAt)
+    const bucket = xpByDay.get(dayKey) ?? { xp: 0, count: 0 }
+    bucket.xp += xp
+    bucket.count += 1
+    xpByDay.set(dayKey, bucket)
+
+    recent.push({
+      instanceId,
+      occurredAt: r.occurredAt.toISOString(),
+      xp,
+    })
+
+    const scheduledTod =
+      typeof p['timeOfDay'] === 'string' ? (p['timeOfDay'] as string) : null
+    if (scheduledTod) {
+      hasAnyScheduled = true
+      const [schedHStr, schedMStr] = scheduledTod.split(':')
+      const schedH = Number.parseInt(schedHStr ?? '', 10)
+      const schedM = Number.parseInt(schedMStr ?? '', 10)
+      if (Number.isFinite(schedH) && Number.isFinite(schedM)) {
+        const parts = timeFmt.formatToParts(r.occurredAt)
+        const actualH = Number.parseInt(
+          parts.find((x) => x.type === 'hour')?.value ?? '',
+          10,
+        )
+        const actualM = Number.parseInt(
+          parts.find((x) => x.type === 'minute')?.value ?? '',
+          10,
+        )
+        if (Number.isFinite(actualH) && Number.isFinite(actualM)) {
+          const scheduledMin = schedH * 60 + schedM
+          const actualMin = (actualH % 24) * 60 + actualM
+          let offset = actualMin - scheduledMin
+          if (offset > 720) offset -= 1440
+          else if (offset < -720) offset += 1440
+          const clamped = Math.max(
+            -OFFSET_RANGE_MIN,
+            Math.min(OFFSET_RANGE_MIN, offset),
+          )
+          const b =
+            Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
+          offsetBuckets.set(b, (offsetBuckets.get(b) ?? 0) + 1)
+          timingTotal += 1
+          offsetSum += offset
+          if (Math.abs(offset) <= 30) withinThirty += 1
+        }
+      }
+    }
+  }
+
+  // Fill every day in the window so the xp-by-day line has no gaps.
+  let fillDays: number
+  if (allTime) {
+    let earliest = Date.now()
+    for (const r of rows) {
+      if (r.occurredAt && r.occurredAt.getTime() < earliest) {
+        earliest = r.occurredAt.getTime()
+      }
+    }
+    const spanMs = Math.max(0, Date.now() - earliest)
+    fillDays = Math.min(
+      MAX_ALL_TIME_DAYS,
+      Math.max(1, Math.ceil(spanMs / 86_400_000) + 1),
+    )
+  } else {
+    fillDays = days as number
+  }
+  const xpSeries: Array<{ date: string; xp: number; count: number }> = []
+  for (let i = fillDays - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 3_600_000)
+    const key = dayFmt.format(d)
+    const bucket = xpByDay.get(key) ?? { xp: 0, count: 0 }
+    xpSeries.push({ date: key, xp: bucket.xp, count: bucket.count })
+  }
+
+  const timingBuckets = Array.from(offsetBuckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([offsetMin, count]) => ({ offsetMin, count }))
+
+  // Fall back to the event payload's timeOfDay if the task row is gone, so
+  // a deleted task's timing curve still makes sense.
+  let resolvedTimeOfDay: string | null = taskRow?.timeOfDay ?? null
+  if (!resolvedTimeOfDay) {
+    for (const r of rows) {
+      const p =
+        r.payload && typeof r.payload === 'object'
+          ? (r.payload as Record<string, unknown>)
+          : {}
+      if (typeof p['timeOfDay'] === 'string') {
+        resolvedTimeOfDay = p['timeOfDay'] as string
+        break
+      }
+    }
+  }
+
+  const lastTitle =
+    taskRow?.title ??
+    (rows.length > 0 ? '(deleted task)' : '(unknown task)')
+
+  return {
+    days: allTime ? fillDays : (days as number),
+    task: {
+      id: taskId,
+      title: lastTitle,
+      timeOfDay: resolvedTimeOfDay,
+      difficulty: taskRow?.difficulty ?? null,
+      recurrence: taskRow?.recurrence?.type ?? null,
+      categorySlug: taskRow?.categorySlug ?? null,
+      exists: !!taskRow,
+    },
+    completionCount,
+    totalXp,
+    xpByDay: xpSeries,
+    timingOffset: hasAnyScheduled
+      ? {
+          buckets: timingBuckets,
+          totalScheduled: timingTotal,
+          avgOffsetMin:
+            timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
+          withinThirtyCount: withinThirty,
+        }
+      : null,
+    // Most recent 15, newest first.
+    recentCompletions: recent.slice(-15).reverse(),
   }
 }
 

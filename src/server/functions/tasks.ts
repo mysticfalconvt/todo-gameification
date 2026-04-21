@@ -125,6 +125,15 @@ export const getStats = createServerFn({ method: 'GET' })
     service.getStats(context.userId, data?.days ?? 30),
   )
 
+export const getTaskStats = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: { taskId: string; days?: number | 'all' }) => data,
+  )
+  .handler(({ data, context }) =>
+    service.getTaskStats(context.userId, data.taskId, data.days ?? 30),
+  )
+
 export const listCompletionHistory = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .inputValidator((data: { days?: number } | undefined) => data ?? {})

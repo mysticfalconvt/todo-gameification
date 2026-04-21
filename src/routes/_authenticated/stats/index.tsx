@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { getStats, listCompletionHistory } from '../../server/functions/tasks'
-import { useAvailableWindows } from '../../lib/useAvailableWindows'
+import { getStats, listCompletionHistory } from '../../../server/functions/tasks'
+import { useAvailableWindows } from '../../../lib/useAvailableWindows'
+import {
+  TimingDistributionSection,
+  XpLineSection,
+} from '../../../components/stats/charts'
 
-export const Route = createFileRoute('/_authenticated/stats')({
+export const Route = createFileRoute('/_authenticated/stats/')({
   component: StatsPage,
 })
 
@@ -73,6 +77,16 @@ function StatsPage() {
             <WeekdaySection data={stats.weekday} />
             <HourSection data={stats.hour} />
           </div>
+          <TimingDistributionSection
+            data={
+              stats.timingOffset ?? {
+                buckets: [],
+                totalScheduled: 0,
+                avgOffsetMin: 0,
+                withinThirtyCount: 0,
+              }
+            }
+          />
           <TopTasksSection tasks={stats.topTasks} />
           <HistorySection />
         </>
@@ -148,24 +162,40 @@ function HistorySection() {
                 </span>
               </header>
               <ul className="space-y-1">
-                {day.items.map((item) => (
-                  <li
-                    key={item.instanceId}
-                    className="island-shell flex items-center gap-3 rounded-xl p-3"
-                  >
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.14)] text-xs font-bold text-[var(--lagoon-deep)]">
-                      ✓
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-[var(--sea-ink)]">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-[var(--sea-ink-soft)]">
-                        {formatTime(item.completedAt)} · +{item.xp} XP
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                {day.items.map((item) => {
+                  const rowClass =
+                    'island-shell flex items-center gap-3 rounded-xl p-3'
+                  const body = (
+                    <>
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.14)] text-xs font-bold text-[var(--lagoon-deep)]">
+                        ✓
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-[var(--sea-ink)]">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-[var(--sea-ink-soft)]">
+                          {formatTime(item.completedAt)} · +{item.xp} XP
+                        </p>
+                      </div>
+                    </>
+                  )
+                  return (
+                    <li key={item.instanceId}>
+                      {item.taskId ? (
+                        <Link
+                          to="/stats/task/$taskId"
+                          params={{ taskId: item.taskId }}
+                          className={`${rowClass} transition hover:border-[var(--lagoon-deep)]`}
+                        >
+                          {body}
+                        </Link>
+                      ) : (
+                        <div className={rowClass}>{body}</div>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </li>
           ))}
@@ -197,55 +227,6 @@ function formatTime(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
-}
-
-function XpLineSection({
-  data,
-}: {
-  data: Array<{ date: string; xp: number; count: number }>
-}) {
-  const total = data.reduce((acc, d) => acc + d.xp, 0)
-  const avg = data.length > 0 ? Math.round(total / data.length) : 0
-  const max = data.reduce((acc, d) => Math.max(acc, d.xp), 0) || 1
-  const width = 600
-  const height = 120
-  const padX = 4
-  const n = data.length
-  const stepX = n > 1 ? (width - padX * 2) / (n - 1) : 0
-  const points = data
-    .map((d, i) => {
-      const x = padX + i * stepX
-      const y = height - (d.xp / max) * (height - 8) - 4
-      return `${x},${y}`
-    })
-    .join(' ')
-  const area = `${padX},${height} ${points} ${padX + (n - 1) * stepX},${height}`
-
-  return (
-    <section className="island-shell rounded-2xl p-4">
-      <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">XP per day</h2>
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          total {total} · avg {avg}/day
-        </p>
-      </header>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-32 w-full"
-        preserveAspectRatio="none"
-      >
-        <polygon points={area} fill="var(--lagoon-deep)" fillOpacity="0.15" />
-        <polyline
-          points={points}
-          fill="none"
-          stroke="var(--lagoon-deep)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </section>
-  )
 }
 
 function WeekdaySection({ data }: { data: number[] }) {
@@ -340,22 +321,38 @@ function TopTasksSection({
         </p>
       ) : (
         <ol className="space-y-2">
-          {tasks.map((t, i) => (
-            <li
-              key={`${t.taskId}-${i}`}
-              className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
-            >
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]">
-                {i + 1}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--sea-ink)]">
-                {t.title}
-              </span>
-              <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">
-                {t.count} {t.count === 1 ? 'completion' : 'completions'}
-              </span>
-            </li>
-          ))}
+          {tasks.map((t, i) => {
+            const rowClass =
+              'flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3'
+            const body = (
+              <>
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--sea-ink)]">
+                  {t.title}
+                </span>
+                <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">
+                  {t.count} {t.count === 1 ? 'completion' : 'completions'}
+                </span>
+              </>
+            )
+            return (
+              <li key={`${t.taskId}-${i}`}>
+                {t.taskId ? (
+                  <Link
+                    to="/stats/task/$taskId"
+                    params={{ taskId: t.taskId }}
+                    className={`${rowClass} transition hover:border-[var(--lagoon-deep)]`}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div className={rowClass}>{body}</div>
+                )}
+              </li>
+            )
+          })}
         </ol>
       )}
     </section>
