@@ -17,7 +17,11 @@ Respond with this exact JSON shape:
 export interface CategorizeInput {
   title: string
   notes?: string | null
-  categories: Array<{ slug: string; label: string }>
+  categories: Array<{
+    slug: string
+    label: string
+    description?: string | null
+  }>
 }
 
 export interface CategorizeResult {
@@ -41,7 +45,12 @@ async function categorizeTaskImpl(
   const slugs = input.categories.map((c) => c.slug)
   const userContent = [
     'Available categories:',
-    ...input.categories.map((c) => `- ${c.slug} (${c.label})`),
+    ...input.categories.map((c) => {
+      const desc = c.description?.trim()
+      return desc
+        ? `- ${c.slug} (${c.label}): ${desc}`
+        : `- ${c.slug} (${c.label})`
+    }),
     '',
     `Task title: "${input.title}"`,
     `Notes: "${input.notes ?? ''}"`,

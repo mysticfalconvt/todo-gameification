@@ -10,18 +10,21 @@ export interface Category {
   slug: string
   label: string
   color: string
+  description: string
   sortOrder: number
 }
 
+const DESCRIPTION_MAX = 280
+
 const DEFAULT_CATEGORIES: Category[] = [
-  { slug: 'home', label: 'Home', color: '#4fb8b2', sortOrder: 0 },
-  { slug: 'health', label: 'Health', color: '#e07a5f', sortOrder: 1 },
-  { slug: 'work', label: 'Work', color: '#6a9bd8', sortOrder: 2 },
-  { slug: 'admin', label: 'Admin', color: '#9a7fcf', sortOrder: 3 },
-  { slug: 'social', label: 'Social', color: '#f2c14e', sortOrder: 4 },
-  { slug: 'errands', label: 'Errands', color: '#6fab7a', sortOrder: 5 },
-  { slug: 'self-care', label: 'Self-care', color: '#c187c5', sortOrder: 6 },
-  { slug: 'other', label: 'Other', color: '#8f8f8f', sortOrder: 7 },
+  { slug: 'home', label: 'Home', color: '#4fb8b2', description: '', sortOrder: 0 },
+  { slug: 'health', label: 'Health', color: '#e07a5f', description: '', sortOrder: 1 },
+  { slug: 'work', label: 'Work', color: '#6a9bd8', description: '', sortOrder: 2 },
+  { slug: 'admin', label: 'Admin', color: '#9a7fcf', description: '', sortOrder: 3 },
+  { slug: 'social', label: 'Social', color: '#f2c14e', description: '', sortOrder: 4 },
+  { slug: 'errands', label: 'Errands', color: '#6fab7a', description: '', sortOrder: 5 },
+  { slug: 'self-care', label: 'Self-care', color: '#c187c5', description: '', sortOrder: 6 },
+  { slug: 'other', label: 'Other', color: '#8f8f8f', description: '', sortOrder: 7 },
 ]
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,39}$/
@@ -59,19 +62,22 @@ export async function listCategories(userId: string): Promise<Category[]> {
     slug: r.slug,
     label: r.label,
     color: r.color,
+    description: r.description,
     sortOrder: r.sortOrder,
   }))
 }
 
 export async function createCategory(
   userId: string,
-  input: { label: string; color?: string },
+  input: { label: string; color?: string; description?: string },
 ): Promise<Category> {
   const label = input.label?.trim()
   if (!label) throw new Error('label required')
   if (label.length > 40) throw new Error('label too long')
   const color = input.color?.trim() || '#8f8f8f'
   if (!COLOR_RE.test(color)) throw new Error('invalid color (use #RRGGBB)')
+  const description = (input.description ?? '').trim()
+  if (description.length > DESCRIPTION_MAX) throw new Error('description too long')
   const slug = slugify(label)
   if (!slug || !SLUG_RE.test(slug)) throw new Error('label produced invalid slug')
 
@@ -95,12 +101,13 @@ export async function createCategory(
 
   const [row] = await db
     .insert(userCategories)
-    .values({ userId, slug, label, color, sortOrder })
+    .values({ userId, slug, label, color, description, sortOrder })
     .returning()
   return {
     slug: row.slug,
     label: row.label,
     color: row.color,
+    description: row.description,
     sortOrder: row.sortOrder,
   }
 }
@@ -108,7 +115,7 @@ export async function createCategory(
 export async function updateCategory(
   userId: string,
   slug: string,
-  patch: { label?: string; color?: string },
+  patch: { label?: string; color?: string; description?: string },
 ): Promise<Category> {
   if (!slug) throw new Error('slug required')
   const setValues: Record<string, unknown> = {}
@@ -121,6 +128,11 @@ export async function updateCategory(
   if (patch.color !== undefined) {
     if (!COLOR_RE.test(patch.color)) throw new Error('invalid color')
     setValues.color = patch.color
+  }
+  if (patch.description !== undefined) {
+    const description = patch.description.trim()
+    if (description.length > DESCRIPTION_MAX) throw new Error('description too long')
+    setValues.description = description
   }
   if (Object.keys(setValues).length === 0) {
     throw new Error('nothing to update')
@@ -138,6 +150,7 @@ export async function updateCategory(
     slug: r.slug,
     label: r.label,
     color: r.color,
+    description: r.description,
     sortOrder: r.sortOrder,
   }
 }

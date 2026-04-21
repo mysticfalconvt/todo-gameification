@@ -156,6 +156,7 @@ export const userCategories = pgTable(
     slug: text('slug').notNull(),
     label: text('label').notNull(),
     color: text('color').notNull(),
+    description: text('description').notNull().default(''),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },

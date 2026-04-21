@@ -82,13 +82,15 @@ function CategoriesSection() {
 
   const [newLabel, setNewLabel] = useState('')
   const [newColor, setNewColor] = useState('#4fb8b2')
+  const [newDescription, setNewDescription] = useState('')
 
   const create = useMutation({
-    mutationFn: (input: { label: string; color: string }) =>
+    mutationFn: (input: { label: string; color: string; description: string }) =>
       createCategory({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] })
       setNewLabel('')
+      setNewDescription('')
     },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Create failed'),
@@ -182,41 +184,60 @@ function CategoriesSection() {
         onSubmit={(e) => {
           e.preventDefault()
           if (!newLabel.trim()) return
-          create.mutate({ label: newLabel, color: newColor })
+          create.mutate({
+            label: newLabel,
+            color: newColor,
+            description: newDescription,
+          })
         }}
-        className="flex flex-wrap items-end gap-3"
+        className="space-y-3"
       >
-        <label className="block flex-1 min-w-[12rem]">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            New category
-          </span>
-          <input
-            type="text"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="e.g. Parenting"
-            maxLength={40}
-            className="field-input"
-          />
-        </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block flex-1 min-w-[12rem]">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              New category
+            </span>
+            <input
+              type="text"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="e.g. Parenting"
+              maxLength={40}
+              className="field-input"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Color
+            </span>
+            <input
+              type="color"
+              value={newColor}
+              onChange={(e) => setNewColor(e.target.value)}
+              className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={create.isPending || !newLabel.trim()}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+          >
+            {create.isPending ? 'Adding…' : 'Add'}
+          </button>
+        </div>
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Color
+            Description <span className="normal-case text-[var(--sea-ink-soft)]">(optional — helps the AI)</span>
           </span>
-          <input
-            type="color"
-            value={newColor}
-            onChange={(e) => setNewColor(e.target.value)}
-            className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+          <textarea
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            placeholder="What belongs in this category? e.g. anything involving the kids, school, daycare."
+            maxLength={280}
+            rows={2}
+            className="field-input w-full resize-y"
           />
         </label>
-        <button
-          type="submit"
-          disabled={create.isPending || !newLabel.trim()}
-          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
-        >
-          {create.isPending ? 'Adding…' : 'Add'}
-        </button>
       </form>
     </section>
   )
@@ -233,11 +254,12 @@ function CategoryRow({
   const [editing, setEditing] = useState(false)
   const [label, setLabel] = useState(category.label)
   const [color, setColor] = useState(category.color)
+  const [description, setDescription] = useState(category.description ?? '')
 
   const save = useMutation({
     mutationFn: () =>
       updateCategory({
-        data: { slug: category.slug, label, color },
+        data: { slug: category.slug, label, color, description },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] })
@@ -250,57 +272,70 @@ function CategoryRow({
 
   if (editing) {
     return (
-      <li className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] p-2">
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+      <li className="space-y-2 rounded-xl border border-[var(--line)] p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="h-8 w-10 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+          />
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={40}
+            className="field-input flex-1 min-w-[10rem]"
+          />
+          <button
+            type="button"
+            onClick={() => save.mutate()}
+            disabled={save.isPending || !label.trim()}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLabel(category.label)
+              setColor(category.color)
+              setDescription(category.description ?? '')
+              setEditing(false)
+            }}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+          >
+            Cancel
+          </button>
+        </div>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional description — helps the AI categorize tasks."
+          maxLength={280}
+          rows={2}
+          className="field-input w-full resize-y"
         />
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          maxLength={40}
-          className="field-input flex-1 min-w-[10rem]"
-        />
-        <button
-          type="button"
-          onClick={() => save.mutate()}
-          disabled={save.isPending || !label.trim()}
-          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setLabel(category.label)
-            setColor(category.color)
-            setEditing(false)
-          }}
-          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
-        >
-          Cancel
-        </button>
       </li>
     )
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-2">
+    <li className="flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-2">
       <span
         aria-hidden
-        className="h-3 w-3 flex-shrink-0 rounded-full"
+        className="mt-1.5 h-3 w-3 flex-shrink-0 rounded-full"
         style={{ backgroundColor: category.color }}
       />
       <span className="min-w-0 flex-1">
         <span className="text-sm font-semibold text-[var(--sea-ink)]">
           {category.label}
         </span>
-        <span className="ml-2 font-mono text-xs text-[var(--sea-ink-soft)]">
-          {category.slug}
-        </span>
+        {category.description ? (
+          <p className="mt-0.5 text-xs text-[var(--sea-ink-soft)]">
+            {category.description}
+          </p>
+        ) : null}
       </span>
       <button
         type="button"

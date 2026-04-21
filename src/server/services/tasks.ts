@@ -264,7 +264,11 @@ export async function createTask(
     categorizeTask({
       title: input.title.trim(),
       notes: input.notes,
-      categories: categories.map((c) => ({ slug: c.slug, label: c.label })),
+      categories: categories.map((c) => ({
+        slug: c.slug,
+        label: c.label,
+        description: c.description,
+      })),
     }),
   ])
 
@@ -459,6 +463,7 @@ export async function backfillCategories(
   const categoryList = categories.map((c) => ({
     slug: c.slug,
     label: c.label,
+    description: c.description,
   }))
 
   const pending = await db
@@ -539,7 +544,11 @@ export async function reanalyzeTask(
     categorizeTask({
       title: row.title,
       notes: row.notes,
-      categories: categories.map((c) => ({ slug: c.slug, label: c.label })),
+      categories: categories.map((c) => ({
+        slug: c.slug,
+        label: c.label,
+        description: c.description,
+      })),
     }),
   ])
 
