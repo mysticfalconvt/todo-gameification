@@ -21,6 +21,7 @@ import { resolveDuration } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
+import { PositiveNumberInput } from '../../../components/NumberInput'
 
 export const Route = createFileRoute('/_authenticated/tasks/$taskId')({
   loader: async ({ params }) => {
@@ -712,11 +713,9 @@ function AmountUnitPicker({
 }) {
   return (
     <div className="flex gap-2">
-      <input
-        type="number"
-        min={1}
+      <PositiveNumberInput
         value={amount}
-        onChange={(e) => onAmountChange(Math.max(1, Number(e.target.value) || 1))}
+        onChange={onAmountChange}
         className="field-input max-w-[6rem]"
       />
       <select
