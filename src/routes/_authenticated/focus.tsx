@@ -7,9 +7,12 @@ import {
   completeFocusSession,
   startFocusSession,
 } from '../../server/functions/focus'
+import { completeInstance } from '../../server/functions/tasks'
 
 type Duration = 15 | 25 | 50
 const DURATIONS: readonly Duration[] = [15, 25, 50] as const
+
+type Phase = 'picking' | 'running' | 'confirming'
 
 interface FocusSearch {
   taskInstanceId?: string
@@ -29,37 +32,87 @@ function FocusPage() {
   const qc = useQueryClient()
 
   const [duration, setDuration] = useState<Duration>(25)
-  const [running, setRunning] = useState(false)
+  const [phase, setPhase] = useState<Phase>('picking')
 
-  const complete = useMutation({
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ['progression'] })
+    qc.invalidateQueries({ queryKey: ['today'] })
+    qc.invalidateQueries({ queryKey: ['recent-activity'] })
+  }
+
+  const completeFocus = useMutation({
     mutationFn: (input: { durationMin: Duration; taskInstanceId?: string }) =>
       completeFocusSession({ data: input }),
     onSuccess: (result) => {
-      qc.invalidateQueries({ queryKey: ['progression'] })
-      qc.invalidateQueries({ queryKey: ['today'] })
-      qc.invalidateQueries({ queryKey: ['recent-activity'] })
-      const coinPart = `+${result.tokensEarned} 🪙`
-      const xpPart = `+${result.xpEarned} XP`
-      const extra = result.taskCompleted ? ' · task done' : ''
-      toast.success(`Focus done! ${xpPart}, ${coinPart}${extra}`)
-      navigate({ to: '/today' })
+      invalidateAll()
+      toast.success(
+        `Focus logged! +${result.xpEarned} XP, +${result.tokensEarned} 🪙`,
+      )
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Focus session failed')
-      navigate({ to: '/today' })
+      toast.error(err instanceof Error ? err.message : 'Focus log failed')
+    },
+  })
+
+  const completeTask = useMutation({
+    mutationFn: (instanceId: string) =>
+      completeInstance({ data: { instanceId } }),
+    onSuccess: () => {
+      invalidateAll()
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Task complete failed')
     },
   })
 
   const onTimerComplete = () => {
-    complete.mutate({ durationMin: duration, taskInstanceId: search.taskInstanceId })
+    setPhase('confirming')
   }
 
   const onCancel = () => {
-    setRunning(false)
+    setPhase('picking')
     navigate({ to: '/today' })
   }
 
-  if (running) {
+  // Task-linked confirmation handler: always award focus; task completion is
+  // conditional on the user's self-report.
+  const handleTaskConfirm = async (didCompleteTask: boolean) => {
+    await completeFocus.mutateAsync({
+      durationMin: duration,
+      taskInstanceId: search.taskInstanceId,
+    })
+    if (didCompleteTask && search.taskInstanceId) {
+      await completeTask.mutateAsync(search.taskInstanceId)
+      toast.success('Task marked done.')
+    }
+    navigate({ to: '/today' })
+  }
+
+  // Standalone confirmation: "no" forfeits rewards — no focus.completed event
+  // is written, so it shows as started-but-not-completed in stats.
+  const handleStandaloneConfirm = async (wasSuccessful: boolean) => {
+    if (wasSuccessful) {
+      await completeFocus.mutateAsync({ durationMin: duration })
+    } else {
+      toast('Session not counted. Honesty appreciated.')
+    }
+    navigate({ to: '/today' })
+  }
+
+  if (phase === 'confirming') {
+    return (
+      <main className="page-wrap px-4 py-8">
+        <ConfirmationPrompt
+          taskLinked={Boolean(search.taskInstanceId)}
+          pending={completeFocus.isPending || completeTask.isPending}
+          onTaskConfirm={handleTaskConfirm}
+          onStandaloneConfirm={handleStandaloneConfirm}
+        />
+      </main>
+    )
+  }
+
+  if (phase === 'running') {
     return (
       <main className="page-wrap px-4 py-8">
         <FocusTimer
@@ -111,7 +164,7 @@ function FocusPage() {
 
       {search.taskInstanceId ? (
         <p className="mb-4 text-xs text-[var(--sea-ink-soft)]">
-          Session will mark the linked task done on completion.
+          We'll ask if you finished the task when the timer ends.
         </p>
       ) : null}
 
@@ -127,12 +180,83 @@ function FocusPage() {
             // Non-blocking: the session still runs if this fails.
             console.warn('[focus] failed to record start', err)
           })
-          setRunning(true)
+          setPhase('running')
         }}
         className="w-full rounded-xl bg-[var(--btn-primary-bg)] py-3 font-semibold text-[var(--btn-primary-fg)]"
       >
         Start {duration}-min session
       </button>
     </main>
+  )
+}
+
+function ConfirmationPrompt({
+  taskLinked,
+  pending,
+  onTaskConfirm,
+  onStandaloneConfirm,
+}: {
+  taskLinked: boolean
+  pending: boolean
+  onTaskConfirm: (didCompleteTask: boolean) => void
+  onStandaloneConfirm: (wasSuccessful: boolean) => void
+}) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6 text-center">
+      <div className="text-5xl">⏰</div>
+      <h2 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
+        Time's up!
+      </h2>
+      {taskLinked ? (
+        <>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Did you finish the task? Focus rewards are awarded either way.
+          </p>
+          <div className="flex w-full max-w-sm flex-col gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onTaskConfirm(true)}
+              className="rounded-xl bg-[var(--btn-primary-bg)] py-3 font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+            >
+              ✓ Yes, mark it done
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onTaskConfirm(false)}
+              className="rounded-xl border border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] py-3 font-semibold text-[var(--sea-ink)] disabled:opacity-50"
+            >
+              Not yet — just log the focus
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Was this a successful focus session? Answering no forfeits the
+            rewards (honesty clause).
+          </p>
+          <div className="flex w-full max-w-sm flex-col gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onStandaloneConfirm(true)}
+              className="rounded-xl bg-[var(--btn-primary-bg)] py-3 font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+            >
+              ✓ Yes, I focused
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onStandaloneConfirm(false)}
+              className="rounded-xl border border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] py-3 font-semibold text-[var(--sea-ink)] disabled:opacity-50"
+            >
+              No — don't count it
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }

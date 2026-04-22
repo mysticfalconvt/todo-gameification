@@ -10,10 +10,14 @@ function formatRemaining(ms: number): string {
 
 export function FocusTimer({
   durationMin,
+  plannedMsOverride,
   onComplete,
   onCancel,
 }: {
   durationMin: 15 | 25 | 50
+  // Test-mode override (e.g., 10s instead of 15 min). Keeps the server
+  // reward mapping unchanged since durationMin is still the logical value.
+  plannedMsOverride?: number
   onComplete: () => void
   onCancel: () => void
 }) {
@@ -24,9 +28,9 @@ export function FocusTimer({
     onComplete()
   }, [onComplete])
 
-  const session = useFocusSession(durationMin, handleComplete)
-  const { status, remainingMs, accumulatedMs, plannedMs, wasInterrupted } =
-    session
+  const plannedMs = plannedMsOverride ?? durationMin * 60_000
+  const session = useFocusSession(plannedMs, handleComplete)
+  const { status, remainingMs, accumulatedMs, wasInterrupted } = session
 
   const started = status !== 'idle'
   const progress = Math.min(1, accumulatedMs / plannedMs)

@@ -17,10 +17,9 @@ interface WakeLockSentinelLike {
 const TICK_MS = 200
 
 export function useFocusSession(
-  plannedMinutes: number,
+  plannedMs: number,
   onComplete: () => void,
 ) {
-  const plannedMs = plannedMinutes * 60_000
   const [status, setStatus] = useState<FocusStatus>('idle')
   const [accumulatedMs, setAccumulatedMs] = useState(0)
   const [wasInterrupted, setWasInterrupted] = useState(false)

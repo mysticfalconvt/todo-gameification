@@ -3,7 +3,7 @@ import { db } from '../db/client'
 import { events, progression } from '../db/schema'
 import { FOCUS_REWARDS, type DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
-import { completeInstance, getUserTimeZone } from './tasks'
+import { getUserTimeZone } from './tasks'
 
 export type FocusDuration = 15 | 25 | 50
 
@@ -38,9 +38,11 @@ export interface CompleteFocusSessionResult {
   tokens: number
   xpEarned: number
   tokensEarned: number
-  taskCompleted: boolean
 }
 
+// Awards XP + tokens for a finished focus session. Task completion is a
+// separate concern handled by the client (via `completeInstance`) so the
+// user can confirm task completion independently of focus success.
 export async function completeFocusSession(
   input: CompleteFocusSessionInput,
 ): Promise<CompleteFocusSessionResult> {
@@ -64,7 +66,7 @@ export async function completeFocusSession(
     occurredAt: now,
   }
 
-  const nextState = await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     await tx.insert(events).values({
       userId,
       type: focusEvent.type,
@@ -114,30 +116,12 @@ export async function completeFocusSession(
         },
       })
 
-    return next
+    return {
+      xp: next.xp,
+      level: next.level,
+      tokens: next.tokens,
+      xpEarned,
+      tokensEarned,
+    }
   })
-
-  let taskCompleted = false
-  if (taskInstanceId) {
-    const result = await completeInstance(userId, taskInstanceId).catch(
-      (err) => {
-        console.error('[focus] completeInstance failed', err)
-        return null
-      },
-    )
-    if (result && !result.alreadyHandled) taskCompleted = true
-  }
-
-  // Re-read progression in case completeInstance advanced XP/level.
-  const row = await db.query.progression.findFirst({
-    where: eq(progression.userId, userId),
-  })
-  return {
-    xp: row?.xp ?? nextState.xp,
-    level: row?.level ?? nextState.level,
-    tokens: row?.tokens ?? nextState.tokens,
-    xpEarned,
-    tokensEarned,
-    taskCompleted,
-  }
 }
