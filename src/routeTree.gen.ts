@@ -19,6 +19,8 @@ import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
 import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
+import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
+import { Route as AuthenticatedArcadeRouteImport } from './routes/_authenticated/arcade'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -92,6 +94,16 @@ const AuthenticatedGardenRoute = AuthenticatedGardenRouteImport.update({
 const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
   id: '/friends',
   path: '/friends',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
+  id: '/focus',
+  path: '/focus',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedArcadeRoute = AuthenticatedArcadeRouteImport.update({
+  id: '/arcade',
+  path: '/arcade',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
@@ -234,6 +246,8 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/arcade': typeof AuthenticatedArcadeRoute
+  '/focus': typeof AuthenticatedFocusRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -270,6 +284,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/arcade': typeof AuthenticatedArcadeRoute
+  '/focus': typeof AuthenticatedFocusRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -308,6 +324,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_authenticated/arcade': typeof AuthenticatedArcadeRoute
+  '/_authenticated/focus': typeof AuthenticatedFocusRoute
   '/_authenticated/friends': typeof AuthenticatedFriendsRoute
   '/_authenticated/garden': typeof AuthenticatedGardenRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
@@ -346,6 +364,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/arcade'
+    | '/focus'
     | '/friends'
     | '/garden'
     | '/today'
@@ -382,6 +402,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/arcade'
+    | '/focus'
     | '/friends'
     | '/garden'
     | '/today'
@@ -419,6 +441,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_authenticated/arcade'
+    | '/_authenticated/focus'
     | '/_authenticated/friends'
     | '/_authenticated/garden'
     | '/_authenticated/today'
@@ -545,6 +569,20 @@ declare module '@tanstack/react-router' {
       path: '/friends'
       fullPath: '/friends'
       preLoaderRoute: typeof AuthenticatedFriendsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/focus': {
+      id: '/_authenticated/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof AuthenticatedFocusRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/arcade': {
+      id: '/_authenticated/arcade'
+      path: '/arcade'
+      fullPath: '/arcade'
+      preLoaderRoute: typeof AuthenticatedArcadeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tasks/': {
@@ -726,6 +764,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedArcadeRoute: typeof AuthenticatedArcadeRoute
+  AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
   AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
@@ -746,6 +786,8 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedArcadeRoute: AuthenticatedArcadeRoute,
+  AuthenticatedFocusRoute: AuthenticatedFocusRoute,
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
   AuthenticatedGardenRoute: AuthenticatedGardenRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,

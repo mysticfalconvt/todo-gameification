@@ -13,6 +13,8 @@ import {
   tasks,
   user as userTable,
 } from '../db/schema'
+import type { DomainEvent } from '../../domain/events'
+import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 
 function allowlist(): Set<string> {
   const raw = process.env.ADMIN_EMAILS
@@ -38,6 +40,15 @@ export async function isAdmin(userId: string): Promise<boolean> {
   return isAdminEmail(row?.email)
 }
 
+export interface FocusGameStats {
+  focus: {
+    started: number
+    completed: number
+    minutesCompleted: number
+  }
+  games: Array<{ gameId: string; played: number; won: number }>
+}
+
 export interface AdminSummary {
   totalUsers: number
   signupsToday: number
@@ -49,11 +60,59 @@ export interface AdminSummary {
   totalTasks: number
   totalCompletions: number
   pushSubscriptions: number
+  motivation: FocusGameStats
   system: {
     llm: boolean
     smtp: boolean
     vapid: boolean
     adminCount: number
+  }
+}
+
+// Aggregates focus/game activity from the event log. Pass userId to scope to
+// one user; omit for platform-wide totals. Minutes sums durationMin from each
+// completed focus.completed event payload.
+export async function loadFocusGameStats(
+  userId?: string,
+): Promise<FocusGameStats> {
+  const scope = userId ? eq(events.userId, userId) : undefined
+
+  const whereFor = (type: string) =>
+    scope ? and(eq(events.type, type), scope) : eq(events.type, type)
+
+  const [startedRows, completedRows, gameRows] = await Promise.all([
+    db.select({ n: count() }).from(events).where(whereFor('focus.started')),
+    db
+      .select({
+        n: count(),
+        minutes: sql<number>`coalesce(sum((payload->>'durationMin')::int), 0)::int`,
+      })
+      .from(events)
+      .where(whereFor('focus.completed')),
+    db
+      .select({
+        gameId: sql<string>`payload->>'gameId'`,
+        played: count(),
+        won: sql<number>`sum(case when (payload->'result'->>'won') = 'true' then 1 else 0 end)::int`,
+      })
+      .from(events)
+      .where(whereFor('game.played'))
+      .groupBy(sql`payload->>'gameId'`),
+  ])
+
+  return {
+    focus: {
+      started: Number(startedRows[0]?.n ?? 0),
+      completed: Number(completedRows[0]?.n ?? 0),
+      minutesCompleted: Number(completedRows[0]?.minutes ?? 0),
+    },
+    games: gameRows
+      .filter((r) => r.gameId)
+      .map((r) => ({
+        gameId: r.gameId,
+        played: Number(r.played),
+        won: Number(r.won ?? 0),
+      })),
   }
 }
 
@@ -122,6 +181,7 @@ export async function loadAdminSummary(): Promise<AdminSummary> {
     totalTasks: Number(totalTasks[0]?.n ?? 0),
     totalCompletions: Number(totalCompletions[0]?.n ?? 0),
     pushSubscriptions: Number(pushCount[0]?.n ?? 0),
+    motivation: await loadFocusGameStats(),
     system: {
       llm: Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL),
       smtp: Boolean(
@@ -322,6 +382,7 @@ export interface AdminUserDetail {
     level: number
     currentStreak: number
     longestStreak: number
+    tokens: number
     lastCompletionAt: string | null
   }
   counts: {
@@ -371,6 +432,7 @@ export interface AdminUserDetail {
     totalTokens: number | null
     errorMessage: string | null
   }>
+  motivation: FocusGameStats
 }
 
 export async function loadUserDetail(
@@ -517,6 +579,7 @@ export async function loadUserDetail(
       level: prog?.level ?? 1,
       currentStreak: prog?.currentStreak ?? 0,
       longestStreak: prog?.longestStreak ?? 0,
+      tokens: prog?.tokens ?? 0,
       lastCompletionAt: prog?.lastCompletionAt?.toISOString() ?? null,
     },
     counts: {
@@ -566,6 +629,7 @@ export async function loadUserDetail(
       totalTokens: l.totalTokens,
       errorMessage: l.errorMessage,
     })),
+    motivation: await loadFocusGameStats(targetUserId),
   }
 }
 
@@ -880,4 +944,74 @@ export async function getLlmCallDetail(
     messages: r.messages,
     response: r.response,
   }
+}
+
+// Admin-issued token grant. Writes a `tokens.granted` event so the balance
+// survives `rebuildProgression` (triggered e.g. by task reopen). Amount may
+// be negative to deduct. Balance clamps at 0 in applyEvent.
+export async function grantTokens(input: {
+  targetUserId: string
+  grantedBy: string
+  amount: number
+  reason: string | null
+}): Promise<{ tokens: number }> {
+  if (!Number.isInteger(input.amount) || input.amount === 0) {
+    throw new Error('amount must be a non-zero integer')
+  }
+  const now = new Date()
+  const event: DomainEvent = {
+    type: 'tokens.granted',
+    amount: input.amount,
+    reason: input.reason,
+    grantedBy: input.grantedBy,
+    occurredAt: now,
+  }
+
+  return await db.transaction(async (tx) => {
+    const target = await tx.query.user.findFirst({
+      where: eq(userTable.id, input.targetUserId),
+      columns: { id: true },
+    })
+    if (!target) throw new Error('target user not found')
+
+    await tx.insert(events).values({
+      userId: input.targetUserId,
+      type: event.type,
+      payload: {
+        amount: event.amount,
+        reason: event.reason,
+        grantedBy: event.grantedBy,
+      },
+      occurredAt: now,
+    })
+
+    const current = await tx.query.progression.findFirst({
+      where: eq(progression.userId, input.targetUserId),
+    })
+    const prevState = current
+      ? {
+          xp: current.xp,
+          level: current.level,
+          currentStreak: current.currentStreak,
+          longestStreak: current.longestStreak,
+          tokens: current.tokens,
+          lastCompletionAt: current.lastCompletionAt,
+        }
+      : INITIAL_PROGRESSION
+
+    const next = applyEvent(prevState, event, { timeZone: 'UTC' })
+
+    await tx
+      .insert(progression)
+      .values({
+        userId: input.targetUserId,
+        tokens: next.tokens,
+      })
+      .onConflictDoUpdate({
+        target: progression.userId,
+        set: { tokens: next.tokens, updatedAt: now },
+      })
+
+    return { tokens: next.tokens }
+  })
 }

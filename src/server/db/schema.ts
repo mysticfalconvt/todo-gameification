@@ -143,6 +143,7 @@ export const progression = pgTable('progression', {
   level: integer('level').notNull().default(1),
   currentStreak: integer('current_streak').notNull().default(0),
   longestStreak: integer('longest_streak').notNull().default(0),
+  tokens: integer('tokens').notNull().default(0),
   lastCompletionAt: timestamp('last_completion_at'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

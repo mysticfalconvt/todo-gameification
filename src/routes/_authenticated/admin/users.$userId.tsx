@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   getAdminUserDetailFn,
   getIsAdminFn,
+  grantTokensFn,
 } from '../../../server/functions/admin'
 
 export const Route = createFileRoute('/_authenticated/admin/users/$userId')({
@@ -52,6 +55,8 @@ function AdminUserDetailPage() {
       ) : (
         <>
           <SummaryGrid data={data} />
+          <MotivationSection data={data} />
+          <GrantTokensForm data={data} />
           <OpenInstancesTable data={data} />
           <RecentTasksTable data={data} />
           <RecentEventsList data={data} />
@@ -82,6 +87,7 @@ function SummaryGrid({ data }: { data: UserDetail }) {
               : 'no completions yet'
           }
         />
+        <Stat label="Tokens" value={data.progression.tokens} />
         <Stat label="Active tasks" value={data.counts.activeTasks} />
         <Stat
           label="Open instances"
@@ -122,6 +128,156 @@ function SummaryGrid({ data }: { data: UserDetail }) {
           View public profile →
         </Link>
       </div>
+    </section>
+  )
+}
+
+function MotivationSection({ data }: { data: UserDetail }) {
+  const m = data.motivation
+  if (!m) return null
+  const completionRate =
+    m.focus.started > 0
+      ? Math.round((m.focus.completed / m.focus.started) * 100)
+      : null
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-bold text-[var(--sea-ink)]">Focus & games</h2>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <Stat label="Focus started" value={m.focus.started} />
+        <Stat
+          label="Focus completed"
+          value={m.focus.completed}
+          hint={completionRate != null ? `${completionRate}% of starts` : undefined}
+        />
+        <Stat
+          label="Focus minutes"
+          value={m.focus.minutesCompleted}
+          hint="sum of completed sessions"
+        />
+        <Stat
+          label="Games played"
+          value={m.games.reduce((acc, g) => acc + g.played, 0)}
+        />
+      </div>
+      {m.games.length === 0 ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          No games played yet.
+        </p>
+      ) : (
+        <div className="island-shell overflow-x-auto rounded-2xl">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+              <tr>
+                <th className="px-3 py-2">Game</th>
+                <th className="px-3 py-2">Played</th>
+                <th className="px-3 py-2">Won</th>
+                <th className="px-3 py-2">Win rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {m.games.map((g) => {
+                const rate =
+                  g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
+                return (
+                  <tr
+                    key={g.gameId}
+                    className="border-b border-[var(--line)] last:border-none"
+                  >
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
+                      {g.gameId}
+                    </td>
+                    <td className="px-3 py-2">{g.played}</td>
+                    <td className="px-3 py-2">{g.won}</td>
+                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
+                      {rate}%
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function GrantTokensForm({ data }: { data: UserDetail }) {
+  const qc = useQueryClient()
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+
+  const grant = useMutation({
+    mutationFn: (input: { userId: string; amount: number; reason: string | null }) =>
+      grantTokensFn({ data: input }),
+    onSuccess: (res) => {
+      toast.success(`Balance updated → 🪙 ${res.tokens}`)
+      setAmount('')
+      setReason('')
+      qc.invalidateQueries({ queryKey: ['admin', 'user-detail', data.user.id] })
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Grant failed')
+    },
+  })
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    const n = Number(amount)
+    if (!Number.isInteger(n) || n === 0) {
+      toast.error('Enter a non-zero integer')
+      return
+    }
+    grant.mutate({
+      userId: data.user.id,
+      amount: n,
+      reason: reason.trim() || null,
+    })
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-bold text-[var(--sea-ink)]">Grant tokens</h2>
+      <form
+        onSubmit={submit}
+        className="island-shell flex flex-wrap items-end gap-3 rounded-2xl p-4"
+      >
+        <label className="flex flex-col text-xs text-[var(--sea-ink-soft)]">
+          Amount (negative to deduct)
+          <input
+            type="number"
+            step={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="e.g. 5"
+            className="mt-1 w-32 rounded border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1 text-sm text-[var(--sea-ink)]"
+            required
+          />
+        </label>
+        <label className="flex flex-1 flex-col text-xs text-[var(--sea-ink-soft)]">
+          Reason (optional)
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. beta tester bonus"
+            className="mt-1 w-full rounded border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1 text-sm text-[var(--sea-ink)]"
+            maxLength={120}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={grant.isPending}
+          className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+        >
+          {grant.isPending ? 'Granting…' : 'Grant'}
+        </button>
+      </form>
+      <p className="text-xs text-[var(--sea-ink-soft)]">
+        Current balance: 🪙 {data.progression.tokens}. Grants are recorded as{' '}
+        <code>tokens.granted</code> events and survive progression rebuilds.
+      </p>
     </section>
   )
 }

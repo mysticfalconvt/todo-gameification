@@ -277,6 +277,7 @@ export async function cheerCompletion(
           level: current.level,
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
+          tokens: current.tokens,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -291,6 +292,7 @@ export async function cheerCompletion(
         level: next.level,
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
+        tokens: next.tokens,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({

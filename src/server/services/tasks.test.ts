@@ -171,6 +171,7 @@ describe('tasks service', () => {
         level: 1,
         currentStreak: 0,
         longestStreak: 0,
+        tokens: 0,
       })
     })
   })

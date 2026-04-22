@@ -6,6 +6,7 @@ export interface Progression {
   level: number
   currentStreak: number
   longestStreak: number
+  tokens: number
   lastCompletionAt: Date | null
 }
 
@@ -14,6 +15,7 @@ export const INITIAL_PROGRESSION: Progression = {
   level: 1,
   currentStreak: 0,
   longestStreak: 0,
+  tokens: 0,
   lastCompletionAt: null,
 }
 
@@ -142,6 +144,7 @@ export function applyEvent(
         level: levelFor(xp),
         currentStreak,
         longestStreak: Math.max(state.longestStreak, currentStreak),
+        tokens: state.tokens,
         lastCompletionAt: event.occurredAt,
       }
     }
@@ -166,6 +169,36 @@ export function applyEvent(
         ...state,
         xp,
         level: levelFor(xp),
+      }
+    }
+
+    case 'focus.started':
+      return state
+
+    case 'focus.completed': {
+      const xp = state.xp + event.xpEarned
+      return {
+        ...state,
+        xp,
+        level: levelFor(xp),
+        tokens: state.tokens + event.tokensEarned,
+      }
+    }
+
+    case 'game.played': {
+      const xp = state.xp + event.xpReward
+      return {
+        ...state,
+        xp,
+        level: levelFor(xp),
+        tokens: Math.max(0, state.tokens - event.tokenCost),
+      }
+    }
+
+    case 'tokens.granted': {
+      return {
+        ...state,
+        tokens: Math.max(0, state.tokens + event.amount),
       }
     }
   }

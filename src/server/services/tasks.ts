@@ -133,6 +133,7 @@ export interface ProgressionSummary {
   level: number
   currentStreak: number
   longestStreak: number
+  tokens: number
 }
 
 export type CompleteInstanceResult =
@@ -972,6 +973,67 @@ async function rebuildProgression(
         },
         { timeZone },
       )
+    } else if (r.type === 'focus.started') {
+      // No-op for progression projection.
+    } else if (r.type === 'focus.completed') {
+      const durationMin =
+        p['durationMin'] === 15 || p['durationMin'] === 25 || p['durationMin'] === 50
+          ? (p['durationMin'] as 15 | 25 | 50)
+          : 25
+      state = applyEvent(
+        state,
+        {
+          type: 'focus.completed',
+          durationMin,
+          taskInstanceId:
+            typeof p['taskInstanceId'] === 'string'
+              ? (p['taskInstanceId'] as string)
+              : null,
+          tokensEarned:
+            typeof p['tokensEarned'] === 'number'
+              ? (p['tokensEarned'] as number)
+              : 0,
+          xpEarned:
+            typeof p['xpEarned'] === 'number' ? (p['xpEarned'] as number) : 0,
+          occurredAt,
+        },
+        { timeZone },
+      )
+    } else if (r.type === 'game.played') {
+      const result =
+        p['result'] && typeof p['result'] === 'object'
+          ? (p['result'] as Record<string, unknown>)
+          : {}
+      state = applyEvent(
+        state,
+        {
+          type: 'game.played',
+          gameId: typeof p['gameId'] === 'string' ? (p['gameId'] as string) : '',
+          tokenCost:
+            typeof p['tokenCost'] === 'number' ? (p['tokenCost'] as number) : 0,
+          xpReward:
+            typeof p['xpReward'] === 'number' ? (p['xpReward'] as number) : 0,
+          result: {
+            won: result['won'] === true,
+            score: typeof result['score'] === 'number' ? (result['score'] as number) : null,
+          },
+          occurredAt,
+        },
+        { timeZone },
+      )
+    } else if (r.type === 'tokens.granted') {
+      state = applyEvent(
+        state,
+        {
+          type: 'tokens.granted',
+          amount: typeof p['amount'] === 'number' ? (p['amount'] as number) : 0,
+          reason: typeof p['reason'] === 'string' ? (p['reason'] as string) : null,
+          grantedBy:
+            typeof p['grantedBy'] === 'string' ? (p['grantedBy'] as string) : '',
+          occurredAt,
+        },
+        { timeZone },
+      )
     }
   }
 
@@ -984,6 +1046,7 @@ async function rebuildProgression(
       level: state.level,
       currentStreak: state.currentStreak,
       longestStreak: state.longestStreak,
+      tokens: state.tokens,
       lastCompletionAt: state.lastCompletionAt,
     })
     .onConflictDoUpdate({
@@ -993,6 +1056,7 @@ async function rebuildProgression(
         level: state.level,
         currentStreak: state.currentStreak,
         longestStreak: state.longestStreak,
+        tokens: state.tokens,
         lastCompletionAt: state.lastCompletionAt,
         updatedAt: now,
       },
@@ -1063,6 +1127,7 @@ export async function completeInstance(
           level: current.level,
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
+          tokens: current.tokens,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -1077,6 +1142,7 @@ export async function completeInstance(
         level: next.level,
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
+        tokens: next.tokens,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({
@@ -1086,6 +1152,7 @@ export async function completeInstance(
           level: next.level,
           currentStreak: next.currentStreak,
           longestStreak: next.longestStreak,
+          tokens: next.tokens,
           lastCompletionAt: next.lastCompletionAt,
           updatedAt: now,
         },
@@ -1232,13 +1299,14 @@ export async function getProgression(
     where: eq(progression.userId, userId),
   })
   if (!row) {
-    return { xp: 0, level: 1, currentStreak: 0, longestStreak: 0 }
+    return { xp: 0, level: 1, currentStreak: 0, longestStreak: 0, tokens: 0 }
   }
   return {
     xp: row.xp,
     level: row.level,
     currentStreak: row.currentStreak,
     longestStreak: row.longestStreak,
+    tokens: row.tokens,
   }
 }
 

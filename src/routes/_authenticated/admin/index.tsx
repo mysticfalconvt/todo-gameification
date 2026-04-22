@@ -32,6 +32,7 @@ function AdminPage() {
         </h1>
       </header>
       <SummaryGrid />
+      <MotivationSection />
       <JobsSection />
       <LlmMetricsSection />
       <UsersTable />
@@ -291,6 +292,83 @@ function LlmMetricsSection() {
 function formatMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`
+}
+
+function MotivationSection() {
+  const summary = useQuery({
+    queryKey: ['admin', 'summary'],
+    queryFn: () => getAdminSummaryFn(),
+  })
+  if (summary.isLoading || !summary.data) return null
+  const m = summary.data.motivation
+  if (!m) return null
+  const completionRate =
+    m.focus.started > 0
+      ? Math.round((m.focus.completed / m.focus.started) * 100)
+      : null
+
+  return (
+    <section className="space-y-3">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          Focus & games
+        </h2>
+      </header>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <Stat label="Focus started" value={m.focus.started} />
+        <Stat
+          label="Focus completed"
+          value={m.focus.completed}
+          hint={completionRate != null ? `${completionRate}% of starts` : undefined}
+        />
+        <Stat
+          label="Focus minutes"
+          value={m.focus.minutesCompleted}
+          hint="sum of completed sessions"
+        />
+        <Stat
+          label="Games played"
+          value={m.games.reduce((acc, g) => acc + g.played, 0)}
+        />
+      </div>
+      {m.games.length === 0 ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">No games played yet.</p>
+      ) : (
+        <div className="island-shell overflow-x-auto rounded-2xl">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+              <tr>
+                <th className="px-3 py-2">Game</th>
+                <th className="px-3 py-2">Played</th>
+                <th className="px-3 py-2">Won</th>
+                <th className="px-3 py-2">Win rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {m.games.map((g) => {
+                const rate = g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
+                return (
+                  <tr
+                    key={g.gameId}
+                    className="border-b border-[var(--line)] last:border-none"
+                  >
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
+                      {g.gameId}
+                    </td>
+                    <td className="px-3 py-2">{g.played}</td>
+                    <td className="px-3 py-2">{g.won}</td>
+                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
+                      {rate}%
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
 }
 
 function SummaryGrid() {

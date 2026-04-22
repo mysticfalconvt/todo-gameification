@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getStats, listCompletionHistory } from '../../../server/functions/tasks'
+import { getMotivationStats } from '../../../server/functions/motivation'
 import { useAvailableWindows } from '../../../lib/useAvailableWindows'
 import {
   TimingDistributionSection,
@@ -88,6 +89,7 @@ function StatsPage() {
             }
           />
           <TopTasksSection tasks={stats.topTasks} />
+          <MotivationSection days={days} />
           <HistorySection />
         </>
       )}
@@ -227,6 +229,179 @@ function formatTime(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function MotivationSection({ days }: { days: Range }) {
+  const query = useQuery({
+    queryKey: ['motivation-stats', days],
+    queryFn: () => getMotivationStats({ data: { days } }),
+  })
+  const data = query.data
+  if (query.isLoading || !data) {
+    return (
+      <section className="island-shell rounded-2xl p-4">
+        <p className="text-sm text-[var(--sea-ink-soft)]">Loading focus & games…</p>
+      </section>
+    )
+  }
+
+  const totalGamesPlayed = data.games.reduce((acc, g) => acc + g.played, 0)
+  const totalGameXp = data.games.reduce((acc, g) => acc + g.xpEarned, 0)
+  const completionRate =
+    data.focus.started > 0
+      ? Math.round((data.focus.completed / data.focus.started) * 100)
+      : null
+
+  return (
+    <section className="space-y-4">
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Focus & games</h2>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <StatCard
+          label="Focus minutes"
+          value={data.focus.minutesCompleted}
+          hint={`${data.focus.completed} completed`}
+        />
+        <StatCard
+          label="Completion rate"
+          value={completionRate != null ? `${completionRate}%` : '—'}
+          hint={`${data.focus.started} started`}
+        />
+        <StatCard
+          label="XP from focus"
+          value={data.focus.xpEarned}
+          hint={`🪙 ${data.focus.tokensEarned} earned`}
+        />
+        <StatCard
+          label="XP from games"
+          value={totalGameXp}
+          hint={`${totalGamesPlayed} played`}
+        />
+      </div>
+
+      {data.games.length > 0 ? (
+        <div className="island-shell overflow-x-auto rounded-2xl">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+              <tr>
+                <th className="px-3 py-2">Game</th>
+                <th className="px-3 py-2">Played</th>
+                <th className="px-3 py-2">Won</th>
+                <th className="px-3 py-2">Win rate</th>
+                <th className="px-3 py-2">XP earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.games.map((g) => {
+                const rate = g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
+                return (
+                  <tr
+                    key={g.gameId}
+                    className="border-b border-[var(--line)] last:border-none"
+                  >
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
+                      {g.name}
+                    </td>
+                    <td className="px-3 py-2">{g.played}</td>
+                    <td className="px-3 py-2">{g.won}</td>
+                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
+                      {rate}%
+                    </td>
+                    <td className="px-3 py-2">{g.xpEarned}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {data.recentEvents.length > 0 ? (
+        <details className="island-shell rounded-2xl p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[var(--sea-ink)]">
+            Recent activity ({data.recentEvents.length})
+          </summary>
+          <ul className="mt-3 space-y-1 text-sm">
+            {data.recentEvents.map((e) => (
+              <li
+                key={e.id}
+                className="flex flex-wrap items-baseline gap-2 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] p-2 text-xs"
+              >
+                <span className="text-[var(--sea-ink-soft)]">
+                  {formatTime(e.occurredAt)} ·{' '}
+                  {formatDayLabel(e.occurredAt.slice(0, 10))}
+                </span>
+                <MotivationRow event={e} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          No focus sessions or games yet in this window.{' '}
+          <Link to="/focus" className="underline">
+            Start one
+          </Link>
+          .
+        </p>
+      )}
+    </section>
+  )
+}
+
+type MotivationEvent = NonNullable<
+  Awaited<ReturnType<typeof getMotivationStats>>
+>['recentEvents'][number]
+
+function MotivationRow({ event }: { event: MotivationEvent }) {
+  if (event.type === 'focus.started') {
+    return (
+      <span className="text-[var(--sea-ink)]">
+        🎯 Started {event.durationMin ?? '?'}-min focus session
+      </span>
+    )
+  }
+  if (event.type === 'focus.completed') {
+    return (
+      <span className="text-[var(--sea-ink)]">
+        ✅ Finished {event.durationMin ?? '?'}-min session · +{event.xpEarned} XP
+        · +{event.tokensEarned} 🪙
+      </span>
+    )
+  }
+  // game.played
+  return (
+    <span className="text-[var(--sea-ink)]">
+      🎮 {event.gameName} · {event.won ? 'won' : 'played'} · −{event.tokenCost} 🪙
+      {event.xpReward > 0 ? ` · +${event.xpReward} XP` : ''}
+    </span>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: number | string
+  hint?: string
+}) {
+  return (
+    <div className="island-shell rounded-2xl p-4">
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">
+        {value}
+      </div>
+      {hint ? (
+        <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div>
+      ) : null}
+    </div>
+  )
 }
 
 function WeekdaySection({ data }: { data: number[] }) {

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth'
 import {
   countOpenInstances,
   getLlmCallDetail,
+  grantTokens,
   isAdmin,
   listAllUsers,
   listLlmCalls,
@@ -96,3 +97,32 @@ export const getAdminLlmCallFn = createServerFn({ method: 'POST' })
     return { id: data.id }
   })
   .handler(async ({ data }) => getLlmCallDetail(data.id))
+
+export const grantTokensFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .inputValidator(
+    (data: { userId: string; amount: number; reason?: string | null }) => {
+      if (typeof data?.userId !== 'string' || !data.userId) {
+        throw new Error('userId required')
+      }
+      if (typeof data?.amount !== 'number' || !Number.isInteger(data.amount)) {
+        throw new Error('amount must be an integer')
+      }
+      return {
+        userId: data.userId,
+        amount: data.amount,
+        reason:
+          typeof data.reason === 'string' && data.reason.trim()
+            ? data.reason.trim()
+            : null,
+      }
+    },
+  )
+  .handler(({ data, context }) =>
+    grantTokens({
+      targetUserId: data.userId,
+      grantedBy: context.userId,
+      amount: data.amount,
+      reason: data.reason,
+    }),
+  )

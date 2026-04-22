@@ -227,21 +227,41 @@ function TodayPage() {
           </h1>
           <CoachBlurb instances={instances} />
         </div>
-        <Link
-          to="/tasks/new"
-          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
-        >
-          + New
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <Link
+            to="/tasks/new"
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+          >
+            + New
+          </Link>
+          <Link
+            to="/focus"
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+          >
+            🎯 Focus
+          </Link>
+        </div>
       </header>
 
       {progression ? (
         <section className="island-shell mb-6 rounded-2xl p-4">
-          <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-5 gap-2 text-center">
             <Stat label="Level" value={progression.level} />
             <Stat label="XP" value={progression.xp} />
             <Stat label="Streak" value={`${progression.currentStreak}d`} />
             <Stat label="Longest" value={`${progression.longestStreak}d`} />
+            <Link
+              to="/arcade"
+              className="flex flex-col items-center justify-center no-underline"
+              aria-label={`Tokens: ${progression.tokens}. Open arcade.`}
+            >
+              <span className="text-lg font-semibold text-[var(--sea-ink)]">
+                🪙 {progression.tokens}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide text-[var(--sea-ink-soft)]">
+                Arcade
+              </span>
+            </Link>
           </div>
           <div className="mt-4">
             <ActivityStrip days={Array.isArray(activityQuery.data) ? activityQuery.data : []} />
@@ -650,6 +670,14 @@ function BucketList({
             </p>
           </Link>
           <div className="flex flex-shrink-0 items-center gap-1">
+            <Link
+              to="/focus"
+              search={{ taskInstanceId: inst.instanceId }}
+              aria-label={`Focus on ${inst.title}`}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline transition hover:text-[var(--sea-ink)]"
+            >
+              🎯 Focus
+            </Link>
             <IconButton
               label={`Snooze ${inst.title} for 1 hour`}
               onClick={() => onSnooze(inst.instanceId)}

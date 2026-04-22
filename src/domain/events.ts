@@ -37,5 +37,44 @@ export type DomainEvent =
       xp: number
       occurredAt: Date
     }
+  | {
+      // Purely informational: doesn't affect progression. Lets admin analytics
+      // see how many sessions get abandoned vs completed.
+      type: 'focus.started'
+      durationMin: 15 | 25 | 50
+      taskInstanceId: string | null
+      occurredAt: Date
+    }
+  | {
+      type: 'focus.completed'
+      durationMin: 15 | 25 | 50
+      taskInstanceId: string | null
+      tokensEarned: number
+      xpEarned: number
+      occurredAt: Date
+    }
+  | {
+      type: 'game.played'
+      gameId: string
+      tokenCost: number
+      xpReward: number
+      result: { won: boolean; score: number | null }
+      occurredAt: Date
+    }
+  | {
+      // Admin-issued token grant (positive or negative). Lives in the event
+      // log so `rebuildProgression` preserves it across replays.
+      type: 'tokens.granted'
+      amount: number
+      reason: string | null
+      grantedBy: string
+      occurredAt: Date
+    }
 
 export type DomainEventType = DomainEvent['type']
+
+export const FOCUS_REWARDS: Record<15 | 25 | 50, { tokens: number; xp: number }> = {
+  15: { tokens: 1, xp: 5 },
+  25: { tokens: 2, xp: 10 },
+  50: { tokens: 4, xp: 20 },
+}
