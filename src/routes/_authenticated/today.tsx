@@ -669,12 +669,15 @@ function BucketList({
               ) : null}
             </p>
           </Link>
-          <div className="flex flex-shrink-0 items-center gap-1">
+          <div className="flex flex-shrink-0 flex-col items-stretch gap-1 sm:flex-row sm:items-center">
             <Link
               to="/focus"
-              search={{ taskInstanceId: inst.instanceId }}
+              search={{
+                taskInstanceId: inst.instanceId,
+                taskTitle: inst.title,
+              }}
               aria-label={`Focus on ${inst.title}`}
-              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline transition hover:text-[var(--sea-ink)]"
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-center text-xs font-semibold text-[var(--sea-ink-soft)] no-underline transition hover:text-[var(--sea-ink)]"
             >
               🎯 Focus
             </Link>
@@ -732,7 +735,7 @@ function IconButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)]"
+      className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-center text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)]"
     >
       {children}
     </button>

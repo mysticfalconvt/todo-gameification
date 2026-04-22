@@ -10,11 +10,13 @@ function formatRemaining(ms: number): string {
 
 export function FocusTimer({
   durationMin,
+  taskTitle,
   plannedMsOverride,
   onComplete,
   onCancel,
 }: {
   durationMin: 15 | 25 | 50
+  taskTitle?: string
   // Test-mode override (e.g., 10s instead of 15 min). Keeps the server
   // reward mapping unchanged since durationMin is still the logical value.
   plannedMsOverride?: number
@@ -37,8 +39,15 @@ export function FocusTimer({
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6">
-      <div className="text-sm text-[var(--sea-ink-soft)]">
-        {durationMin}-min focus session
+      <div className="flex flex-col items-center gap-1 text-center">
+        <div className="text-sm text-[var(--sea-ink-soft)]">
+          {durationMin}-min focus session
+        </div>
+        {taskTitle ? (
+          <div className="max-w-xs text-lg font-semibold text-[var(--sea-ink)]">
+            {taskTitle}
+          </div>
+        ) : null}
       </div>
 
       <div

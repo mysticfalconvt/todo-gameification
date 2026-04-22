@@ -1167,9 +1167,15 @@ export async function completeInstance(
         timeOfDay: task.timeOfDay,
         timeZone,
       })
+      // Hide the rematerialized instance from today/today-queries until
+      // its next due time. Without this an "anytime + repeat 2h after
+      // completion" task reappears instantly because nextDue is still
+      // today (< horizon). snoozedUntil is the existing per-instance
+      // gate the today query already respects.
+      const snoozedUntil = nextDue > now ? nextDue : null
       const [inst] = await tx
         .insert(taskInstances)
-        .values({ taskId: task.id, userId, dueAt: nextDue })
+        .values({ taskId: task.id, userId, dueAt: nextDue, snoozedUntil })
         .returning()
       materialized = { instanceId: inst.id, dueAt: nextDue }
     }
@@ -1247,9 +1253,10 @@ export async function skipInstance(
         timeOfDay: task.timeOfDay,
         timeZone,
       })
+      const snoozedUntil = nextDue > now ? nextDue : null
       const [inst] = await tx
         .insert(taskInstances)
-        .values({ taskId: task.id, userId, dueAt: nextDue })
+        .values({ taskId: task.id, userId, dueAt: nextDue, snoozedUntil })
         .returning()
       materialized = { instanceId: inst.id, dueAt: nextDue }
     }

@@ -16,6 +16,7 @@ type Phase = 'picking' | 'running' | 'confirming'
 
 interface FocusSearch {
   taskInstanceId?: string
+  taskTitle?: string
 }
 
 export const Route = createFileRoute('/_authenticated/focus')({
@@ -23,6 +24,8 @@ export const Route = createFileRoute('/_authenticated/focus')({
   validateSearch: (s: Record<string, unknown>): FocusSearch => ({
     taskInstanceId:
       typeof s.taskInstanceId === 'string' ? s.taskInstanceId : undefined,
+    taskTitle:
+      typeof s.taskTitle === 'string' ? s.taskTitle : undefined,
   }),
 })
 
@@ -104,6 +107,7 @@ function FocusPage() {
       <main className="page-wrap px-4 py-8">
         <ConfirmationPrompt
           taskLinked={Boolean(search.taskInstanceId)}
+          taskTitle={search.taskTitle}
           pending={completeFocus.isPending || completeTask.isPending}
           onTaskConfirm={handleTaskConfirm}
           onStandaloneConfirm={handleStandaloneConfirm}
@@ -117,6 +121,7 @@ function FocusPage() {
       <main className="page-wrap px-4 py-8">
         <FocusTimer
           durationMin={duration}
+          taskTitle={search.taskTitle}
           onComplete={onTimerComplete}
           onCancel={onCancel}
         />
@@ -164,7 +169,11 @@ function FocusPage() {
 
       {search.taskInstanceId ? (
         <p className="mb-4 text-xs text-[var(--sea-ink-soft)]">
-          We'll ask if you finished the task when the timer ends.
+          {search.taskTitle ? (
+            <>Focusing on <span className="font-semibold">{search.taskTitle}</span>. We'll ask if you finished it when the timer ends.</>
+          ) : (
+            <>We'll ask if you finished the task when the timer ends.</>
+          )}
         </p>
       ) : null}
 
@@ -192,11 +201,13 @@ function FocusPage() {
 
 function ConfirmationPrompt({
   taskLinked,
+  taskTitle,
   pending,
   onTaskConfirm,
   onStandaloneConfirm,
 }: {
   taskLinked: boolean
+  taskTitle?: string
   pending: boolean
   onTaskConfirm: (didCompleteTask: boolean) => void
   onStandaloneConfirm: (wasSuccessful: boolean) => void
@@ -209,8 +220,15 @@ function ConfirmationPrompt({
       </h2>
       {taskLinked ? (
         <>
+          {taskTitle ? (
+            <p className="text-base font-semibold text-[var(--sea-ink)]">
+              “{taskTitle}”
+            </p>
+          ) : null}
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Did you finish the task? Focus rewards are awarded either way.
+            {taskTitle
+              ? `Did you finish it? Focus rewards are awarded either way.`
+              : `Did you finish the task? Focus rewards are awarded either way.`}
           </p>
           <div className="flex w-full max-w-sm flex-col gap-2">
             <button
