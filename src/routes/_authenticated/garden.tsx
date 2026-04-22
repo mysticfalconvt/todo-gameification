@@ -1,7 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { getGardenFn } from '../../server/functions/garden'
+import {
+  getCommunityGardenFn,
+  getGardenFn,
+} from '../../server/functions/garden'
 import type { GardenPlant } from '../../server/services/garden'
+import type {
+  CommunityGardenEntry,
+  CommunityGardenScope,
+} from '../../server/services/communityGarden'
 
 export const Route = createFileRoute('/_authenticated/garden')({
   component: GardenPage,
@@ -190,20 +198,115 @@ const DECORATION_AT: Record<GardenPlant['decorations'][number], string> = {
 }
 
 const MOOD_LABEL: Record<GardenPlant['mood'], string> = {
+  thriving: 'Thriving',
   perky: 'Perky',
+  content: 'Content',
   thirsty: 'Thirsty',
   wilting: 'Wilting',
+  parched: 'Parched',
   dormant: 'Dormant',
 }
 
 const MOOD_HINT: Record<GardenPlant['mood'], string> = {
-  perky: 'Watered recently. Thriving.',
-  thirsty: 'Could use a visit soon.',
-  wilting: "Hasn't been watered in a while — any completion revives it.",
+  thriving: 'Freshly watered. Glowing.',
+  perky: 'Watered recently. Happy.',
+  content: 'Doing fine. A visit soon would help.',
+  thirsty: 'Getting dry — time for a watering.',
+  wilting: "Hasn't been watered in a week — any completion revives it.",
+  parched: 'Severely dry. One small task will bring it back.',
   dormant: 'Complete a task in this category to plant a seed.',
 }
 
+// Single-glyph mood indicator for the community card (and the corner
+// of the Yours card). Keeps cards scannable without a row of text.
+const MOOD_ICON: Record<GardenPlant['mood'], string> = {
+  thriving: '✨',
+  perky: '💚',
+  content: '🙂',
+  thirsty: '💧',
+  wilting: '🥀',
+  parched: '🍂',
+  dormant: '💤',
+}
+
+// Faded / grayscale treatment intensifies as the plant dries out.
+const MOOD_VISUAL: Record<GardenPlant['mood'], string> = {
+  thriving: '',
+  perky: '',
+  content: 'opacity-95',
+  thirsty: 'opacity-85',
+  wilting: 'grayscale opacity-70',
+  parched: 'grayscale opacity-55',
+  dormant: 'opacity-40',
+}
+
+type Tab = 'yours' | 'community'
+
 function GardenPage() {
+  const [tab, setTab] = useState<Tab>('yours')
+  return (
+    <main className="page-wrap space-y-6 px-4 py-8">
+      <header>
+        <p className="island-kicker mb-1">Garden</p>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
+          {tab === 'yours' ? 'Your progress, growing' : 'The community garden'}
+        </h1>
+        <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
+          {tab === 'yours'
+            ? 'Every task you complete waters a plant in its category. Consistency makes them bloom.'
+            : "Plants from other people who've chosen to share their garden. Tap a plant to visit their profile."}
+        </p>
+      </header>
+
+      <nav
+        role="tablist"
+        aria-label="Garden view"
+        className="island-shell inline-flex gap-1 rounded-full p-1"
+      >
+        <TabButton active={tab === 'yours'} onClick={() => setTab('yours')}>
+          Yours
+        </TabButton>
+        <TabButton
+          active={tab === 'community'}
+          onClick={() => setTab('community')}
+        >
+          Community
+        </TabButton>
+      </nav>
+
+      {tab === 'yours' ? <YoursPanel /> : <CommunityPanel />}
+    </main>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={[
+        'rounded-full px-4 py-1.5 text-sm font-semibold transition',
+        active
+          ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+          : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]',
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  )
+}
+
+function YoursPanel() {
   const query = useQuery({
     queryKey: ['garden'],
     queryFn: () => getGardenFn(),
@@ -212,58 +315,157 @@ function GardenPage() {
   const data = query.data
   const plants = Array.isArray(data?.plants) ? data.plants : []
 
-  return (
-    <main className="page-wrap space-y-6 px-4 py-8">
-      <header>
-        <p className="island-kicker mb-1">Garden</p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          Your progress, growing
-        </h1>
-        <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-          Every task you complete waters a plant in its category. Consistency
-          makes them bloom.
+  if (query.isLoading) {
+    return <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+  }
+
+  if (plants.length === 0) {
+    return (
+      <section className="island-shell rounded-2xl p-8 text-center">
+        <div className="mb-2 text-6xl" aria-hidden>
+          🪴
+        </div>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+          An empty pot, waiting
+        </h2>
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          Complete a task and its category will sprout here.
         </p>
-      </header>
+      </section>
+    )
+  }
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {plants.map((p) => (
+          <PlantCard key={p.key} plant={p} />
+        ))}
+      </div>
+      <p className="text-center text-xs text-[var(--sea-ink-soft)]">
+        {data?.activePlantCount ?? 0} plant
+        {(data?.activePlantCount ?? 0) === 1 ? '' : 's'} ·{' '}
+        {data?.totalWaterings ?? 0} total waterings
+      </p>
+    </>
+  )
+}
+
+function CommunityPanel() {
+  const [scope, setScope] = useState<CommunityGardenScope>('friends')
+  const query = useQuery({
+    queryKey: ['community-garden', scope],
+    queryFn: () => getCommunityGardenFn({ data: { scope } }),
+  })
+  const entries = query.data?.entries ?? []
+
+  return (
+    <section className="space-y-4">
+      <div
+        role="tablist"
+        aria-label="Community scope"
+        className="island-shell inline-flex gap-1 rounded-full p-1"
+      >
+        <TabButton active={scope === 'friends'} onClick={() => setScope('friends')}>
+          Friends
+        </TabButton>
+        <TabButton active={scope === 'global'} onClick={() => setScope('global')}>
+          Global
+        </TabButton>
+      </div>
 
       {query.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
-      ) : plants.length === 0 ? (
+      ) : entries.length === 0 ? (
         <section className="island-shell rounded-2xl p-8 text-center">
           <div className="mb-2 text-6xl" aria-hidden>
-            🪴
+            🌱
           </div>
           <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-            An empty pot, waiting
+            {scope === 'friends'
+              ? 'No friends are sharing gardens yet'
+              : 'No public gardens yet'}
           </h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Complete a task and its category will sprout here.
+            {scope === 'friends'
+              ? 'Ask a friend to set their garden to public or friends-only in Settings.'
+              : 'When people set their garden to public, their plants appear here.'}
           </p>
         </section>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {plants.map((p) => (
-              <PlantCard key={p.key} plant={p} />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {entries.map((e) => (
+              <CommunityPlantCard
+                key={`${e.userId}:${e.plant.key}`}
+                entry={e}
+              />
             ))}
           </div>
           <p className="text-center text-xs text-[var(--sea-ink-soft)]">
-            {data?.activePlantCount ?? 0} plant
-            {(data?.activePlantCount ?? 0) === 1 ? '' : 's'} ·{' '}
-            {data?.totalWaterings ?? 0} total waterings
+            {query.data?.userCount ?? 0} gardener
+            {(query.data?.userCount ?? 0) === 1 ? '' : 's'} ·{' '}
+            {query.data?.totalWaterings ?? 0} total waterings
           </p>
         </>
       )}
-    </main>
+    </section>
+  )
+}
+
+function CommunityPlantCard({ entry }: { entry: CommunityGardenEntry }) {
+  const { plant: p, handle, name } = entry
+  const species = pickSpecies(p.categorySlug)
+  const emoji = SPECIES_EMOJI[species][p.stage]
+  return (
+    <Link
+      to="/u/$handle"
+      params={{ handle }}
+      className="island-shell relative block overflow-hidden rounded-xl p-2 no-underline transition hover:shadow-md"
+      style={{ borderColor: p.color, borderTopWidth: 3 }}
+      aria-label={`${name} (@${handle}) · ${p.label} · ${MOOD_LABEL[p.mood]}`}
+      title={`${p.label} · ${SPECIES_LABEL[species]} · ${STAGE_LABEL[p.stage]} · ${MOOD_LABEL[p.mood]}`}
+    >
+      <span
+        className="pointer-events-none absolute right-1.5 top-1.5 text-sm"
+        aria-hidden
+      >
+        {MOOD_ICON[p.mood]}
+      </span>
+      <div className="mb-0.5 truncate pr-5 text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+        @{handle}
+      </div>
+      <div
+        className={`relative flex min-h-[3.5rem] items-center justify-center text-4xl ${MOOD_VISUAL[p.mood]}`}
+        aria-hidden
+      >
+        {emoji}
+        {p.decorations.map((d) => (
+          <span
+            key={d}
+            className={`pointer-events-none absolute ${DECORATION_AT[d]} text-sm`}
+            aria-hidden
+          >
+            {DECORATION_EMOJI[d]}
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px]">
+        <span
+          className="truncate font-semibold text-[var(--sea-ink)]"
+          style={{ color: p.color }}
+        >
+          {p.label}
+        </span>
+        <span className="whitespace-nowrap tabular-nums text-[var(--sea-ink-soft)]">
+          {p.waterings}🪴 · {p.currentStreak}d
+        </span>
+      </div>
+    </Link>
   )
 }
 
 function PlantCard({ plant: p }: { plant: GardenPlant }) {
-  const moodClass: Record<GardenPlant['mood'], string> = {
-    perky: '',
-    thirsty: 'opacity-90',
-    wilting: 'grayscale opacity-70',
-    dormant: 'opacity-50',
-  }
   const species = pickSpecies(p.categorySlug)
   const emoji = SPECIES_EMOJI[species][p.stage]
   return (
@@ -274,8 +476,15 @@ function PlantCard({ plant: p }: { plant: GardenPlant }) {
         borderTopWidth: 4,
       }}
     >
+      <span
+        className="pointer-events-none absolute right-2 top-2 text-lg"
+        aria-hidden
+        title={MOOD_LABEL[p.mood]}
+      >
+        {MOOD_ICON[p.mood]}
+      </span>
       <div
-        className={`relative flex min-h-[6rem] items-center justify-center ${STAGE_TEXT_SIZE[p.stage]} ${moodClass[p.mood]}`}
+        className={`relative flex min-h-[6rem] items-center justify-center ${STAGE_TEXT_SIZE[p.stage]} ${MOOD_VISUAL[p.mood]}`}
         aria-hidden
         title={`${SPECIES_LABEL[species]} · ${STAGE_LABEL[p.stage]}`}
       >

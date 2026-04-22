@@ -125,11 +125,20 @@ describe('garden reducer', () => {
     ])
   })
 
-  it('mood tracks recency', () => {
-    const now = new Date('2026-01-05T12:00:00Z')
+  it('mood tracks recency across seven levels', () => {
+    const now = new Date('2026-01-20T12:00:00Z')
     expect(mood(null, now)).toBe('dormant')
-    expect(mood(new Date('2026-01-05T06:00:00Z'), now)).toBe('perky')
-    expect(mood(new Date('2026-01-03T12:00:00Z'), now)).toBe('thirsty')
-    expect(mood(new Date('2026-01-01T12:00:00Z'), now)).toBe('wilting')
+    // 6h ago → thriving
+    expect(mood(new Date('2026-01-20T06:00:00Z'), now)).toBe('thriving')
+    // 24h ago → perky (12–36h)
+    expect(mood(new Date('2026-01-19T12:00:00Z'), now)).toBe('perky')
+    // 48h ago → content (36–96h)
+    expect(mood(new Date('2026-01-18T12:00:00Z'), now)).toBe('content')
+    // 5 days ago → thirsty (96–168h)
+    expect(mood(new Date('2026-01-15T12:00:00Z'), now)).toBe('thirsty')
+    // 10 days ago → wilting (168–336h)
+    expect(mood(new Date('2026-01-10T12:00:00Z'), now)).toBe('wilting')
+    // 20 days ago → parched (>336h)
+    expect(mood(new Date('2025-12-31T12:00:00Z'), now)).toBe('parched')
   })
 })

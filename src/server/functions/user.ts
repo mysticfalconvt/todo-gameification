@@ -51,6 +51,7 @@ export const getProfile = createServerFn({ method: 'GET' })
         columns: {
           handle: true,
           profileVisibility: true,
+          gardenVisibility: true,
           name: true,
           quietHoursStart: true,
           quietHoursEnd: true,
@@ -63,6 +64,7 @@ export const getProfile = createServerFn({ method: 'GET' })
     return {
       handle: userRow?.handle ?? '',
       profileVisibility: (userRow?.profileVisibility ?? 'friends') as Visibility,
+      gardenVisibility: (userRow?.gardenVisibility ?? 'friends') as Visibility,
       shareProgression: prefsRow?.shareProgression ?? true,
       shareActivity: prefsRow?.shareActivity ?? true,
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
@@ -147,6 +149,22 @@ export const updateProfileVisibility = createServerFn({ method: 'POST' })
     await db
       .update(userTable)
       .set({ profileVisibility: data.visibility, updatedAt: new Date() })
+      .where(eq(userTable.id, context.userId))
+    return { visibility: data.visibility }
+  })
+
+export const updateGardenVisibility = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { visibility: string }) => {
+    if (!VISIBILITY_VALUES.includes(data.visibility as Visibility)) {
+      throw new Error('invalid visibility')
+    }
+    return { visibility: data.visibility as Visibility }
+  })
+  .handler(async ({ data, context }) => {
+    await db
+      .update(userTable)
+      .set({ gardenVisibility: data.visibility, updatedAt: new Date() })
       .where(eq(userTable.id, context.userId))
     return { visibility: data.visibility }
   })

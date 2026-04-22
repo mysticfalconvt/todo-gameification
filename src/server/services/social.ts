@@ -540,6 +540,34 @@ export async function canView(
   return f?.status === 'accepted'
 }
 
+// Garden-specific privacy gate. Intentionally parallel to canView but
+// reads gardenVisibility instead of profileVisibility — users can share
+// their garden on a different axis than the rest of their profile.
+// Block enforcement is identical: a block on the viewer always wins.
+export async function canViewGarden(
+  viewerId: string,
+  targetId: string,
+): Promise<boolean> {
+  if (viewerId === targetId) return true
+  const target = await db.query.user.findFirst({
+    where: eq(userTable.id, targetId),
+    columns: { gardenVisibility: true },
+  })
+  if (!target) return false
+  const block = await db.query.friendships.findFirst({
+    where: and(
+      eq(friendships.requesterId, targetId),
+      eq(friendships.addresseeId, viewerId),
+      eq(friendships.status, 'blocked'),
+    ),
+  })
+  if (block) return false
+  if (target.gardenVisibility === 'public') return true
+  if (target.gardenVisibility === 'private') return false
+  const f = await findFriendshipEitherDirection(viewerId, targetId)
+  return f?.status === 'accepted'
+}
+
 // Load another user's effective sharing prefs (with defaults when no row).
 export async function loadPrefs(userId: string): Promise<{
   shareProgression: boolean

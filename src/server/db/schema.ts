@@ -32,6 +32,14 @@ export const user = pgTable('user', {
   })
     .notNull()
     .default('friends'),
+  // Independent of profileVisibility: the community garden has its own
+  // tri-state gate so a user can show their garden publicly while
+  // keeping the rest of their profile friends-only, or vice versa.
+  gardenVisibility: text('garden_visibility', {
+    enum: ['public', 'friends', 'private'],
+  })
+    .notNull()
+    .default('friends'),
   // Quiet hours suppress reminder-escalation pushes (not first-time
   // reminders the user explicitly scheduled). Stored as local HH:MM
   // strings; null on either side means "no quiet window."

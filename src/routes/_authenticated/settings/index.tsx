@@ -26,6 +26,7 @@ import {
 } from '../../../server/functions/categories'
 import {
   getProfile,
+  updateGardenVisibility,
   updateHandle,
   updatePrefs,
   updateProfileVisibility,
@@ -813,6 +814,24 @@ const VISIBILITY_OPTIONS = [
   },
 ] as const
 
+const GARDEN_VISIBILITY_OPTIONS = [
+  {
+    value: 'public',
+    label: 'Public',
+    hint: 'Your garden appears in the Global community garden for anyone.',
+  },
+  {
+    value: 'friends',
+    label: 'Friends only',
+    hint: 'Only accepted friends see your garden in the Community tab.',
+  },
+  {
+    value: 'private',
+    label: 'Private',
+    hint: 'Nobody sees your garden. You still see it in the Yours tab.',
+  },
+] as const
+
 function PrivacySection() {
   const qc = useQueryClient()
   const profileQuery = useQuery({
@@ -823,6 +842,14 @@ function PrivacySection() {
   const setVisibility = useMutation({
     mutationFn: (visibility: string) =>
       updateProfileVisibility({ data: { visibility } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  const setGardenVisibility = useMutation({
+    mutationFn: (visibility: string) =>
+      updateGardenVisibility({ data: { visibility } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Update failed'),
@@ -870,6 +897,48 @@ function PrivacySection() {
                   value={opt.value}
                   checked={checked}
                   onChange={() => setVisibility.mutate(opt.value)}
+                  className="mt-1"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+                    {opt.label}
+                  </span>
+                  <span className="block text-xs text-[var(--sea-ink-soft)]">
+                    {opt.hint}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
+
+      <fieldset className="mb-5">
+        <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+          Garden visibility
+        </legend>
+        <p className="mb-2 text-xs text-[var(--sea-ink-soft)]">
+          Separate from profile visibility — share your garden publicly even
+          if the rest of your profile is friends-only.
+        </p>
+        <div className="space-y-2">
+          {GARDEN_VISIBILITY_OPTIONS.map((opt) => {
+            const checked = p?.gardenVisibility === opt.value
+            return (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
+                  checked
+                    ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
+                    : 'border-[var(--line)] bg-[var(--option-bg)]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="garden-visibility"
+                  value={opt.value}
+                  checked={checked}
+                  onChange={() => setGardenVisibility.mutate(opt.value)}
                   className="mt-1"
                 />
                 <span className="flex-1">

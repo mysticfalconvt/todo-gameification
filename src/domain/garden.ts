@@ -157,14 +157,26 @@ export function milestoneDecorations(waterings: number): Decoration[] {
 }
 
 // Derived mood purely from recency. Never terminal — next watering
-// resets straight back to `perky`. This is the anti-guilt lever.
-export type Mood = 'perky' | 'thirsty' | 'wilting' | 'dormant'
+// resets straight back to the top. This is the anti-guilt lever.
+// More levels give the community garden finer visual variety at a
+// glance without adding category-specific logic.
+export type Mood =
+  | 'thriving'
+  | 'perky'
+  | 'content'
+  | 'thirsty'
+  | 'wilting'
+  | 'parched'
+  | 'dormant'
 
 export function mood(lastWateredAt: Date | null, now = new Date()): Mood {
   if (!lastWateredAt) return 'dormant'
   const hours =
     (now.getTime() - lastWateredAt.getTime()) / (60 * 60 * 1000)
-  if (hours < 30) return 'perky'
-  if (hours < 72) return 'thirsty'
-  return 'wilting'
+  if (hours < 12) return 'thriving'
+  if (hours < 36) return 'perky'
+  if (hours < 96) return 'content'
+  if (hours < 168) return 'thirsty'
+  if (hours < 336) return 'wilting'
+  return 'parched'
 }
