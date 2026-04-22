@@ -446,19 +446,23 @@ function FriendsActivity() {
             >
               <Initials name={r.name} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-[var(--sea-ink)]">
+                <p className="text-sm text-[var(--sea-ink)] break-words">
                   <span className="font-semibold">{r.name}</span>
                   <span className="text-[var(--sea-ink-soft)]">
                     {' '}
-                    {r.taskTitle
-                      ? 'finished '
-                      : 'completed a task'}
+                    {r.taskTitle ? 'finished' : 'completed a task'}
                   </span>
                   {r.taskTitle ? (
-                    <span className="font-semibold">“{r.taskTitle}”</span>
+                    <>
+                      <span className="sm:hidden"> </span>
+                      <span className="block font-semibold sm:inline">
+                        <span className="hidden sm:inline"> </span>
+                        “{r.taskTitle}”
+                      </span>
+                    </>
                   ) : null}
                 </p>
-                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                <p className="text-xs text-[var(--sea-ink-soft)] break-words">
                   @{r.handle} · {relativeTime(r.occurredAt)} · {r.xp} XP
                 </p>
               </div>
@@ -537,18 +541,22 @@ function ReceivedCheers() {
             >
               <Initials name={r.giverName} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-[var(--sea-ink)]">
+                <p className="text-sm text-[var(--sea-ink)] break-words">
                   <span className="font-semibold">{r.giverName}</span>
-                  <span className="text-[var(--sea-ink-soft)]"> cheered </span>
+                  <span className="text-[var(--sea-ink-soft)]"> cheered</span>
                   {r.taskTitle ? (
-                    <span className="font-semibold">“{r.taskTitle}”</span>
+                    <>
+                      <span className="sm:hidden"> </span>
+                      <span className="block font-semibold sm:inline">
+                        <span className="hidden sm:inline"> </span>
+                        “{r.taskTitle}”
+                      </span>
+                    </>
                   ) : (
-                    <span className="text-[var(--sea-ink-soft)]">
-                      a task
-                    </span>
+                    <span className="text-[var(--sea-ink-soft)]"> a task</span>
                   )}
                 </p>
-                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                <p className="text-xs text-[var(--sea-ink-soft)] break-words">
                   @{r.giverHandle} · {relativeTime(r.occurredAt)} · +{r.xp} XP
                 </p>
               </div>

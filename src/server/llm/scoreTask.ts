@@ -1,5 +1,5 @@
 import type { Difficulty } from '../../domain/events'
-import { trackLlmCall } from '../services/llmTracking'
+import { callLlmChat, isLlmConfigured } from './client'
 
 // Each tier defines a window. The LLM picks both a tier (coarse bucket for
 // grouping / stats) and a specific XP value inside that window — so two
@@ -63,113 +63,62 @@ export interface ScoreInput {
   title: string
   notes?: string | null
   difficultyHint: Difficulty
+  userId: string
   // Recently scored tasks for the same user. Shown to the model as
   // calibration examples so repeat or similar titles stay consistent with
   // what they scored before. Keep short (≤12) — these are hints, not rules.
   recentScores?: Array<{ title: string; xp: number }>
 }
 
-export function isLlmConfigured(): boolean {
-  return Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL)
-}
-
-function isConfigured(): boolean {
-  return isLlmConfigured()
-}
+export { isLlmConfigured }
 
 export async function scoreTask(
   input: ScoreInput,
   opts: { timeoutMs?: number } = {},
 ): Promise<ScoreResult | null> {
-  if (!isConfigured()) return null
-  return trackLlmCall('score', () => scoreTaskImpl(input, opts))
-}
+  if (!isLlmConfigured()) return null
 
-async function scoreTaskImpl(
-  input: ScoreInput,
-  { timeoutMs = 10_000 }: { timeoutMs?: number } = {},
-): Promise<ScoreResult | null> {
-  const baseUrl = process.env.LLM_BASE_URL!.replace(/\/$/, '')
-  const model = process.env.LLM_MODEL!
-  const apiKey = process.env.LLM_API_KEY || 'lm-studio'
-
-  const userContent = buildUserContent(input)
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'xp_score',
-            strict: true,
-            schema: {
-              type: 'object',
-              properties: {
-                tier: {
-                  type: 'string',
-                  enum: ['tiny', 'small', 'medium', 'large', 'huge', 'massive'],
-                },
-                xp: {
-                  type: 'integer',
-                  minimum: XP_WINDOWS.tiny.min,
-                  maximum: XP_WINDOWS.massive.max,
-                },
-                reasoning: { type: 'string' },
-              },
-              required: ['tier', 'xp', 'reasoning'],
-              additionalProperties: false,
+  const content = await callLlmChat({
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: buildUserContent(input) },
+    ],
+    temperature: 0.1,
+    timeoutMs: opts.timeoutMs ?? 10_000,
+    responseFormat: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'xp_score',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            tier: {
+              type: 'string',
+              enum: ['tiny', 'small', 'medium', 'large', 'huge', 'massive'],
             },
+            xp: {
+              type: 'integer',
+              minimum: XP_WINDOWS.tiny.min,
+              maximum: XP_WINDOWS.massive.max,
+            },
+            reasoning: { type: 'string' },
           },
+          required: ['tier', 'xp', 'reasoning'],
+          additionalProperties: false,
         },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-      }),
-    })
+      },
+    },
+    track: { kind: 'score', userId: input.userId },
+  })
 
-    if (!res.ok) {
-      console.error(`[llm] score call failed: HTTP ${res.status}`)
-      return null
-    }
-
-    const body = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
-    }
-    const content = body.choices?.[0]?.message?.content
-    if (!content) {
-      console.error('[llm] score call returned no content')
-      return null
-    }
-
-    const parsed = parseScore(content)
-    if (!parsed) {
-      console.error('[llm] could not parse score:', content.slice(0, 200))
-      return null
-    }
-    return parsed
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') {
-      console.error('[llm] score call timed out')
-    } else {
-      console.error('[llm] score call errored:', err)
-    }
+  if (!content) return null
+  const parsed = parseScore(content)
+  if (!parsed) {
+    console.error('[llm] could not parse score:', content.slice(0, 200))
     return null
-  } finally {
-    clearTimeout(timer)
   }
+  return parsed
 }
 
 function buildUserContent(input: ScoreInput): string {

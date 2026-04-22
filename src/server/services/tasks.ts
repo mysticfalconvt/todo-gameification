@@ -260,6 +260,7 @@ export async function createTask(
       notes: input.notes,
       difficultyHint: input.difficulty,
       recentScores,
+      userId,
     }),
     categorizeTask({
       title: input.title.trim(),
@@ -269,6 +270,7 @@ export async function createTask(
         label: c.label,
         description: c.description,
       })),
+      userId,
     }),
   ])
 
@@ -493,6 +495,7 @@ export async function backfillCategories(
         title: t.title,
         notes: t.notes,
         categories: categoryList,
+        userId,
       })
       if (!categorization) {
         skipped += 1
@@ -540,6 +543,7 @@ export async function reanalyzeTask(
       notes: row.notes,
       difficultyHint: row.difficulty as Difficulty,
       recentScores,
+      userId,
     }),
     categorizeTask({
       title: row.title,
@@ -549,6 +553,7 @@ export async function reanalyzeTask(
         label: c.label,
         description: c.description,
       })),
+      userId,
     }),
   ])
 

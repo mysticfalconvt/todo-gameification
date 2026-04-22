@@ -1,7 +1,6 @@
 // LLM-assigned category. Intentionally separate from scoreTask — one value
 // per call, strictly constrained to the user's current taxonomy.
 import { callLlmChat, isLlmConfigured } from './client'
-import { trackLlmCall } from '../services/llmTracking'
 
 const SYSTEM_PROMPT = `You are a task categorizer for a personal todo app. Given a task title (and optional notes), pick EXACTLY ONE category from the user's provided list.
 
@@ -22,6 +21,7 @@ export interface CategorizeInput {
     label: string
     description?: string | null
   }>
+  userId: string
 }
 
 export interface CategorizeResult {
@@ -36,12 +36,6 @@ export async function categorizeTask(
 ): Promise<CategorizeResult | null> {
   if (!isLlmConfigured()) return null
   if (input.categories.length === 0) return null
-  return trackLlmCall('categorize', () => categorizeTaskImpl(input))
-}
-
-async function categorizeTaskImpl(
-  input: CategorizeInput,
-): Promise<CategorizeResult | null> {
   const slugs = input.categories.map((c) => c.slug)
   const userContent = [
     'Available categories:',
@@ -80,6 +74,7 @@ async function categorizeTaskImpl(
         },
       },
     },
+    track: { kind: 'categorize', userId: input.userId },
   })
 
   const parsed = parseResult(raw)

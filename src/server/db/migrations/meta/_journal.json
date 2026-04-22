@@ -78,6 +78,13 @@
       "when": 1776840000000,
       "tag": "0010_category_description",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776850000000,
+      "tag": "0011_llm_call_log_context",
+      "breakpoints": true
     }
   ]
 }

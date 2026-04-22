@@ -9,10 +9,10 @@ import {
   getIsAdminFn,
   listAdminEventsFn,
   listAdminUsersFn,
-} from '../../server/functions/admin'
-import type { LlmMetricsWindow } from '../../server/services/llmTracking'
+} from '../../../server/functions/admin'
+import type { LlmMetricsWindow } from '../../../server/services/llmTracking'
 
-export const Route = createFileRoute('/_authenticated/admin')({
+export const Route = createFileRoute('/_authenticated/admin/')({
   beforeLoad: async () => {
     // Guard the route at the server level so non-admins can't see anything
     // even if they try to navigate manually.
@@ -165,14 +165,22 @@ function LlmMetricsSection() {
 
   return (
     <section className="space-y-3">
-      <header className="flex items-baseline justify-between gap-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-lg font-bold text-[var(--sea-ink)]">
           LLM latency
         </h2>
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          Average + p95 per call kind, per window. Failures are calls that
-          errored or returned no usable output.
-        </p>
+        <div className="flex items-baseline gap-3">
+          <p className="text-xs text-[var(--sea-ink-soft)]">
+            Average + p95 per call kind, per window. Failures are calls that
+            errored or returned no usable output.
+          </p>
+          <Link
+            to="/admin/llm"
+            className="text-xs text-[var(--lagoon-deep)] no-underline"
+          >
+            Usage + call log →
+          </Link>
+        </div>
       </header>
       {query.isLoading || !data ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
@@ -416,14 +424,20 @@ function UsersTable() {
                 >
                   <td className="px-3 py-2">
                     <Link
-                      to="/u/$handle"
-                      params={{ handle: u.handle }}
+                      to="/admin/users/$userId"
+                      params={{ userId: u.id }}
                       className="font-semibold text-[var(--sea-ink)] no-underline"
                     >
                       {u.name}
                     </Link>
                     <div className="text-xs text-[var(--sea-ink-soft)]">
-                      @{u.handle}
+                      <Link
+                        to="/u/$handle"
+                        params={{ handle: u.handle }}
+                        className="text-[var(--sea-ink-soft)] no-underline"
+                      >
+                        @{u.handle}
+                      </Link>
                       {u.isAdmin ? ' · admin' : ''}
                       {!u.emailVerified ? ' · unverified' : ''}
                     </div>

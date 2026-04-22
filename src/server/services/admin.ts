@@ -2,10 +2,11 @@
 // which is driven by the ADMIN_EMAILS env var — a comma-separated list of
 // emails allowed into /admin. Keep queries cheap-ish; this is for the
 // operator, not for users, so correctness > polish.
-import { and, count, desc, eq, gte, isNotNull, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
+  llmCallLog,
   progression,
   pushSubscriptions,
   taskInstances,
@@ -295,4 +296,588 @@ export async function countOpenInstances(): Promise<AdminOpenInstance> {
   const total = Number(rows[0]?.total ?? 0)
   const withDue = Number(rows[0]?.withDue ?? 0)
   return { count: total, withDueAt: withDue, someday: total - withDue }
+}
+
+// ---------------------------------------------------------------------------
+// Per-user drill-in. Everything the operator needs on one page when a
+// specific row in the users table looks off.
+// ---------------------------------------------------------------------------
+
+export interface AdminUserDetail {
+  user: {
+    id: string
+    name: string
+    email: string
+    handle: string
+    emailVerified: boolean
+    timezone: string
+    profileVisibility: 'public' | 'friends' | 'private'
+    quietHoursStart: string | null
+    quietHoursEnd: string | null
+    createdAt: string
+    isAdmin: boolean
+  }
+  progression: {
+    xp: number
+    level: number
+    currentStreak: number
+    longestStreak: number
+    lastCompletionAt: string | null
+  }
+  counts: {
+    activeTasks: number
+    totalCompletions: number
+    openInstances: number
+    openWithDue: number
+    openSomeday: number
+  }
+  recentTasks: Array<{
+    id: string
+    title: string
+    difficulty: string
+    xpOverride: number | null
+    categorySlug: string | null
+    active: boolean
+    createdAt: string
+  }>
+  openInstances: Array<{
+    id: string
+    taskId: string
+    title: string
+    dueAt: string | null
+    snoozedUntil: string | null
+    createdAt: string
+  }>
+  recentEvents: Array<{
+    id: string
+    type: string
+    occurredAt: string
+    payload: string
+  }>
+  pushSubscriptions: Array<{
+    id: string
+    endpoint: string
+    deviceLabel: string | null
+    failureCount: number
+    lastFailureAt: string | null
+    createdAt: string
+  }>
+  recentLlmCalls: Array<{
+    id: string
+    kind: string
+    startedAt: string
+    durationMs: number
+    success: boolean
+    totalTokens: number | null
+    errorMessage: string | null
+  }>
+}
+
+export async function loadUserDetail(
+  targetUserId: string,
+): Promise<AdminUserDetail | null> {
+  const u = await db.query.user.findFirst({
+    where: eq(userTable.id, targetUserId),
+  })
+  if (!u) return null
+
+  const [
+    prog,
+    activeTaskCount,
+    totalCompletionsCount,
+    openInstanceRows,
+    recentTaskRows,
+    openInstanceDetail,
+    recentEventRows,
+    pushRows,
+    llmRows,
+  ] = await Promise.all([
+    db.query.progression.findFirst({
+      where: eq(progression.userId, targetUserId),
+    }),
+    db
+      .select({ n: count() })
+      .from(tasks)
+      .where(and(eq(tasks.userId, targetUserId), eq(tasks.active, true))),
+    db
+      .select({ n: count() })
+      .from(events)
+      .where(
+        and(
+          eq(events.userId, targetUserId),
+          eq(events.type, 'task.completed'),
+        ),
+      ),
+    db
+      .select({
+        total: count(),
+        withDue: sql<number>`count(*) filter (where ${taskInstances.dueAt} is not null)::int`,
+      })
+      .from(taskInstances)
+      .where(
+        and(
+          eq(taskInstances.userId, targetUserId),
+          sql`${taskInstances.completedAt} is null`,
+          sql`${taskInstances.skippedAt} is null`,
+        ),
+      ),
+    db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        difficulty: tasks.difficulty,
+        xpOverride: tasks.xpOverride,
+        categorySlug: tasks.categorySlug,
+        active: tasks.active,
+        createdAt: tasks.createdAt,
+      })
+      .from(tasks)
+      .where(eq(tasks.userId, targetUserId))
+      .orderBy(desc(tasks.createdAt))
+      .limit(10),
+    db
+      .select({
+        id: taskInstances.id,
+        taskId: taskInstances.taskId,
+        title: tasks.title,
+        dueAt: taskInstances.dueAt,
+        snoozedUntil: taskInstances.snoozedUntil,
+        createdAt: taskInstances.createdAt,
+      })
+      .from(taskInstances)
+      .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
+      .where(
+        and(
+          eq(taskInstances.userId, targetUserId),
+          sql`${taskInstances.completedAt} is null`,
+          sql`${taskInstances.skippedAt} is null`,
+        ),
+      )
+      .orderBy(sql`${taskInstances.dueAt} nulls last`)
+      .limit(50),
+    db
+      .select({
+        id: events.id,
+        type: events.type,
+        payload: events.payload,
+        occurredAt: events.occurredAt,
+      })
+      .from(events)
+      .where(eq(events.userId, targetUserId))
+      .orderBy(desc(events.occurredAt))
+      .limit(30),
+    db
+      .select({
+        id: pushSubscriptions.id,
+        endpoint: pushSubscriptions.endpoint,
+        deviceLabel: pushSubscriptions.deviceLabel,
+        failureCount: pushSubscriptions.failureCount,
+        lastFailureAt: pushSubscriptions.lastFailureAt,
+        createdAt: pushSubscriptions.createdAt,
+      })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, targetUserId))
+      .orderBy(desc(pushSubscriptions.createdAt)),
+    db
+      .select({
+        id: llmCallLog.id,
+        kind: llmCallLog.kind,
+        startedAt: llmCallLog.startedAt,
+        durationMs: llmCallLog.durationMs,
+        success: llmCallLog.success,
+        totalTokens: llmCallLog.totalTokens,
+        errorMessage: llmCallLog.errorMessage,
+      })
+      .from(llmCallLog)
+      .where(eq(llmCallLog.userId, targetUserId))
+      .orderBy(desc(llmCallLog.startedAt))
+      .limit(20),
+  ])
+
+  const open = openInstanceRows[0]
+  const openTotal = Number(open?.total ?? 0)
+  const openWithDue = Number(open?.withDue ?? 0)
+
+  return {
+    user: {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      handle: u.handle,
+      emailVerified: u.emailVerified,
+      timezone: u.timezone,
+      profileVisibility: u.profileVisibility,
+      quietHoursStart: u.quietHoursStart,
+      quietHoursEnd: u.quietHoursEnd,
+      createdAt: u.createdAt.toISOString(),
+      isAdmin: isAdminEmail(u.email),
+    },
+    progression: {
+      xp: prog?.xp ?? 0,
+      level: prog?.level ?? 1,
+      currentStreak: prog?.currentStreak ?? 0,
+      longestStreak: prog?.longestStreak ?? 0,
+      lastCompletionAt: prog?.lastCompletionAt?.toISOString() ?? null,
+    },
+    counts: {
+      activeTasks: Number(activeTaskCount[0]?.n ?? 0),
+      totalCompletions: Number(totalCompletionsCount[0]?.n ?? 0),
+      openInstances: openTotal,
+      openWithDue,
+      openSomeday: openTotal - openWithDue,
+    },
+    recentTasks: recentTaskRows.map((t) => ({
+      id: t.id,
+      title: t.title,
+      difficulty: t.difficulty,
+      xpOverride: t.xpOverride,
+      categorySlug: t.categorySlug,
+      active: t.active,
+      createdAt: t.createdAt.toISOString(),
+    })),
+    openInstances: openInstanceDetail.map((i) => ({
+      id: i.id,
+      taskId: i.taskId,
+      title: i.title,
+      dueAt: i.dueAt?.toISOString() ?? null,
+      snoozedUntil: i.snoozedUntil?.toISOString() ?? null,
+      createdAt: i.createdAt.toISOString(),
+    })),
+    recentEvents: recentEventRows.map((e) => ({
+      id: e.id,
+      type: e.type,
+      occurredAt: e.occurredAt.toISOString(),
+      payload: safeStringify(e.payload),
+    })),
+    pushSubscriptions: pushRows.map((p) => ({
+      id: p.id,
+      endpoint: p.endpoint,
+      deviceLabel: p.deviceLabel,
+      failureCount: p.failureCount,
+      lastFailureAt: p.lastFailureAt?.toISOString() ?? null,
+      createdAt: p.createdAt.toISOString(),
+    })),
+    recentLlmCalls: llmRows.map((l) => ({
+      id: l.id,
+      kind: l.kind,
+      startedAt: l.startedAt.toISOString(),
+      durationMs: l.durationMs,
+      success: l.success,
+      totalTokens: l.totalTokens,
+      errorMessage: l.errorMessage,
+    })),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// LLM usage + call log. Totals, per-user, and per-day breakdowns. The
+// call list is capped; drill-in fetches the full row with messages.
+// ---------------------------------------------------------------------------
+
+export interface LlmUsageTotal {
+  callCount: number
+  successCount: number
+  totalDurationMs: number
+  totalTokens: number
+  promptTokens: number
+  completionTokens: number
+}
+
+export interface LlmUsagePerUser {
+  userId: string | null
+  userName: string | null
+  userHandle: string | null
+  email: string | null
+  callCount: number
+  successCount: number
+  totalDurationMs: number
+  totalTokens: number
+  lastCallAt: string | null
+}
+
+export interface LlmUsagePerKind {
+  kind: string
+  callCount: number
+  successCount: number
+  totalDurationMs: number
+  totalTokens: number
+}
+
+export interface LlmUsagePerDay {
+  day: string
+  callCount: number
+  successCount: number
+  totalDurationMs: number
+  totalTokens: number
+}
+
+export interface LlmUsage {
+  generatedAt: string
+  windowDays: number
+  totalsAllTime: LlmUsageTotal
+  totalsInWindow: LlmUsageTotal
+  perKind: LlmUsagePerKind[]
+  perUser: LlmUsagePerUser[]
+  perDay: LlmUsagePerDay[]
+}
+
+export async function loadLlmUsage(windowDays = 14): Promise<LlmUsage> {
+  const now = new Date()
+  const sinceWindow = new Date(
+    now.getTime() - windowDays * 24 * 60 * 60 * 1000,
+  )
+
+  const totalExpr = {
+    callCount: sql<number>`count(*)::int`,
+    successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+    totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+    totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+    promptTokens: sql<number>`coalesce(sum(${llmCallLog.promptTokens}), 0)::bigint`,
+    completionTokens: sql<number>`coalesce(sum(${llmCallLog.completionTokens}), 0)::bigint`,
+  }
+
+  const [allTimeRow, inWindowRow, perKindRows, perUserRows, perDayRows] =
+    await Promise.all([
+      db.select(totalExpr).from(llmCallLog),
+      db
+        .select(totalExpr)
+        .from(llmCallLog)
+        .where(gte(llmCallLog.startedAt, sinceWindow)),
+      db
+        .select({
+          kind: llmCallLog.kind,
+          callCount: sql<number>`count(*)::int`,
+          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+        })
+        .from(llmCallLog)
+        .where(gte(llmCallLog.startedAt, sinceWindow))
+        .groupBy(llmCallLog.kind)
+        .orderBy(sql`count(*) desc`),
+      db
+        .select({
+          userId: llmCallLog.userId,
+          userName: userTable.name,
+          userHandle: userTable.handle,
+          email: userTable.email,
+          callCount: sql<number>`count(*)::int`,
+          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+          lastCallAt: sql<Date>`max(${llmCallLog.startedAt})`,
+        })
+        .from(llmCallLog)
+        .leftJoin(userTable, eq(userTable.id, llmCallLog.userId))
+        .where(gte(llmCallLog.startedAt, sinceWindow))
+        .groupBy(
+          llmCallLog.userId,
+          userTable.name,
+          userTable.handle,
+          userTable.email,
+        )
+        .orderBy(sql`sum(${llmCallLog.durationMs}) desc nulls last`),
+      // date_trunc bucketing keeps this accurate regardless of how many
+      // days fit in the window; UI renders the last `windowDays` entries.
+      db
+        .select({
+          day: sql<string>`to_char(date_trunc('day', ${llmCallLog.startedAt}), 'YYYY-MM-DD')`,
+          callCount: sql<number>`count(*)::int`,
+          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+        })
+        .from(llmCallLog)
+        .where(gte(llmCallLog.startedAt, sinceWindow))
+        .groupBy(sql`date_trunc('day', ${llmCallLog.startedAt})`)
+        .orderBy(sql`date_trunc('day', ${llmCallLog.startedAt}) desc`),
+    ])
+
+  const toTotal = (r: Record<string, unknown> | undefined): LlmUsageTotal => ({
+    callCount: Number(r?.callCount ?? 0),
+    successCount: Number(r?.successCount ?? 0),
+    totalDurationMs: Number(r?.totalDurationMs ?? 0),
+    totalTokens: Number(r?.totalTokens ?? 0),
+    promptTokens: Number(r?.promptTokens ?? 0),
+    completionTokens: Number(r?.completionTokens ?? 0),
+  })
+
+  return {
+    generatedAt: now.toISOString(),
+    windowDays,
+    totalsAllTime: toTotal(allTimeRow[0]),
+    totalsInWindow: toTotal(inWindowRow[0]),
+    perKind: perKindRows.map((r) => ({
+      kind: r.kind,
+      callCount: Number(r.callCount),
+      successCount: Number(r.successCount),
+      totalDurationMs: Number(r.totalDurationMs),
+      totalTokens: Number(r.totalTokens),
+    })),
+    perUser: perUserRows.map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      userHandle: r.userHandle,
+      email: r.email,
+      callCount: Number(r.callCount),
+      successCount: Number(r.successCount),
+      totalDurationMs: Number(r.totalDurationMs),
+      totalTokens: Number(r.totalTokens),
+      lastCallAt: r.lastCallAt ? new Date(r.lastCallAt).toISOString() : null,
+    })),
+    perDay: perDayRows.map((r) => ({
+      day: r.day,
+      callCount: Number(r.callCount),
+      successCount: Number(r.successCount),
+      totalDurationMs: Number(r.totalDurationMs),
+      totalTokens: Number(r.totalTokens),
+    })),
+  }
+}
+
+export interface LlmCallListItem {
+  id: string
+  userId: string | null
+  userHandle: string | null
+  userName: string | null
+  kind: string
+  model: string | null
+  startedAt: string
+  durationMs: number
+  success: boolean
+  totalTokens: number | null
+  errorMessage: string | null
+}
+
+export interface LlmCallList {
+  rows: LlmCallListItem[]
+  // Cursor is the startedAt ISO of the last returned row; pass it back as
+  // `before` to fetch the next page.
+  nextCursor: string | null
+}
+
+export async function listLlmCalls(params: {
+  kind?: string
+  userId?: string
+  before?: string | null
+  limit?: number
+}): Promise<LlmCallList> {
+  const limit = Math.min(Math.max(params.limit ?? 50, 1), 200)
+  const conditions = []
+  if (params.kind) conditions.push(eq(llmCallLog.kind, params.kind))
+  if (params.userId) conditions.push(eq(llmCallLog.userId, params.userId))
+  if (params.before) {
+    const d = new Date(params.before)
+    if (!Number.isNaN(d.getTime())) {
+      conditions.push(lt(llmCallLog.startedAt, d))
+    }
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  const rows = await db
+    .select({
+      id: llmCallLog.id,
+      userId: llmCallLog.userId,
+      kind: llmCallLog.kind,
+      model: llmCallLog.model,
+      startedAt: llmCallLog.startedAt,
+      durationMs: llmCallLog.durationMs,
+      success: llmCallLog.success,
+      totalTokens: llmCallLog.totalTokens,
+      errorMessage: llmCallLog.errorMessage,
+      userHandle: userTable.handle,
+      userName: userTable.name,
+    })
+    .from(llmCallLog)
+    .leftJoin(userTable, eq(userTable.id, llmCallLog.userId))
+    .where(where)
+    .orderBy(desc(llmCallLog.startedAt))
+    .limit(limit + 1)
+
+  const hasMore = rows.length > limit
+  const page = hasMore ? rows.slice(0, limit) : rows
+  const nextCursor = hasMore
+    ? page[page.length - 1].startedAt.toISOString()
+    : null
+
+  return {
+    rows: page.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      userHandle: r.userHandle,
+      userName: r.userName,
+      kind: r.kind,
+      model: r.model,
+      startedAt: r.startedAt.toISOString(),
+      durationMs: r.durationMs,
+      success: r.success,
+      totalTokens: r.totalTokens,
+      errorMessage: r.errorMessage,
+    })),
+    nextCursor,
+  }
+}
+
+export interface LlmCallDetail {
+  id: string
+  userId: string | null
+  userHandle: string | null
+  userName: string | null
+  kind: string
+  model: string | null
+  startedAt: string
+  durationMs: number
+  success: boolean
+  errorMessage: string | null
+  promptTokens: number | null
+  completionTokens: number | null
+  totalTokens: number | null
+  messages: Array<{ role: string; content: string }> | null
+  response: string | null
+}
+
+export async function getLlmCallDetail(
+  id: string,
+): Promise<LlmCallDetail | null> {
+  const rows = await db
+    .select({
+      id: llmCallLog.id,
+      userId: llmCallLog.userId,
+      kind: llmCallLog.kind,
+      model: llmCallLog.model,
+      startedAt: llmCallLog.startedAt,
+      durationMs: llmCallLog.durationMs,
+      success: llmCallLog.success,
+      errorMessage: llmCallLog.errorMessage,
+      promptTokens: llmCallLog.promptTokens,
+      completionTokens: llmCallLog.completionTokens,
+      totalTokens: llmCallLog.totalTokens,
+      messages: llmCallLog.messages,
+      response: llmCallLog.response,
+      userHandle: userTable.handle,
+      userName: userTable.name,
+    })
+    .from(llmCallLog)
+    .leftJoin(userTable, eq(userTable.id, llmCallLog.userId))
+    .where(eq(llmCallLog.id, id))
+    .limit(1)
+  const r = rows[0]
+  if (!r) return null
+  return {
+    id: r.id,
+    userId: r.userId,
+    userHandle: r.userHandle,
+    userName: r.userName,
+    kind: r.kind,
+    model: r.model,
+    startedAt: r.startedAt.toISOString(),
+    durationMs: r.durationMs,
+    success: r.success,
+    errorMessage: r.errorMessage,
+    promptTokens: r.promptTokens,
+    completionTokens: r.completionTokens,
+    totalTokens: r.totalTokens,
+    messages: r.messages,
+    response: r.response,
+  }
 }

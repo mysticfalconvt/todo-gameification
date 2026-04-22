@@ -1,52 +1,12 @@
-// Per-call audit + aggregate queries for outbound LLM requests.
-//
-// Every LLM call site wraps its work in `trackLlmCall(kind, fn)`. The
-// wrapper times the call, notes success/failure (null return or thrown
-// error counts as failure), and writes a row to llm_call_log. The insert
-// is fire-and-forget so tracking never adds perceived latency to the
-// user-facing path.
+// Aggregate queries over `llm_call_log` for the admin dashboard. Writes
+// now live in `src/server/llm/client.ts` — every call to `callLlmChat`
+// records a row with the full context (user, messages, response, usage)
+// so operators can debug individual calls here.
 import { and, eq, gte, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { llmCallLog } from '../db/schema'
 
 export type LlmCallKind = 'score' | 'categorize' | 'coach'
-
-export async function trackLlmCall<T>(
-  kind: LlmCallKind,
-  fn: () => Promise<T | null>,
-): Promise<T | null> {
-  const startedAt = new Date()
-  const t0 = performance.now()
-  let result: T | null = null
-  let errorMessage: string | null = null
-  try {
-    result = await fn()
-  } catch (err) {
-    errorMessage =
-      err instanceof Error
-        ? err.message.slice(0, 500)
-        : String(err).slice(0, 500)
-    // Re-throw: call-site retains its existing error semantics. The
-    // finally block still records the failure.
-    throw err
-  } finally {
-    const durationMs = Math.max(0, Math.round(performance.now() - t0))
-    const success = result !== null && errorMessage === null
-    // Fire-and-forget. A logging failure should never mask the real
-    // outcome to the caller.
-    void db
-      .insert(llmCallLog)
-      .values({
-        kind,
-        startedAt,
-        durationMs,
-        success,
-        errorMessage,
-      })
-      .catch((e) => console.error('[llmTracking] log insert failed:', e))
-  }
-  return result
-}
 
 export type LlmMetricsWindow = '1m' | '30m' | '1h' | '24h'
 

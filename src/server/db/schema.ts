@@ -250,12 +250,22 @@ export const llmCallLog = pgTable(
   'llm_call_log',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id'),
     kind: text('kind').notNull(), // 'score' | 'categorize' | 'coach' | ...
+    model: text('model'),
     startedAt: timestamp('started_at').notNull().defaultNow(),
     durationMs: integer('duration_ms').notNull(),
     success: boolean('success').notNull(),
     errorMessage: text('error_message'),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    totalTokens: integer('total_tokens'),
+    messages: jsonb('messages').$type<Array<{ role: string; content: string }>>(),
+    response: text('response'),
   },
-  (t) => [index('llm_call_log_started_idx').on(t.startedAt)],
+  (t) => [
+    index('llm_call_log_started_idx').on(t.startedAt),
+    index('llm_call_log_user_started_idx').on(t.userId, t.startedAt),
+  ],
 )
 

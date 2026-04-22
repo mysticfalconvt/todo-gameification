@@ -19,10 +19,10 @@ import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
 import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
 import { Route as ApiV1ProgressionRouteImport } from './routes/api/v1/progression'
 import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
@@ -36,8 +36,11 @@ import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
 import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
 import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
+import { Route as AuthenticatedAdminLlmIndexRouteImport } from './routes/_authenticated/admin/llm/index'
 import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
 import { Route as AuthenticatedStatsTaskTaskIdRouteImport } from './routes/_authenticated/stats/task.$taskId'
+import { Route as AuthenticatedAdminUsersUserIdRouteImport } from './routes/_authenticated/admin/users.$userId'
+import { Route as AuthenticatedAdminLlmCallIdRouteImport } from './routes/_authenticated/admin/llm/$callId'
 import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api/v1/instances/$instanceId/snooze'
 import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
 import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
@@ -91,11 +94,6 @@ const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
   path: '/friends',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
@@ -112,6 +110,11 @@ const AuthenticatedSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const ApiV1TodayRoute = ApiV1TodayRouteImport.update({
   id: '/api/v1/today',
   path: '/api/v1/today',
@@ -181,6 +184,12 @@ const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
   path: '/api/v1/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminLlmIndexRoute =
+  AuthenticatedAdminLlmIndexRouteImport.update({
+    id: '/admin/llm/',
+    path: '/admin/llm/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiV1TasksTaskIdRoute = ApiV1TasksTaskIdRouteImport.update({
   id: '/api/v1/tasks/$taskId',
   path: '/api/v1/tasks/$taskId',
@@ -190,6 +199,18 @@ const AuthenticatedStatsTaskTaskIdRoute =
   AuthenticatedStatsTaskTaskIdRouteImport.update({
     id: '/stats/task/$taskId',
     path: '/stats/task/$taskId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminUsersUserIdRoute =
+  AuthenticatedAdminUsersUserIdRouteImport.update({
+    id: '/admin/users/$userId',
+    path: '/admin/users/$userId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminLlmCallIdRoute =
+  AuthenticatedAdminLlmCallIdRouteImport.update({
+    id: '/admin/llm/$callId',
+    path: '/admin/llm/$callId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const ApiV1InstancesInstanceIdSnoozeRoute =
@@ -213,7 +234,6 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -234,11 +254,15 @@ export interface FileRoutesByFullPath {
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/stats/': typeof AuthenticatedStatsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
+  '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/admin/llm/': typeof AuthenticatedAdminLlmIndexRoute
   '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
@@ -246,7 +270,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
@@ -267,11 +290,15 @@ export interface FileRoutesByTo {
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/stats': typeof AuthenticatedStatsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
+  '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
+  '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/admin/llm': typeof AuthenticatedAdminLlmIndexRoute
   '/api/v1/tasks': typeof ApiV1TasksIndexRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
@@ -281,7 +308,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/friends': typeof AuthenticatedFriendsRoute
   '/_authenticated/garden': typeof AuthenticatedGardenRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
@@ -302,11 +328,15 @@ export interface FileRoutesById {
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/stats/': typeof AuthenticatedStatsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/_authenticated/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
+  '/_authenticated/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/_authenticated/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
+  '/_authenticated/admin/llm/': typeof AuthenticatedAdminLlmIndexRoute
   '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
@@ -316,7 +346,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/friends'
     | '/garden'
     | '/today'
@@ -337,11 +366,15 @@ export interface FileRouteTypes {
     | '/api/v1/events'
     | '/api/v1/progression'
     | '/api/v1/today'
+    | '/admin/'
     | '/settings/'
     | '/stats/'
     | '/tasks/'
+    | '/admin/llm/$callId'
+    | '/admin/users/$userId'
     | '/stats/task/$taskId'
     | '/api/v1/tasks/$taskId'
+    | '/admin/llm/'
     | '/api/v1/tasks/'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
@@ -349,7 +382,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/friends'
     | '/garden'
     | '/today'
@@ -370,11 +402,15 @@ export interface FileRouteTypes {
     | '/api/v1/events'
     | '/api/v1/progression'
     | '/api/v1/today'
+    | '/admin'
     | '/settings'
     | '/stats'
     | '/tasks'
+    | '/admin/llm/$callId'
+    | '/admin/users/$userId'
     | '/stats/task/$taskId'
     | '/api/v1/tasks/$taskId'
+    | '/admin/llm'
     | '/api/v1/tasks'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
@@ -383,7 +419,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/_authenticated/admin'
     | '/_authenticated/friends'
     | '/_authenticated/garden'
     | '/_authenticated/today'
@@ -404,11 +439,15 @@ export interface FileRouteTypes {
     | '/api/v1/events'
     | '/api/v1/progression'
     | '/api/v1/today'
+    | '/_authenticated/admin/'
     | '/_authenticated/settings/'
     | '/_authenticated/stats/'
     | '/_authenticated/tasks/'
+    | '/_authenticated/admin/llm/$callId'
+    | '/_authenticated/admin/users/$userId'
     | '/_authenticated/stats/task/$taskId'
     | '/api/v1/tasks/$taskId'
+    | '/_authenticated/admin/llm/'
     | '/api/v1/tasks/'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
@@ -508,13 +547,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFriendsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/tasks/': {
       id: '/_authenticated/tasks/'
       path: '/tasks'
@@ -534,6 +566,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/v1/today': {
@@ -627,6 +666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/llm/': {
+      id: '/_authenticated/admin/llm/'
+      path: '/admin/llm'
+      fullPath: '/admin/llm/'
+      preLoaderRoute: typeof AuthenticatedAdminLlmIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/v1/tasks/$taskId': {
       id: '/api/v1/tasks/$taskId'
       path: '/api/v1/tasks/$taskId'
@@ -639,6 +685,20 @@ declare module '@tanstack/react-router' {
       path: '/stats/task/$taskId'
       fullPath: '/stats/task/$taskId'
       preLoaderRoute: typeof AuthenticatedStatsTaskTaskIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/users/$userId': {
+      id: '/_authenticated/admin/users/$userId'
+      path: '/admin/users/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AuthenticatedAdminUsersUserIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/llm/$callId': {
+      id: '/_authenticated/admin/llm/$callId'
+      path: '/admin/llm/$callId'
+      fullPath: '/admin/llm/$callId'
+      preLoaderRoute: typeof AuthenticatedAdminLlmCallIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/v1/instances/$instanceId/snooze': {
@@ -666,7 +726,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
   AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
@@ -676,14 +735,17 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksTaskIdRoute: typeof AuthenticatedTasksTaskIdRoute
   AuthenticatedTasksNewRoute: typeof AuthenticatedTasksNewRoute
   AuthenticatedUHandleRoute: typeof AuthenticatedUHandleRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedStatsIndexRoute: typeof AuthenticatedStatsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
+  AuthenticatedAdminLlmCallIdRoute: typeof AuthenticatedAdminLlmCallIdRoute
+  AuthenticatedAdminUsersUserIdRoute: typeof AuthenticatedAdminUsersUserIdRoute
   AuthenticatedStatsTaskTaskIdRoute: typeof AuthenticatedStatsTaskTaskIdRoute
+  AuthenticatedAdminLlmIndexRoute: typeof AuthenticatedAdminLlmIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
   AuthenticatedGardenRoute: AuthenticatedGardenRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
@@ -694,10 +756,14 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksTaskIdRoute: AuthenticatedTasksTaskIdRoute,
   AuthenticatedTasksNewRoute: AuthenticatedTasksNewRoute,
   AuthenticatedUHandleRoute: AuthenticatedUHandleRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedStatsIndexRoute: AuthenticatedStatsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
+  AuthenticatedAdminLlmCallIdRoute: AuthenticatedAdminLlmCallIdRoute,
+  AuthenticatedAdminUsersUserIdRoute: AuthenticatedAdminUsersUserIdRoute,
   AuthenticatedStatsTaskTaskIdRoute: AuthenticatedStatsTaskTaskIdRoute,
+  AuthenticatedAdminLlmIndexRoute: AuthenticatedAdminLlmIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
