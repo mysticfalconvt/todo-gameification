@@ -32,3 +32,7 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 ## Stats / charts
 
 - Charts live in `src/components/stats/charts.tsx` — `XpLineSection` and `TimingDistributionSection`. `TimingDistributionSection` uses monotone cubic (Fritsch-Carlson) interpolation so the curve never dips below 0.
+
+## Arcade games: onboarding migration
+
+- When adding a new game to `src/games/registry.ts`, ship a companion migration that (a) grants every existing user enough tokens to try it and (b) creates a `try-<gameId>` task (with `external_ref = 'onboarding-try-<gameId>'`) so users actually discover it. `0017_arcade_onboarding.sql` is the pattern — idempotent via the `external_ref` dedup and the `tokens.granted` event reason key.

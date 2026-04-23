@@ -120,6 +120,13 @@
       "when": 1776900000000,
       "tag": "0016_wordle_words",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776910000000,
+      "tag": "0017_arcade_onboarding",
+      "breakpoints": true
     }
   ]
 }
