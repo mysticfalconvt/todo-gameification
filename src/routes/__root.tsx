@@ -47,7 +47,7 @@ export const Route = createRootRoute({
         { charSet: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'theme-color', content: '#4fb8b2' },
-        { title: 'Todo Gameification' },
+        { title: 'Todo XP' },
       ],
       links: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

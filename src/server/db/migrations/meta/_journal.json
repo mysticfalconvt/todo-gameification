@@ -127,6 +127,13 @@
       "when": 1776910000000,
       "tag": "0017_arcade_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776920000000,
+      "tag": "0018_onboarding_category_backfill",
+      "breakpoints": true
     }
   ]
 }

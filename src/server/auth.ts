@@ -5,6 +5,7 @@ import * as schema from './db/schema'
 import { sendMail, isEmailConfigured } from './email'
 import { generateUniqueHandleFromName } from './services/handles'
 import { recordAndCheck } from './services/emailRateLimit'
+import { bootstrapNewUser } from './services/onboarding'
 
 // Constant-ish delay helper for the password-reset hook. Better Auth only
 // invokes sendResetPassword when a user exists, so an unknown-email path
@@ -105,6 +106,22 @@ export const auth = betterAuth({
               : ''
           const handle = await generateUniqueHandleFromName(name)
           return { data: { ...data, handle } }
+        },
+        after: async (user) => {
+          // Bootstrap categories, arcade tokens, and try-game onboarding
+          // tasks. Don't fail signup if this stumbles — a user without
+          // starter tasks is recoverable; a user without an account is
+          // not.
+          const id =
+            typeof (user as { id?: unknown }).id === 'string'
+              ? (user as { id: string }).id
+              : null
+          if (!id) return
+          try {
+            await bootstrapNewUser(id)
+          } catch (err) {
+            console.error('[auth] bootstrapNewUser failed', err)
+          }
         },
       },
     },

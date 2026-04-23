@@ -1,5 +1,10 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFocusSession } from '../../lib/useFocusSession'
+
+// If the user lands here but doesn't click Start within this many seconds,
+// fire it automatically. Covers the "I walked off and forgot to hit Start"
+// case. They can cancel the auto-start with the inline link.
+const AUTO_START_SECONDS = 10
 
 function formatRemaining(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000))
@@ -36,6 +41,22 @@ export function FocusTimer({
 
   const started = status !== 'idle'
   const progress = Math.min(1, accumulatedMs / plannedMs)
+
+  const [autoStartIn, setAutoStartIn] = useState<number | null>(
+    AUTO_START_SECONDS,
+  )
+  const cancelAutoStart = useCallback(() => setAutoStartIn(null), [])
+
+  useEffect(() => {
+    if (started || autoStartIn === null) return
+    if (autoStartIn <= 0) {
+      setAutoStartIn(null)
+      session.start()
+      return
+    }
+    const id = window.setTimeout(() => setAutoStartIn(autoStartIn - 1), 1000)
+    return () => window.clearTimeout(id)
+  }, [autoStartIn, started, session])
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6">
@@ -82,7 +103,10 @@ export function FocusTimer({
         {!started ? (
           <button
             type="button"
-            onClick={session.start}
+            onClick={() => {
+              cancelAutoStart()
+              session.start()
+            }}
             className="rounded bg-[var(--btn-primary-bg)] px-4 py-2 font-semibold text-[var(--btn-primary-fg)]"
           >
             Start
@@ -100,6 +124,22 @@ export function FocusTimer({
           </button>
         )}
       </div>
+
+      {!started && autoStartIn !== null ? (
+        <p
+          className="text-center text-xs text-[var(--sea-ink-soft)]"
+          aria-live="polite"
+        >
+          Auto-starting in {autoStartIn}s.{' '}
+          <button
+            type="button"
+            onClick={cancelAutoStart}
+            className="underline"
+          >
+            Cancel
+          </button>
+        </p>
+      ) : null}
     </div>
   )
 }
