@@ -430,10 +430,42 @@ export async function syncReviewTasksForUser(
   let created = 0
   let completed = 0
 
-  // Create tasks for new PRs.
+  // Create tasks for new PRs. If a task for this PR already exists but
+  // its latest instance was completed/skipped (we auto-completed it when
+  // the PR dropped off the list, or the user ticked it manually), insert
+  // a fresh instance so the re-request/re-assign shows up again.
   for (const pr of prs) {
     const ref = `github-pr-${pr.prId}`
-    if (existingByRef.has(ref)) continue
+    const existingTask = existingByRef.get(ref)
+    if (existingTask) {
+      if (!existingTask.active) continue
+      const latestInstance = await db.query.taskInstances.findFirst({
+        where: and(
+          eq(taskInstances.taskId, existingTask.id),
+          eq(taskInstances.userId, userId),
+        ),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
+      })
+      if (
+        latestInstance &&
+        !latestInstance.completedAt &&
+        !latestInstance.skippedAt
+      ) {
+        continue
+      }
+      try {
+        await db.insert(taskInstances).values({
+          taskId: existingTask.id,
+          userId,
+          dueAt: new Date(),
+        })
+        created += 1
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        errors.push(`reinstance ${ref}: ${message}`)
+      }
+      continue
+    }
     try {
       await db.transaction(async (tx) => {
         const [task] = await tx
