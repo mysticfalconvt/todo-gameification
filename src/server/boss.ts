@@ -7,6 +7,7 @@ import {
 } from './jobs/sendReminder'
 import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
 import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
+import { githubPollHandler } from './jobs/githubPoll'
 
 let instance: PgBoss | null = null
 let booting: Promise<PgBoss> | null = null
@@ -20,13 +21,19 @@ async function boot(): Promise<PgBoss> {
   await boss.createQueue('send-reminder')
   await boss.createQueue('cleanup-stale-subs')
   await boss.createQueue('check-plant-risk')
+  await boss.createQueue('poll-github')
   await boss.work('send-reminder', sendReminderHandler)
   await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
   await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
+  await boss.work('poll-github', async () => githubPollHandler())
   await boss.schedule('cleanup-stale-subs', '0 3 * * *')
   // Runs at :00 every hour, UTC. The handler filters to users whose
   // local hour is 18 and only sends to those with at-risk plants.
   await boss.schedule('check-plant-risk', '0 * * * *')
+  // Fires every minute; handler filters users by their per-integration
+  // poll_interval_minutes (so a user with 15-min interval only gets
+  // polled every 15 min, not every tick).
+  await boss.schedule('poll-github', '* * * * *')
   return boss
 }
 

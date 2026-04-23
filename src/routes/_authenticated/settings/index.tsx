@@ -17,6 +17,13 @@ import {
   revokeApiToken,
 } from '../../../server/functions/api-tokens'
 import {
+  getGithubIntegration,
+  removeGithubIntegration,
+  syncGithubNow,
+  updateGithubPollInterval,
+  upsertGithubIntegration,
+} from '../../../server/functions/github'
+import {
   backfillCategories,
   countUncategorizedTasks,
   createCategory,
@@ -64,6 +71,7 @@ function SettingsPage() {
       <CategoriesSection />
       <PasswordSection />
       <NotificationsSection />
+      <GithubSection />
       <TokensSection />
       <SignOutSection />
     </main>
@@ -1417,6 +1425,368 @@ function PasswordSection() {
         </button>
       </form>
     </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// GitHub integration
+// ---------------------------------------------------------------------------
+
+const GITHUB_POLL_OPTIONS = [1, 5, 15, 30, 60] as const
+
+function GithubSection() {
+  const qc = useQueryClient()
+  const statusQuery = useQuery({
+    queryKey: ['github-integration'],
+    queryFn: () => getGithubIntegration(),
+  })
+
+  const [token, setToken] = useState('')
+  const [pollInterval, setPollInterval] = useState<number>(5)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [showInstructions, setShowInstructions] = useState(false)
+
+  useEffect(() => {
+    if (statusQuery.data?.pollIntervalMinutes) {
+      setPollInterval(statusQuery.data.pollIntervalMinutes)
+    }
+  }, [statusQuery.data?.pollIntervalMinutes])
+
+  const connect = useMutation({
+    mutationFn: (input: { token: string; pollIntervalMinutes: number }) =>
+      upsertGithubIntegration({ data: input }),
+    onSuccess: () => {
+      setToken('')
+      setFormError(null)
+      qc.invalidateQueries({ queryKey: ['github-integration'] })
+      toast.success('GitHub connected.')
+    },
+    onError: (err) =>
+      setFormError(err instanceof Error ? err.message : 'Connect failed.'),
+  })
+
+  const updateInterval = useMutation({
+    mutationFn: (minutes: number) =>
+      updateGithubPollInterval({ data: { pollIntervalMinutes: minutes } }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['github-integration'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed.'),
+  })
+
+  const disconnect = useMutation({
+    mutationFn: () => removeGithubIntegration(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['github-integration'] })
+      toast.message('GitHub disconnected.')
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Disconnect failed.'),
+  })
+
+  const syncNow = useMutation({
+    mutationFn: () => syncGithubNow(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['github-integration'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      if (res.errors.length > 0) {
+        toast.error(res.errors[0])
+        return
+      }
+      const parts: string[] = []
+      if (res.created > 0) parts.push(`${res.created} new`)
+      if (res.completed > 0) parts.push(`${res.completed} auto-completed`)
+      toast.success(parts.length > 0 ? `Synced: ${parts.join(', ')}.` : 'Up to date.')
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Sync failed.'),
+  })
+
+  const status = statusQuery.data
+  const connected = Boolean(status?.connected)
+
+  function onConnect(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError(null)
+    const t = token.trim()
+    if (!t) {
+      setFormError('Token is required.')
+      return
+    }
+    connect.mutate({ token: t, pollIntervalMinutes: pollInterval })
+  }
+
+  return (
+    <details className="island-shell max-w-2xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+            GitHub reviews
+          </h2>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            {connected
+              ? `Connected as @${status?.externalId ?? '…'}. PRs where you're requested as a reviewer become tasks automatically.`
+              : 'Connect a GitHub token so PRs assigned to you as a reviewer show up as tasks.'}
+          </p>
+        </div>
+        <span
+          data-chevron
+          aria-hidden
+          className="flex-shrink-0 text-[var(--sea-ink-soft)] transition-transform"
+        >
+          ▸
+        </span>
+      </summary>
+
+      <div className="space-y-4 border-t border-[var(--line)] p-5">
+        {connected ? (
+          <div className="space-y-4">
+            {(() => {
+              const expiresAt = status?.tokenExpiresAt
+                ? new Date(status.tokenExpiresAt)
+                : null
+              const err = status?.lastPollError ?? null
+              const authErr = err?.startsWith('AUTH: ') ?? false
+              const expired = expiresAt ? expiresAt.getTime() <= Date.now() : false
+              const msUntil = expiresAt ? expiresAt.getTime() - Date.now() : null
+              const expiringSoon =
+                msUntil !== null && msUntil > 0 && msUntil <= 5 * 24 * 60 * 60 * 1000
+              if (authErr || expired) {
+                return (
+                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
+                    <strong>Token invalid.</strong> GitHub rejected the current
+                    token — polling is paused until you reconnect. Paste a
+                    fresh token below.
+                  </div>
+                )
+              }
+              if (expiringSoon) {
+                return (
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">
+                    <strong>Token expires soon.</strong> In{' '}
+                    {Math.max(1, Math.ceil(msUntil! / (24 * 60 * 60 * 1000)))}{' '}
+                    day(s). Generate a new one and paste it here to avoid a
+                    gap.
+                  </div>
+                )
+              }
+              return null
+            })()}
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-[var(--sea-ink-soft)]">
+              <dt className="font-semibold">Account</dt>
+              <dd className="text-[var(--sea-ink)]">@{status?.externalId}</dd>
+              <dt className="font-semibold">Last poll</dt>
+              <dd className="text-[var(--sea-ink)]">
+                {status?.lastPolledAt
+                  ? timeAgo(status.lastPolledAt)
+                  : 'not yet'}
+              </dd>
+              <dt className="font-semibold">Token expires</dt>
+              <dd className="text-[var(--sea-ink)]">
+                {status?.tokenExpiresAt
+                  ? new Date(status.tokenExpiresAt).toLocaleDateString()
+                  : 'no expiration'}
+              </dd>
+              {status?.lastPollError ? (
+                <>
+                  <dt className="font-semibold text-red-600">Last error</dt>
+                  <dd className="break-words text-red-600">
+                    {status.lastPollError.replace(/^AUTH: /, '')}
+                  </dd>
+                </>
+              ) : null}
+            </dl>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Check for new reviews every
+              </span>
+              <select
+                value={pollInterval}
+                onChange={(e) => {
+                  const next = Number(e.target.value)
+                  setPollInterval(next)
+                  updateInterval.mutate(next)
+                }}
+                disabled={updateInterval.isPending}
+                className="field-input w-auto"
+              >
+                {GITHUB_POLL_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? '1 minute' : `${n} minutes`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => syncNow.mutate()}
+                disabled={syncNow.isPending}
+                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+              >
+                {syncNow.isPending ? 'Syncing…' : 'Sync now'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Disconnect GitHub? Existing review tasks will remain.')) {
+                    disconnect.mutate()
+                  }
+                }}
+                disabled={disconnect.isPending}
+                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600 disabled:opacity-60"
+              >
+                Disconnect
+              </button>
+            </div>
+
+            <form
+              onSubmit={onConnect}
+              className="space-y-2 border-t border-[var(--line)] pt-4"
+            >
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Replace token
+                </span>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="ghp_…"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="field-input"
+                />
+              </label>
+              {formError ? (
+                <p className="text-sm text-red-600" role="alert">
+                  {formError}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={connect.isPending || !token.trim()}
+                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+              >
+                {connect.isPending ? 'Updating…' : 'Save new token'}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <form onSubmit={onConnect} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Personal access token
+              </span>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="ghp_…"
+                autoComplete="off"
+                spellCheck={false}
+                className="field-input"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Check for new reviews every
+              </span>
+              <select
+                value={pollInterval}
+                onChange={(e) => setPollInterval(Number(e.target.value))}
+                className="field-input w-auto"
+              >
+                {GITHUB_POLL_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? '1 minute' : `${n} minutes`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {formError ? (
+              <p className="text-sm text-red-600" role="alert">
+                {formError}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={connect.isPending}
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+            >
+              {connect.isPending ? 'Connecting…' : 'Connect'}
+            </button>
+          </form>
+        )}
+
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-4">
+          <button
+            type="button"
+            onClick={() => setShowInstructions((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-[var(--sea-ink)]"
+          >
+            <span>How to create a classic token</span>
+            <span aria-hidden className="text-[var(--sea-ink-soft)]">
+              {showInstructions ? '▾' : '▸'}
+            </span>
+          </button>
+          {showInstructions ? (
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--sea-ink-soft)]">
+              <li>
+                Open{' '}
+                <a
+                  href="https://github.com/settings/tokens/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--lagoon-deep)] underline"
+                >
+                  github.com/settings/tokens/new
+                </a>{' '}
+                (Settings → Developer settings → Personal access tokens →
+                Tokens (classic)).
+              </li>
+              <li>
+                Note: <code>todo-gameification</code> (or anything you'll
+                recognize later).
+              </li>
+              <li>
+                Expiration: pick whatever you're comfortable re-generating
+                — 90 days is a good default.
+              </li>
+              <li>
+                <span className="font-semibold text-[var(--sea-ink)]">
+                  Select scopes
+                </span>{' '}
+                — check:
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  <li>
+                    <code>repo</code> — required for private-repo and org PRs
+                  </li>
+                  <li>
+                    <code>read:org</code> — optional, only needed if your
+                    org uses team-based review requests
+                  </li>
+                </ul>
+              </li>
+              <li>
+                Click <strong>Generate token</strong> and copy the{' '}
+                <code>ghp_…</code> value immediately — GitHub only shows
+                it once.
+              </li>
+              <li>
+                If your org requires SSO, click <strong>Configure SSO</strong>{' '}
+                next to the token on the tokens page and authorize it for
+                that org — otherwise API calls return empty results.
+              </li>
+              <li>Paste it above and hit Connect.</li>
+            </ol>
+          ) : null}
+        </div>
+      </div>
+    </details>
   )
 }
 

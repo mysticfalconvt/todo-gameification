@@ -112,6 +112,10 @@ export const tasks = pgTable('tasks', {
     .notNull()
     .default('friends'),
   active: boolean('active').notNull().default(true),
+  // Dedup key for tasks auto-created from external systems (e.g.
+  // `github-pr-<prId>`). Null for user-created tasks. Unique per user
+  // when set — enforced via a partial unique index.
+  externalRef: text('external_ref'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -249,6 +253,32 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   lastFailureAt: timestamp('last_failure_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+// Per-user credentials for external services (GitHub for now; structured
+// so Jira/Linear/etc. can be added without another table). Token stored
+// plaintext — Postgres disk is the trust boundary for this app.
+export const userIntegrations = pgTable(
+  'user_integrations',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(), // 'github'
+    externalId: text('external_id'), // e.g. GitHub username, for display
+    token: text('token').notNull(),
+    pollIntervalMinutes: integer('poll_interval_minutes').notNull().default(5),
+    lastPolledAt: timestamp('last_polled_at'),
+    lastPollError: text('last_poll_error'),
+    // Parsed from the `github-authentication-token-expiration` header that
+    // GitHub returns on every authenticated response for classic PATs.
+    // Null when the token has no expiration or we haven't seen a response
+    // yet. Used to create an "expires soon" task 5 days out.
+    tokenExpiresAt: timestamp('token_expires_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.provider] })],
+)
 
 // Per-call audit log for outbound LLM requests. Used by the admin
 // dashboard to watch latency + success rate against the single LM Studio

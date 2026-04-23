@@ -99,6 +99,20 @@
       "when": 1776870000000,
       "tag": "0013_garden_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776880000000,
+      "tag": "0014_github_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776890000000,
+      "tag": "0015_github_token_expiry",
+      "breakpoints": true
     }
   ]
 }
