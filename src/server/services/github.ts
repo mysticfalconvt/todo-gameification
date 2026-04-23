@@ -183,10 +183,11 @@ export interface FetchReviewRequestedResult {
   tokenExpiresAt: Date | null
 }
 
-export async function fetchReviewRequestedPrs(
+async function searchPrs(
   token: string,
+  qualifier: string,
 ): Promise<FetchReviewRequestedResult> {
-  const q = encodeURIComponent('is:pr is:open review-requested:@me archived:false')
+  const q = encodeURIComponent(`is:pr is:open ${qualifier} archived:false`)
   const { data, tokenExpiresAt } = await githubFetch<SearchIssuesResponse>(
     token,
     `/search/issues?q=${q}&per_page=50`,
@@ -200,6 +201,25 @@ export async function fetchReviewRequestedPrs(
       title: item.title,
       htmlUrl: item.html_url,
     }))
+  return { prs, tokenExpiresAt }
+}
+
+export async function fetchReviewRequestedPrs(
+  token: string,
+): Promise<FetchReviewRequestedResult> {
+  // Two separate searches — OR across qualifiers in GitHub's issue-search
+  // isn't reliable. Dedupe by prId so a PR that's both assigned-to-you
+  // and review-requested-from-you only becomes one task.
+  const [review, assigned] = await Promise.all([
+    searchPrs(token, 'review-requested:@me'),
+    searchPrs(token, 'assignee:@me'),
+  ])
+  const byId = new Map<number, GithubReviewPr>()
+  for (const pr of [...review.prs, ...assigned.prs]) {
+    byId.set(pr.prId, pr)
+  }
+  const prs = [...byId.values()]
+  const tokenExpiresAt = review.tokenExpiresAt ?? assigned.tokenExpiresAt
   return { prs, tokenExpiresAt }
 }
 
