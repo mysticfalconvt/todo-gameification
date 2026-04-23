@@ -113,6 +113,13 @@
       "when": 1776890000000,
       "tag": "0015_github_token_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776900000000,
+      "tag": "0016_wordle_words",
+      "breakpoints": true
     }
   ]
 }

@@ -280,6 +280,18 @@ export const userIntegrations = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.provider] })],
 )
 
+// Admin-curated word pool for the Wordle arcade game. Edited from
+// /admin/wordle. We log plays in the `events` table with `word` in the
+// payload; unseen-word counts are computed per-user on demand, no extra
+// "seen" table needed.
+export const wordleWords = pgTable('wordle_words', {
+  word: text('word').primaryKey(),
+  createdBy: text('created_by').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // Per-call audit log for outbound LLM requests. Used by the admin
 // dashboard to watch latency + success rate against the single LM Studio
 // instance — when load climbs, this is where it shows up. One row per

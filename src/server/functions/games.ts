@@ -16,7 +16,11 @@ export const finishGame = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
       gameId: string
-      result: { won: boolean; score: number | null }
+      result: {
+        won: boolean
+        score: number | null
+        meta?: Record<string, unknown>
+      }
     }) => data,
   )
   .handler(({ data, context }) =>

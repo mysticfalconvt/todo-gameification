@@ -59,6 +59,10 @@ export type DomainEvent =
       tokenCost: number
       xpReward: number
       result: { won: boolean; score: number | null }
+      // Game-specific payload (e.g. wordle stores the word played here).
+      // Not consumed by progression — just threaded through to the event
+      // log for later queries.
+      meta?: Record<string, unknown>
       occurredAt: Date
     }
   | {

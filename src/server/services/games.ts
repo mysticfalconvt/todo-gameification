@@ -5,6 +5,7 @@ import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { findGame, GAMES } from '../../games/registry'
 import { getUserTimeZone } from './tasks'
+import { checkAndNotifyLowPool } from './wordle'
 
 export interface GameMeta {
   id: string
@@ -37,7 +38,11 @@ export async function canPlay(userId: string, gameId: string): Promise<boolean> 
 export interface FinishGameInput {
   userId: string
   gameId: string
-  result: { won: boolean; score: number | null }
+  result: {
+    won: boolean
+    score: number | null
+    meta?: Record<string, unknown>
+  }
 }
 
 export interface FinishGameResult {
@@ -63,7 +68,8 @@ export async function finishGame(
     gameId: game.id,
     tokenCost: game.tokenCost,
     xpReward,
-    result: input.result,
+    result: { won: input.result.won, score: input.result.score },
+    meta: input.result.meta,
     occurredAt: now,
   }
 
@@ -75,15 +81,21 @@ export async function finishGame(
       throw new Error('not enough tokens')
     }
 
+    // Wordle stores the played word in `payload.word` (promoted from meta)
+    // so the per-user "seen words" query can match on it directly.
+    const basePayload: Record<string, unknown> = {
+      gameId: event.gameId,
+      tokenCost: event.tokenCost,
+      xpReward: event.xpReward,
+      result: event.result,
+    }
+    const word = event.meta?.word
+    if (typeof word === 'string') basePayload.word = word
+
     await tx.insert(events).values({
       userId: input.userId,
       type: event.type,
-      payload: {
-        gameId: event.gameId,
-        tokenCost: event.tokenCost,
-        xpReward: event.xpReward,
-        result: event.result,
-      },
+      payload: basePayload,
       occurredAt: now,
     })
 
@@ -119,5 +131,15 @@ export async function finishGame(
       })
 
     return { xp: next.xp, level: next.level, tokens: next.tokens, xpReward }
+  }).then(async (out) => {
+    // Post-commit side effect: if this was a wordle play, check whether the
+    // user has run low on unseen words and nudge the admin. Fire-and-forget;
+    // a failure here shouldn't roll back the play.
+    if (input.gameId === 'wordle') {
+      await checkAndNotifyLowPool(input.userId).catch((err) => {
+        console.error('[games] wordle low-pool check failed', err)
+      })
+    }
+    return out
   })
 }

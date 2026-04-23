@@ -37,6 +37,7 @@ import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
 import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
 import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
+import { Route as AuthenticatedAdminWordleRouteImport } from './routes/_authenticated/admin/wordle'
 import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
 import { Route as AuthenticatedAdminLlmIndexRouteImport } from './routes/_authenticated/admin/llm/index'
 import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
@@ -191,6 +192,12 @@ const AuthenticatedSettingsApiDocsRoute =
     path: '/settings/api-docs',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminWordleRoute =
+  AuthenticatedAdminWordleRouteImport.update({
+    id: '/admin/wordle',
+    path: '/admin/wordle',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
   id: '/api/v1/tasks/',
   path: '/api/v1/tasks/',
@@ -256,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/admin/wordle': typeof AuthenticatedAdminWordleRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -294,6 +302,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/admin/wordle': typeof AuthenticatedAdminWordleRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -334,6 +343,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/_authenticated/admin/wordle': typeof AuthenticatedAdminWordleRoute
   '/_authenticated/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/_authenticated/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/_authenticated/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/admin/wordle'
     | '/settings/api-docs'
     | '/settings/home-assistant'
     | '/settings/mcp'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/admin/wordle'
     | '/settings/api-docs'
     | '/settings/home-assistant'
     | '/settings/mcp'
@@ -451,6 +463,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/auth/signup'
+    | '/_authenticated/admin/wordle'
     | '/_authenticated/settings/api-docs'
     | '/_authenticated/settings/home-assistant'
     | '/_authenticated/settings/mcp'
@@ -697,6 +710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsApiDocsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/wordle': {
+      id: '/_authenticated/admin/wordle'
+      path: '/admin/wordle'
+      fullPath: '/admin/wordle'
+      preLoaderRoute: typeof AuthenticatedAdminWordleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/v1/tasks/': {
       id: '/api/v1/tasks/'
       path: '/api/v1/tasks'
@@ -769,6 +789,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
   AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
+  AuthenticatedAdminWordleRoute: typeof AuthenticatedAdminWordleRoute
   AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
   AuthenticatedSettingsHomeAssistantRoute: typeof AuthenticatedSettingsHomeAssistantRoute
   AuthenticatedSettingsMcpRoute: typeof AuthenticatedSettingsMcpRoute
@@ -791,6 +812,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
   AuthenticatedGardenRoute: AuthenticatedGardenRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
+  AuthenticatedAdminWordleRoute: AuthenticatedAdminWordleRoute,
   AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,
   AuthenticatedSettingsHomeAssistantRoute:
     AuthenticatedSettingsHomeAssistantRoute,

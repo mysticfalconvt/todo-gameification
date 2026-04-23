@@ -313,6 +313,12 @@ function MotivationSection() {
         <h2 className="text-lg font-bold text-[var(--sea-ink)]">
           Focus & games
         </h2>
+        <Link
+          to="/admin/wordle"
+          className="text-xs text-[var(--lagoon-deep)] no-underline"
+        >
+          Manage Wordle words →
+        </Link>
       </header>
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
         <Stat label="Focus started" value={m.focus.started} />
