@@ -19,6 +19,10 @@ import {
 } from '../../lib/push'
 import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
+import {
+  TaskDetailsDialog,
+  type TaskDetailsInstance,
+} from '../../components/TaskDetailsDialog'
 import { TODAY_SORTS, compareBy, useStoredSort } from '../../lib/sort'
 import {
   DAY_PART_LABEL,
@@ -215,6 +219,8 @@ function TodayPage() {
     [rawInstances, sortKey],
   )
 
+  const [selected, setSelected] = useState<TaskDetailsInstance | null>(null)
+
   return (
     <main className="page-wrap px-4 py-8">
       <header className="mb-6 flex items-end justify-between gap-3">
@@ -296,6 +302,7 @@ function TodayPage() {
             snooze.mutate({ instanceId: id, hours: 1 })
           }
           onSkip={(id) => skip.mutate(id)}
+          onSelect={setSelected}
         />
       )}
 
@@ -321,11 +328,21 @@ function TodayPage() {
                   onClick={() => complete.mutate(inst.instanceId)}
                   className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
                 />
-                <Link
-                  to="/tasks/$taskId"
-                  params={{ taskId: inst.taskId }}
-                  className="min-w-0 flex-1 no-underline"
-                  aria-label={`Edit ${inst.title}`}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelected({
+                      taskId: inst.taskId,
+                      title: inst.title,
+                      difficulty: inst.difficulty,
+                      xpOverride: inst.xpOverride,
+                      categorySlug: inst.categorySlug,
+                      dueAt: null,
+                      timeOfDay: null,
+                    })
+                  }
+                  className="min-w-0 flex-1 cursor-pointer bg-transparent p-0 text-left"
+                  aria-label={`View ${inst.title}`}
                 >
                   <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
                     <CategoryDot slug={inst.categorySlug} map={catBySlug} />
@@ -337,12 +354,18 @@ function TodayPage() {
                       <> • {catBySlug.get(inst.categorySlug)!.label}</>
                     ) : null}
                   </p>
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
+
+      <TaskDetailsDialog
+        instance={selected}
+        onClose={() => setSelected(null)}
+        catBySlug={catBySlug}
+      />
     </main>
   )
 }
@@ -536,12 +559,14 @@ function TodayBuckets({
   onComplete,
   onSnooze,
   onSkip,
+  onSelect,
 }: {
   instances: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
   onComplete: (instanceId: string) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
+  onSelect: (inst: TaskDetailsInstance) => void
 }) {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   const current = currentDayPart(new Date(), timeZone)
@@ -579,6 +604,7 @@ function TodayBuckets({
           onComplete={onComplete}
           onSnooze={onSnooze}
           onSkip={onSkip}
+          onSelect={onSelect}
         />
       ) : null}
 
@@ -593,6 +619,7 @@ function TodayBuckets({
             onComplete={onComplete}
             onSnooze={onSnooze}
             onSkip={onSkip}
+            onSelect={onSelect}
           />
         </section>
       ))}
@@ -614,6 +641,7 @@ function TodayBuckets({
                   onComplete={onComplete}
                   onSnooze={onSnooze}
                   onSkip={onSkip}
+                  onSelect={onSelect}
                 />
               </section>
             ))}
@@ -630,12 +658,14 @@ function BucketList({
   onComplete,
   onSnooze,
   onSkip,
+  onSelect,
 }: {
   rows: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
   onComplete: (instanceId: string) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
+  onSelect: (inst: TaskDetailsInstance) => void
 }) {
   return (
     <ul className="space-y-2">
@@ -650,11 +680,21 @@ function BucketList({
             onClick={() => onComplete(inst.instanceId)}
             className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
           />
-          <Link
-            to="/tasks/$taskId"
-            params={{ taskId: inst.taskId }}
-            className="min-w-0 flex-1 no-underline"
-            aria-label={`Edit ${inst.title}`}
+          <button
+            type="button"
+            onClick={() =>
+              onSelect({
+                taskId: inst.taskId,
+                title: inst.title,
+                difficulty: inst.difficulty,
+                xpOverride: inst.xpOverride,
+                categorySlug: inst.categorySlug,
+                dueAt: inst.dueAt,
+                timeOfDay: inst.timeOfDay,
+              })
+            }
+            className="min-w-0 flex-1 cursor-pointer bg-transparent p-0 text-left"
+            aria-label={`View ${inst.title}`}
           >
             <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
               <CategoryDot slug={inst.categorySlug} map={catBySlug} />
@@ -668,7 +708,7 @@ function BucketList({
                 <> • {catBySlug.get(inst.categorySlug)!.label}</>
               ) : null}
             </p>
-          </Link>
+          </button>
           <div className="flex flex-shrink-0 flex-col items-stretch gap-1 sm:flex-row sm:items-center">
             <Link
               to="/focus"
