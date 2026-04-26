@@ -74,6 +74,29 @@ export type DomainEvent =
       grantedBy: string
       occurredAt: Date
     }
+  | {
+      // Subtask checked off. xpEarned is resolved at the moment of toggle
+      // (based on parent's base XP / current step count, modulated by
+      // streak + punctuality) and persisted in the payload so replay is
+      // deterministic. Streak is *not* affected by step events — only
+      // parent completion drives streak.
+      type: 'task.step.completed'
+      taskId: string
+      stepId: string
+      instanceId: string
+      xpEarned: number
+      occurredAt: Date
+    }
+  | {
+      // Subtask unchecked. Refunds exactly the XP recorded on the prior
+      // task.step.completed event so undo/redo cycles stay neutral.
+      type: 'task.step.uncompleted'
+      taskId: string
+      stepId: string
+      instanceId: string
+      xpRefunded: number
+      occurredAt: Date
+    }
 
 export type DomainEventType = DomainEvent['type']
 

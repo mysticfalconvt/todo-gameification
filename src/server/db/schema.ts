@@ -137,6 +137,50 @@ export const taskInstances = pgTable(
   (t) => [index('task_instances_user_due_idx').on(t.userId, t.dueAt)],
 )
 
+// Subtask checklist. Step *templates* live on the task. Step *completion
+// state* lives per-instance (so a recurring parent's checklist resets
+// each instance). Each step grants a slice of the parent's base XP at
+// the moment it's checked; the parent grants a smaller completion bonus
+// when it's checked off.
+export const taskSteps = pgTable(
+  'task_steps',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [index('task_steps_task_position_idx').on(t.taskId, t.position)],
+)
+
+export const taskStepCompletions = pgTable(
+  'task_step_completions',
+  {
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => taskInstances.id, { onDelete: 'cascade' }),
+    stepId: uuid('step_id')
+      .notNull()
+      .references(() => taskSteps.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    completedAt: timestamp('completed_at').notNull().defaultNow(),
+    xpEarned: integer('xp_earned').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.instanceId, t.stepId] }),
+    index('task_step_completions_instance_idx').on(t.instanceId),
+  ],
+)
+
 export const events = pgTable(
   'events',
   {

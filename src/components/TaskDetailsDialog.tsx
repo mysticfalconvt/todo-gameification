@@ -1,7 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getTask, getTaskStats } from '../server/functions/tasks'
+import {
+  addTaskStep,
+  deleteTaskStep,
+  listTaskSteps,
+  renameTaskStep,
+  reorderTaskSteps,
+  toggleTaskStep,
+} from '../server/functions/taskSteps'
 import { xpLabel } from '../lib/xp-label'
 import type { Difficulty } from '../domain/events'
 import type { Recurrence, DurationUnit } from '../domain/recurrence'
@@ -9,6 +17,11 @@ import { resolveDuration } from '../domain/recurrence'
 
 export interface TaskDetailsInstance {
   taskId: string
+  // The current taskInstance the user is viewing. Subtask completion
+  // state is per-instance, so the dialog needs both. Null for views
+  // that don't have a current instance (e.g. the someday list before
+  // an instance has been picked up).
+  instanceId: string | null
   title: string
   difficulty: Difficulty
   xpOverride: number | null
@@ -115,6 +128,11 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
               </section>
             ) : null}
 
+            <TaskStepsSection
+              taskId={instance.taskId}
+              instanceId={instance.instanceId}
+            />
+
             <section className="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Field label="XP" value={xpLabel(instance.difficulty, instance.xpOverride)} />
               {instance.dueAt ? (
@@ -191,6 +209,221 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
         </div>
       ) : null}
     </dialog>
+  )
+}
+
+function TaskStepsSection({
+  taskId,
+  instanceId,
+}: {
+  taskId: string
+  instanceId: string | null
+}) {
+  const qc = useQueryClient()
+  const stepsQuery = useQuery({
+    queryKey: ['taskSteps', taskId, instanceId],
+    queryFn: () =>
+      listTaskSteps({ data: { taskId, instanceId: instanceId ?? null } }),
+  })
+
+  const [newTitle, setNewTitle] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ['taskSteps', taskId] })
+    qc.invalidateQueries({ queryKey: ['today'] })
+    qc.invalidateQueries({ queryKey: ['someday'] })
+    qc.invalidateQueries({ queryKey: ['progression'] })
+  }
+
+  const addMut = useMutation({
+    mutationFn: (title: string) => addTaskStep({ data: { taskId, title } }),
+    onSuccess: () => {
+      setNewTitle('')
+      refresh()
+    },
+  })
+
+  const toggleMut = useMutation({
+    mutationFn: (stepId: string) =>
+      toggleTaskStep({
+        data: { stepId, instanceId: instanceId ?? '' },
+      }),
+    onSuccess: refresh,
+  })
+
+  const renameMut = useMutation({
+    mutationFn: (vars: { stepId: string; title: string }) =>
+      renameTaskStep({ data: vars }),
+    onSuccess: () => {
+      setEditingId(null)
+      setEditTitle('')
+      refresh()
+    },
+  })
+
+  const reorderMut = useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      reorderTaskSteps({ data: { taskId, orderedIds } }),
+    onSuccess: refresh,
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (stepId: string) => deleteTaskStep({ data: { stepId } }),
+    onSuccess: refresh,
+  })
+
+  const steps = stepsQuery.data ?? []
+  const completedCount = steps.filter((s) => s.completedAt).length
+  const hasInstance = !!instanceId
+
+  function move(index: number, dir: -1 | 1) {
+    const next = [...steps]
+    const target = index + dir
+    if (target < 0 || target >= next.length) return
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    reorderMut.mutate(next.map((s) => s.id))
+  }
+
+  return (
+    <section className="mb-4">
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
+          Steps
+        </p>
+        {steps.length > 0 ? (
+          <p className="text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+            {completedCount} / {steps.length}
+          </p>
+        ) : null}
+      </div>
+
+      {steps.length > 0 ? (
+        <ul className="space-y-1">
+          {steps.map((step, i) => {
+            const checked = !!step.completedAt
+            const isEditing = editingId === step.id
+            return (
+              <li
+                key={step.id}
+                className="group flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1.5"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!hasInstance || toggleMut.isPending}
+                  onChange={() => toggleMut.mutate(step.id)}
+                  className="h-4 w-4 cursor-pointer accent-[var(--lagoon-deep)]"
+                  aria-label={`Toggle ${step.title}`}
+                />
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onBlur={() => {
+                      if (editTitle.trim() && editTitle.trim() !== step.title) {
+                        renameMut.mutate({
+                          stepId: step.id,
+                          title: editTitle.trim(),
+                        })
+                      } else {
+                        setEditingId(null)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      } else if (e.key === 'Escape') {
+                        setEditingId(null)
+                      }
+                    }}
+                    autoFocus
+                    className="field-input min-w-0 flex-1 px-2 py-1 text-sm"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(step.id)
+                      setEditTitle(step.title)
+                    }}
+                    className={`min-w-0 flex-1 cursor-text bg-transparent text-left text-sm ${
+                      checked
+                        ? 'text-[var(--sea-ink-soft)] line-through'
+                        : 'text-[var(--sea-ink)]'
+                    }`}
+                  >
+                    {step.title}
+                  </button>
+                )}
+                {checked && step.xpEarned ? (
+                  <span className="text-[10px] font-semibold text-[var(--lagoon-deep)]">
+                    +{step.xpEarned}
+                  </span>
+                ) : null}
+                <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0 || reorderMut.isPending}
+                    aria-label="Move up"
+                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)] disabled:opacity-30"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(i, 1)}
+                    disabled={i === steps.length - 1 || reorderMut.isPending}
+                    aria-label="Move down"
+                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)] disabled:opacity-30"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteMut.mutate(step.id)}
+                    disabled={deleteMut.isPending}
+                    aria-label={`Delete ${step.title}`}
+                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-red-100 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const trimmed = newTitle.trim()
+          if (!trimmed) return
+          addMut.mutate(trimmed)
+        }}
+        className="mt-2 flex items-center gap-2"
+      >
+        <input
+          type="text"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="+ Add step"
+          className="field-input min-w-0 flex-1 px-2 py-1 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={!newTitle.trim() || addMut.isPending}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+        >
+          Add
+        </button>
+      </form>
+    </section>
   )
 }
 

@@ -201,7 +201,51 @@ export function applyEvent(
         tokens: Math.max(0, state.tokens + event.amount),
       }
     }
+
+    case 'task.step.completed': {
+      const xp = state.xp + event.xpEarned
+      return { ...state, xp, level: levelFor(xp) }
+    }
+
+    case 'task.step.uncompleted': {
+      const xp = Math.max(0, state.xp - event.xpRefunded)
+      return { ...state, xp, level: levelFor(xp) }
+    }
   }
+}
+
+// Step XP allocation: 75% of the parent's base XP is split across all
+// current steps; the parent itself grants the remaining 25% as a
+// completion bonus. So total XP for a fully checklist'd parent task
+// matches a normal completion (within rounding).
+const STEP_SHARE = 0.75
+const PARENT_BONUS = 0.25
+
+const STEP_BASE_FALLBACK = 1
+
+export function computeStepXp(input: {
+  parentBaseXp: number
+  totalSteps: number
+  currentStreak: number
+  punctuality: number
+}): number {
+  if (input.totalSteps <= 0) return STEP_BASE_FALLBACK
+  const perStep = Math.floor((input.parentBaseXp * STEP_SHARE) / input.totalSteps)
+  const base = Math.max(STEP_BASE_FALLBACK, perStep)
+  const streakMult =
+    1 + Math.min(input.currentStreak, STREAK_CAP) * STREAK_STEP
+  return Math.round(base * streakMult * input.punctuality)
+}
+
+export function parentBonusBaseXp(parentBaseXp: number): number {
+  return Math.max(1, Math.floor(parentBaseXp * PARENT_BONUS))
+}
+
+export function baseXpForDifficulty(
+  difficulty: Difficulty,
+  xpOverride: number | null,
+): number {
+  return xpOverride ?? BASE_XP[difficulty]
 }
 
 export function replay(

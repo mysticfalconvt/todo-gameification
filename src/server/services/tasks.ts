@@ -27,6 +27,8 @@ import {
   events,
   progression,
   taskInstances,
+  taskStepCompletions,
+  taskSteps,
   tasks,
   user as userTable,
 } from '../db/schema'
@@ -37,6 +39,10 @@ import type { Difficulty, DomainEvent } from '../../domain/events'
 import {
   INITIAL_PROGRESSION,
   applyEvent,
+  baseXpForDifficulty,
+  computeStepXp,
+  parentBonusBaseXp,
+  punctualityMultiplier,
 } from '../../domain/gamification'
 import { scheduleReminder } from '../boss'
 import { scoreTask } from '../llm/scoreTask'
@@ -68,6 +74,10 @@ export interface CreateTaskInput {
   // land at any moment (not just a same-day HH:MM), while still
   // letting `recurrence` drive later occurrences.
   dueAtOverride?: string | null
+  // Optional checklist steps to seed the task with. Empty/whitespace
+  // titles are dropped. Each grants a slice of the parent's XP at
+  // completion time (see computeStepXp).
+  steps?: string[] | null
 }
 
 export interface UpdateTaskInput {
@@ -97,6 +107,8 @@ export interface TodayInstance {
   timeOfDay: string | null
   snoozedUntil: string | null
   createdAt: string
+  stepsTotal: number
+  stepsCompleted: number
 }
 
 export interface SomedayInstance {
@@ -107,6 +119,8 @@ export interface SomedayInstance {
   xpOverride: number | null
   categorySlug: string | null
   createdAt: string
+  stepsTotal: number
+  stepsCompleted: number
 }
 
 export interface TaskSummary {
@@ -138,8 +152,10 @@ export interface ProgressionSummary {
 
 export type CompleteInstanceResult =
   | { alreadyHandled: true }
+  | { requiresConfirm: true; uncheckedSteps: number }
   | {
       alreadyHandled: false
+      requiresConfirm?: false
       xp: number
       level: number
       currentStreak: number
@@ -295,6 +311,20 @@ export async function createTask(
       .insert(taskInstances)
       .values({ taskId: task.id, userId, dueAt })
       .returning()
+
+    const cleanedSteps = (input.steps ?? [])
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    if (cleanedSteps.length > 0) {
+      await tx.insert(taskSteps).values(
+        cleanedSteps.map((title, position) => ({
+          taskId: task.id,
+          userId,
+          title,
+          position,
+        })),
+      )
+    }
 
     return { id: task.id, instanceId: inst.id, dueAt: inst.dueAt }
   })
@@ -747,6 +777,10 @@ export async function listTodayInstances(
     )
     .orderBy(taskInstances.dueAt)
 
+  const stepCounts = await loadStepCounts(
+    rows.map((r) => ({ taskId: r.taskId, instanceId: r.instanceId })),
+  )
+
   return rows.map((r) => ({
     instanceId: r.instanceId,
     taskId: r.taskId,
@@ -758,6 +792,8 @@ export async function listTodayInstances(
     timeOfDay: r.timeOfDay,
     snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
+    stepsTotal: stepCounts.get(r.taskId)?.total ?? 0,
+    stepsCompleted: stepCounts.get(r.taskId)?.completedByInstance.get(r.instanceId) ?? 0,
   }))
 }
 
@@ -787,6 +823,10 @@ export async function listSomedayInstances(
     )
     .orderBy(tasks.createdAt)
 
+  const stepCounts = await loadStepCounts(
+    rows.map((r) => ({ taskId: r.taskId, instanceId: r.instanceId })),
+  )
+
   return rows.map((r) => ({
     instanceId: r.instanceId,
     taskId: r.taskId,
@@ -795,6 +835,8 @@ export async function listSomedayInstances(
     xpOverride: r.xpOverride,
     categorySlug: r.categorySlug,
     createdAt: r.createdAt.toISOString(),
+    stepsTotal: stepCounts.get(r.taskId)?.total ?? 0,
+    stepsCompleted: stepCounts.get(r.taskId)?.completedByInstance.get(r.instanceId) ?? 0,
   }))
 }
 
@@ -1034,6 +1076,42 @@ async function rebuildProgression(
         },
         { timeZone },
       )
+    } else if (r.type === 'task.step.completed') {
+      state = applyEvent(
+        state,
+        {
+          type: 'task.step.completed',
+          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
+          stepId: typeof p['stepId'] === 'string' ? (p['stepId'] as string) : '',
+          instanceId:
+            typeof p['instanceId'] === 'string'
+              ? (p['instanceId'] as string)
+              : '',
+          xpEarned:
+            typeof p['xpEarned'] === 'number' ? (p['xpEarned'] as number) : 0,
+          occurredAt,
+        },
+        { timeZone },
+      )
+    } else if (r.type === 'task.step.uncompleted') {
+      state = applyEvent(
+        state,
+        {
+          type: 'task.step.uncompleted',
+          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
+          stepId: typeof p['stepId'] === 'string' ? (p['stepId'] as string) : '',
+          instanceId:
+            typeof p['instanceId'] === 'string'
+              ? (p['instanceId'] as string)
+              : '',
+          xpRefunded:
+            typeof p['xpRefunded'] === 'number'
+              ? (p['xpRefunded'] as number)
+              : 0,
+          occurredAt,
+        },
+        { timeZone },
+      )
     }
   }
 
@@ -1066,6 +1144,7 @@ async function rebuildProgression(
 export async function completeInstance(
   userId: string,
   instanceId: string,
+  options: { force?: boolean } = {},
 ): Promise<CompleteInstanceResult> {
   if (!instanceId) throw new Error('instanceId required')
   const now = new Date()
@@ -1088,17 +1167,52 @@ export async function completeInstance(
     })
     if (!task) throw new Error('task missing')
 
+    // If the task has steps and any are unchecked on this instance,
+    // require an explicit `force` from the caller before we complete
+    // the parent. The UI uses this to surface a confirm modal.
+    const stepRows = await tx
+      .select({ id: taskSteps.id })
+      .from(taskSteps)
+      .where(eq(taskSteps.taskId, task.id))
+    const totalSteps = stepRows.length
+    if (totalSteps > 0 && !options.force) {
+      const completedRows = await tx
+        .select({ stepId: taskStepCompletions.stepId })
+        .from(taskStepCompletions)
+        .where(eq(taskStepCompletions.instanceId, instance.id))
+      const unchecked = totalSteps - completedRows.length
+      if (unchecked > 0) {
+        return {
+          requiresConfirm: true as const,
+          uncheckedSteps: unchecked,
+        }
+      }
+    }
+
     await tx
       .update(taskInstances)
       .set({ completedAt: now })
       .where(eq(taskInstances.id, instance.id))
+
+    // When the task has steps, the parent only grants a 25% completion
+    // bonus on top of whatever XP the steps already awarded. Without
+    // steps, behavior is unchanged.
+    const parentXpOverride =
+      totalSteps > 0
+        ? parentBonusBaseXp(
+            baseXpForDifficulty(
+              task.difficulty as Difficulty,
+              task.xpOverride,
+            ),
+          )
+        : task.xpOverride
 
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
       instanceId: instance.id,
       difficulty: task.difficulty as Difficulty,
-      xpOverride: task.xpOverride,
+      xpOverride: parentXpOverride,
       dueAt: instance.dueAt,
       timeOfDay: task.timeOfDay,
       occurredAt: now,
@@ -1189,7 +1303,15 @@ export async function completeInstance(
     }
   })
 
-  if (txResult.alreadyHandled) return { alreadyHandled: true }
+  if ('alreadyHandled' in txResult && txResult.alreadyHandled) {
+    return { alreadyHandled: true }
+  }
+  if ('requiresConfirm' in txResult && txResult.requiresConfirm) {
+    return {
+      requiresConfirm: true,
+      uncheckedSteps: txResult.uncheckedSteps,
+    }
+  }
 
   if (txResult.materialized && txResult.materialized.dueAt > new Date()) {
     await scheduleReminder(
@@ -2015,4 +2137,448 @@ export async function listRecentActivity(userId: string): Promise<string[]> {
     dayKeys.add(formatter.format(row.occurredAt))
   }
   return Array.from(dayKeys).sort()
+}
+
+// ---------------------------------------------------------------------------
+// Subtask checklist
+// ---------------------------------------------------------------------------
+
+export interface TaskStep {
+  id: string
+  taskId: string
+  title: string
+  position: number
+  completedAt: string | null
+  xpEarned: number | null
+}
+
+// Batch step-count loader for the today/someday list queries. One pair
+// of small SELECTs instead of N+1.
+async function loadStepCounts(
+  pairs: Array<{ taskId: string; instanceId: string }>,
+): Promise<Map<string, { total: number; completedByInstance: Map<string, number> }>> {
+  const result = new Map<
+    string,
+    { total: number; completedByInstance: Map<string, number> }
+  >()
+  if (pairs.length === 0) return result
+
+  const taskIds = Array.from(new Set(pairs.map((p) => p.taskId)))
+  const instanceIds = Array.from(new Set(pairs.map((p) => p.instanceId)))
+
+  const totals = await db
+    .select({ taskId: taskSteps.taskId, id: taskSteps.id })
+    .from(taskSteps)
+    .where(inArray(taskSteps.taskId, taskIds))
+  for (const row of totals) {
+    const entry = result.get(row.taskId)
+    if (entry) entry.total += 1
+    else
+      result.set(row.taskId, {
+        total: 1,
+        completedByInstance: new Map(),
+      })
+  }
+
+  const completed = await db
+    .select({
+      instanceId: taskStepCompletions.instanceId,
+      taskId: taskSteps.taskId,
+    })
+    .from(taskStepCompletions)
+    .innerJoin(taskSteps, eq(taskStepCompletions.stepId, taskSteps.id))
+    .where(inArray(taskStepCompletions.instanceId, instanceIds))
+  for (const row of completed) {
+    let entry = result.get(row.taskId)
+    if (!entry) {
+      entry = { total: 0, completedByInstance: new Map() }
+      result.set(row.taskId, entry)
+    }
+    entry.completedByInstance.set(
+      row.instanceId,
+      (entry.completedByInstance.get(row.instanceId) ?? 0) + 1,
+    )
+  }
+
+  return result
+}
+
+async function assertTaskOwned(
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  const row = await db.query.tasks.findFirst({
+    where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
+    columns: { id: true },
+  })
+  if (!row) throw new Error('task not found')
+}
+
+async function loadStepWithOwnership(
+  userId: string,
+  stepId: string,
+): Promise<{
+  id: string
+  taskId: string
+  title: string
+}> {
+  const row = await db.query.taskSteps.findFirst({
+    where: and(eq(taskSteps.id, stepId), eq(taskSteps.userId, userId)),
+    columns: { id: true, taskId: true, title: true },
+  })
+  if (!row) throw new Error('step not found')
+  return row
+}
+
+export async function listTaskSteps(
+  userId: string,
+  taskId: string,
+  instanceId: string | null,
+): Promise<TaskStep[]> {
+  await assertTaskOwned(userId, taskId)
+  const stepRows = await db
+    .select({
+      id: taskSteps.id,
+      taskId: taskSteps.taskId,
+      title: taskSteps.title,
+      position: taskSteps.position,
+    })
+    .from(taskSteps)
+    .where(eq(taskSteps.taskId, taskId))
+    .orderBy(taskSteps.position, taskSteps.createdAt)
+
+  const completionByStep = new Map<string, { completedAt: Date; xpEarned: number }>()
+  if (instanceId && stepRows.length > 0) {
+    const completions = await db
+      .select({
+        stepId: taskStepCompletions.stepId,
+        completedAt: taskStepCompletions.completedAt,
+        xpEarned: taskStepCompletions.xpEarned,
+      })
+      .from(taskStepCompletions)
+      .where(eq(taskStepCompletions.instanceId, instanceId))
+    for (const c of completions) {
+      completionByStep.set(c.stepId, {
+        completedAt: c.completedAt,
+        xpEarned: c.xpEarned,
+      })
+    }
+  }
+
+  return stepRows.map((s) => {
+    const c = completionByStep.get(s.id)
+    return {
+      id: s.id,
+      taskId: s.taskId,
+      title: s.title,
+      position: s.position,
+      completedAt: c?.completedAt.toISOString() ?? null,
+      xpEarned: c?.xpEarned ?? null,
+    }
+  })
+}
+
+export async function addTaskStep(
+  userId: string,
+  taskId: string,
+  title: string,
+): Promise<{ id: string; position: number }> {
+  await assertTaskOwned(userId, taskId)
+  const trimmed = title.trim()
+  if (!trimmed) throw new Error('title is required')
+
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ position: taskSteps.position })
+      .from(taskSteps)
+      .where(eq(taskSteps.taskId, taskId))
+    const nextPosition =
+      existing.length === 0
+        ? 0
+        : Math.max(...existing.map((r) => r.position)) + 1
+    const [row] = await tx
+      .insert(taskSteps)
+      .values({
+        taskId,
+        userId,
+        title: trimmed,
+        position: nextPosition,
+      })
+      .returning({ id: taskSteps.id, position: taskSteps.position })
+    return { id: row.id, position: row.position }
+  })
+}
+
+export async function renameTaskStep(
+  userId: string,
+  stepId: string,
+  title: string,
+): Promise<{ id: string }> {
+  const trimmed = title.trim()
+  if (!trimmed) throw new Error('title is required')
+  const step = await loadStepWithOwnership(userId, stepId)
+  await db
+    .update(taskSteps)
+    .set({ title: trimmed, updatedAt: new Date() })
+    .where(eq(taskSteps.id, step.id))
+  return { id: step.id }
+}
+
+export async function reorderTaskSteps(
+  userId: string,
+  taskId: string,
+  orderedIds: string[],
+): Promise<{ ok: true }> {
+  await assertTaskOwned(userId, taskId)
+  await db.transaction(async (tx) => {
+    const owned = await tx
+      .select({ id: taskSteps.id })
+      .from(taskSteps)
+      .where(eq(taskSteps.taskId, taskId))
+    const ownedSet = new Set(owned.map((r) => r.id))
+    for (const id of orderedIds) {
+      if (!ownedSet.has(id)) throw new Error('step does not belong to task')
+    }
+    const now = new Date()
+    for (let i = 0; i < orderedIds.length; i++) {
+      await tx
+        .update(taskSteps)
+        .set({ position: i, updatedAt: now })
+        .where(eq(taskSteps.id, orderedIds[i]))
+    }
+  })
+  return { ok: true }
+}
+
+export async function deleteTaskStep(
+  userId: string,
+  stepId: string,
+): Promise<{ id: string }> {
+  const step = await loadStepWithOwnership(userId, stepId)
+  // Cascade through task_step_completions handled at the FK level.
+  await db.delete(taskSteps).where(eq(taskSteps.id, step.id))
+  return { id: step.id }
+}
+
+export type ToggleStepResult =
+  | {
+      completedAt: string
+      xpEarned: number
+      progression: ProgressionSummary
+    }
+  | {
+      completedAt: null
+      xpRefunded: number
+      progression: ProgressionSummary
+    }
+
+// Toggle a step on/off for a given task instance. On check, computes XP
+// from the parent's base XP / current step count modulated by streak +
+// punctuality, persists to task_step_completions and emits a
+// task.step.completed event. On uncheck, deletes the row and emits a
+// compensating task.step.uncompleted event with the exact prior xpEarned.
+export async function toggleTaskStep(
+  userId: string,
+  stepId: string,
+  instanceId: string,
+): Promise<ToggleStepResult> {
+  if (!instanceId) throw new Error('instanceId required')
+  const now = new Date()
+  const timeZone = await getUserTimeZone(userId)
+
+  return db.transaction(async (tx) => {
+    const step = await tx.query.taskSteps.findFirst({
+      where: and(eq(taskSteps.id, stepId), eq(taskSteps.userId, userId)),
+    })
+    if (!step) throw new Error('step not found')
+
+    const instance = await tx.query.taskInstances.findFirst({
+      where: and(
+        eq(taskInstances.id, instanceId),
+        eq(taskInstances.userId, userId),
+      ),
+    })
+    if (!instance) throw new Error('instance not found')
+    if (instance.taskId !== step.taskId) {
+      throw new Error('step does not belong to instance')
+    }
+
+    const task = await tx.query.tasks.findFirst({
+      where: eq(tasks.id, step.taskId),
+    })
+    if (!task) throw new Error('task missing')
+
+    const existing = await tx.query.taskStepCompletions.findFirst({
+      where: and(
+        eq(taskStepCompletions.instanceId, instanceId),
+        eq(taskStepCompletions.stepId, stepId),
+      ),
+    })
+
+    const current = await tx.query.progression.findFirst({
+      where: eq(progression.userId, userId),
+    })
+    const prevState = current
+      ? {
+          xp: current.xp,
+          level: current.level,
+          currentStreak: current.currentStreak,
+          longestStreak: current.longestStreak,
+          tokens: current.tokens,
+          lastCompletionAt: current.lastCompletionAt,
+        }
+      : INITIAL_PROGRESSION
+
+    if (existing) {
+      // Uncheck: refund the exact XP we recorded on check.
+      const refund = existing.xpEarned
+      await tx
+        .delete(taskStepCompletions)
+        .where(
+          and(
+            eq(taskStepCompletions.instanceId, instanceId),
+            eq(taskStepCompletions.stepId, stepId),
+          ),
+        )
+      const event: DomainEvent = {
+        type: 'task.step.uncompleted',
+        taskId: task.id,
+        stepId: step.id,
+        instanceId,
+        xpRefunded: refund,
+        occurredAt: now,
+      }
+      await tx.insert(events).values({
+        userId,
+        type: event.type,
+        payload: {
+          taskId: event.taskId,
+          stepId: event.stepId,
+          instanceId: event.instanceId,
+          xpRefunded: event.xpRefunded,
+        },
+        occurredAt: now,
+      })
+      const next = applyEvent(prevState, event, { timeZone })
+      await writeProgression(tx, userId, next, now)
+      return {
+        completedAt: null,
+        xpRefunded: refund,
+        progression: progressionSummary(next),
+      } as const
+    }
+
+    // Check: compute XP using parent's base / current step count.
+    const totalRows = await tx
+      .select({ id: taskSteps.id })
+      .from(taskSteps)
+      .where(eq(taskSteps.taskId, task.id))
+    const totalSteps = totalRows.length
+
+    const punctuality = punctualityMultiplier({
+      dueAt: instance.dueAt,
+      completedAt: now,
+      timeOfDay: task.timeOfDay,
+      timeZone,
+    })
+
+    const xpEarned = computeStepXp({
+      parentBaseXp: baseXpForDifficulty(
+        task.difficulty as Difficulty,
+        task.xpOverride,
+      ),
+      totalSteps,
+      currentStreak: prevState.currentStreak,
+      punctuality,
+    })
+
+    await tx.insert(taskStepCompletions).values({
+      instanceId,
+      stepId,
+      userId,
+      completedAt: now,
+      xpEarned,
+    })
+
+    const event: DomainEvent = {
+      type: 'task.step.completed',
+      taskId: task.id,
+      stepId: step.id,
+      instanceId,
+      xpEarned,
+      occurredAt: now,
+    }
+    await tx.insert(events).values({
+      userId,
+      type: event.type,
+      payload: {
+        taskId: event.taskId,
+        stepId: event.stepId,
+        instanceId: event.instanceId,
+        xpEarned: event.xpEarned,
+      },
+      occurredAt: now,
+    })
+    const next = applyEvent(prevState, event, { timeZone })
+    await writeProgression(tx, userId, next, now)
+    return {
+      completedAt: now.toISOString(),
+      xpEarned,
+      progression: progressionSummary(next),
+    } as const
+  })
+}
+
+function progressionSummary(state: {
+  xp: number
+  level: number
+  currentStreak: number
+  longestStreak: number
+  tokens: number
+}): ProgressionSummary {
+  return {
+    xp: state.xp,
+    level: state.level,
+    currentStreak: state.currentStreak,
+    longestStreak: state.longestStreak,
+    tokens: state.tokens,
+  }
+}
+
+async function writeProgression(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: string,
+  next: {
+    xp: number
+    level: number
+    currentStreak: number
+    longestStreak: number
+    tokens: number
+    lastCompletionAt: Date | null
+  },
+  now: Date,
+): Promise<void> {
+  await tx
+    .insert(progression)
+    .values({
+      userId,
+      xp: next.xp,
+      level: next.level,
+      currentStreak: next.currentStreak,
+      longestStreak: next.longestStreak,
+      tokens: next.tokens,
+      lastCompletionAt: next.lastCompletionAt,
+    })
+    .onConflictDoUpdate({
+      target: progression.userId,
+      set: {
+        xp: next.xp,
+        level: next.level,
+        currentStreak: next.currentStreak,
+        longestStreak: next.longestStreak,
+        tokens: next.tokens,
+        lastCompletionAt: next.lastCompletionAt,
+        updatedAt: now,
+      },
+    })
 }

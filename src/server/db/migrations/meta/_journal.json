@@ -134,6 +134,13 @@
       "when": 1776920000000,
       "tag": "0018_onboarding_category_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776930000000,
+      "tag": "0019_task_steps",
+      "breakpoints": true
     }
   ]
 }

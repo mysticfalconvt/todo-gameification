@@ -18,7 +18,7 @@ import {
 const QUEUE_KEY = 'todo-xp-offline-queue-v1'
 
 export type QueueInput =
-  | { type: 'complete'; instanceId: string }
+  | { type: 'complete'; instanceId: string; force?: boolean }
   | { type: 'skip'; instanceId: string }
   | { type: 'snooze'; instanceId: string; hours: number }
 
@@ -75,7 +75,9 @@ async function enqueue(op: QueueInput): Promise<void> {
 async function runOp(op: QueuedOp): Promise<void> {
   switch (op.type) {
     case 'complete':
-      await completeInstance({ data: { instanceId: op.instanceId } })
+      await completeInstance({
+        data: { instanceId: op.instanceId, force: op.force ?? true },
+      })
       return
     case 'skip':
       await skipInstance({ data: { instanceId: op.instanceId } })

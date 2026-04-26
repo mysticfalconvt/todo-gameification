@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -140,21 +140,26 @@ function TodayPage() {
   }
 
   const complete = useMutation({
-    mutationFn: (instanceId: string) =>
-      runOrQueue({ type: 'complete', instanceId }),
-    onMutate: async (instanceId) => {
+    mutationFn: ({
+      instanceId,
+      force,
+    }: {
+      instanceId: string
+      force?: boolean
+    }) => runOrQueue({ type: 'complete', instanceId, force: force ?? true }),
+    onMutate: async ({ instanceId }) => {
       const watering = firstWateringInfo(instanceId)
       const removed = await optimisticRemove(instanceId)()
       return { ...removed, watering }
     },
-    onSuccess: (_data, _id, ctx) => {
+    onSuccess: (_data, _vars, ctx) => {
       if (ctx?.watering.first) {
         toast.success(
           `🌱 First watering today — ${ctx.watering.label} is perky.`,
         )
       }
     },
-    onError: (err, _id, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
       if (ctx?.prevSomeday) qc.setQueryData(['someday'], ctx.prevSomeday)
       toast.error(err instanceof Error ? err.message : 'Something went wrong')
@@ -167,6 +172,33 @@ function TodayPage() {
       qc.invalidateQueries({ queryKey: ['garden'] })
     },
   })
+
+  // When the user checks off a parent task that still has unchecked
+  // steps, hold the click in this state and surface a confirm modal
+  // instead of completing immediately. Clearing dismisses the modal.
+  const [pendingComplete, setPendingComplete] = useState<{
+    instanceId: string
+    title: string
+    unchecked: number
+  } | null>(null)
+
+  function handleComplete(inst: {
+    instanceId: string
+    title: string
+    stepsTotal: number
+    stepsCompleted: number
+  }): void {
+    const unchecked = inst.stepsTotal - inst.stepsCompleted
+    if (inst.stepsTotal > 0 && unchecked > 0) {
+      setPendingComplete({
+        instanceId: inst.instanceId,
+        title: inst.title,
+        unchecked,
+      })
+      return
+    }
+    complete.mutate({ instanceId: inst.instanceId })
+  }
 
   const skip = useMutation({
     mutationFn: (instanceId: string) =>
@@ -197,7 +229,9 @@ function TodayPage() {
   // Auto-handle actions from notification taps: /today?complete=<id> or ?snooze=<id>
   useEffect(() => {
     if (search.complete) {
-      complete.mutate(search.complete)
+      // Notification action: skip the unchecked-steps confirm. The user
+      // already decided "done" by tapping the action.
+      complete.mutate({ instanceId: search.complete, force: true })
       navigate({ to: '/today', replace: true, search: {} })
     } else if (search.snooze) {
       snooze.mutate({ instanceId: search.snooze, hours: 1 })
@@ -297,7 +331,7 @@ function TodayPage() {
         <TodayBuckets
           instances={instances}
           catBySlug={catBySlug}
-          onComplete={(id) => complete.mutate(id)}
+          onComplete={handleComplete}
           onSnooze={(id) =>
             snooze.mutate({ instanceId: id, hours: 1 })
           }
@@ -325,7 +359,7 @@ function TodayPage() {
                 <button
                   type="button"
                   aria-label={`Complete ${inst.title}`}
-                  onClick={() => complete.mutate(inst.instanceId)}
+                  onClick={() => handleComplete(inst)}
                   className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
                 />
                 <button
@@ -333,6 +367,7 @@ function TodayPage() {
                   onClick={() =>
                     setSelected({
                       taskId: inst.taskId,
+                      instanceId: inst.instanceId,
                       title: inst.title,
                       difficulty: inst.difficulty,
                       xpOverride: inst.xpOverride,
@@ -347,6 +382,12 @@ function TodayPage() {
                   <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
                     <CategoryDot slug={inst.categorySlug} map={catBySlug} />
                     <span className="truncate">{inst.title}</span>
+                    {inst.stepsTotal > 0 ? (
+                      <StepsBadge
+                        completed={inst.stepsCompleted}
+                        total={inst.stepsTotal}
+                      />
+                    ) : null}
                   </p>
                   <p className="text-xs text-[var(--sea-ink-soft)]">
                     {xpLabel(inst.difficulty, inst.xpOverride)}
@@ -366,7 +407,103 @@ function TodayPage() {
         onClose={() => setSelected(null)}
         catBySlug={catBySlug}
       />
+
+      <ParentCompleteConfirm
+        pending={pendingComplete}
+        onCancel={() => setPendingComplete(null)}
+        onConfirm={() => {
+          if (!pendingComplete) return
+          complete.mutate({
+            instanceId: pendingComplete.instanceId,
+            force: true,
+          })
+          setPendingComplete(null)
+        }}
+      />
     </main>
+  )
+}
+
+function StepsBadge({
+  completed,
+  total,
+}: {
+  completed: number
+  total: number
+}) {
+  const done = completed >= total
+  return (
+    <span
+      className={`flex-shrink-0 rounded-full border px-1.5 py-0 text-[10px] font-semibold ${
+        done
+          ? 'border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]'
+          : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
+      }`}
+      aria-label={`${completed} of ${total} steps done`}
+    >
+      {completed}/{total}
+    </span>
+  )
+}
+
+function ParentCompleteConfirm({
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  pending: { instanceId: string; title: string; unchecked: number } | null
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
+  useEffect(() => {
+    const el = dialogRef.current
+    if (!el) return
+    if (pending && !el.open) el.showModal()
+    else if (!pending && el.open) el.close()
+  }, [pending])
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onCancel}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onCancel()
+      }}
+      className="m-auto w-[min(420px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+    >
+      {pending ? (
+        <div className="flex flex-col gap-4 p-5">
+          <div>
+            <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
+              Complete anyway?
+            </h3>
+            <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+              "{pending.title}" still has {pending.unchecked} unchecked{' '}
+              {pending.unchecked === 1 ? 'step' : 'steps'}. Completing the
+              task will only grant the parent's completion bonus — the
+              remaining step XP will be skipped.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)]"
+            >
+              Complete
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </dialog>
   )
 }
 
@@ -563,7 +700,7 @@ function TodayBuckets({
 }: {
   instances: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
-  onComplete: (instanceId: string) => void
+  onComplete: (inst: TodayInstance) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
   onSelect: (inst: TaskDetailsInstance) => void
@@ -662,7 +799,7 @@ function BucketList({
 }: {
   rows: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
-  onComplete: (instanceId: string) => void
+  onComplete: (inst: TodayInstance) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
   onSelect: (inst: TaskDetailsInstance) => void
@@ -677,7 +814,7 @@ function BucketList({
           <button
             type="button"
             aria-label={`Complete ${inst.title}`}
-            onClick={() => onComplete(inst.instanceId)}
+            onClick={() => onComplete(inst)}
             className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
           />
           <button
@@ -685,6 +822,7 @@ function BucketList({
             onClick={() =>
               onSelect({
                 taskId: inst.taskId,
+                instanceId: inst.instanceId,
                 title: inst.title,
                 difficulty: inst.difficulty,
                 xpOverride: inst.xpOverride,
@@ -699,6 +837,12 @@ function BucketList({
             <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
               <CategoryDot slug={inst.categorySlug} map={catBySlug} />
               <span className="truncate">{inst.title}</span>
+              {inst.stepsTotal > 0 ? (
+                <StepsBadge
+                  completed={inst.stepsCompleted}
+                  total={inst.stepsTotal}
+                />
+              ) : null}
             </p>
             <p className="text-xs text-[var(--sea-ink-soft)]">
               {dueLabel(inst.dueAt, inst.timeOfDay)}

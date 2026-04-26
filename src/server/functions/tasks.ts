@@ -23,9 +23,13 @@ export const listSomedayInstances = createServerFn({ method: 'GET' })
 
 export const completeInstance = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .inputValidator(
+    (data: { instanceId: string; force?: boolean }) => data,
+  )
   .handler(({ data, context }) =>
-    service.completeInstance(context.userId, data.instanceId),
+    service.completeInstance(context.userId, data.instanceId, {
+      force: data.force,
+    }),
   )
 
 export const skipInstance = createServerFn({ method: 'POST' })

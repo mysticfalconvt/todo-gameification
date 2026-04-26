@@ -73,6 +73,7 @@ function NewTaskPage() {
   })
   const [dateTime, setDateTime] = useState('')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
+  const [steps, setSteps] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const isSomeday = dueKind === 'someday'
@@ -88,6 +89,7 @@ function NewTaskPage() {
       someday: boolean
       visibility: TaskVisibility
       dueAtOverride?: string | null
+      steps?: string[] | null
     }) => createTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['today'] })
@@ -134,6 +136,9 @@ function NewTaskPage() {
         : dueKind === 'date' && dateTime
           ? dateTime
           : null
+    const cleanedSteps = steps
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
     mutation.mutate({
       title,
       notes: notes.trim() ? notes : null,
@@ -152,6 +157,7 @@ function NewTaskPage() {
       someday: isSomeday,
       visibility,
       dueAtOverride,
+      steps: cleanedSteps.length > 0 ? cleanedSteps : null,
     })
   }
 
@@ -370,6 +376,8 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
+        <StepsField steps={steps} onChange={setSteps} />
+
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Who can see this
@@ -501,6 +509,86 @@ function AmountUnitPicker({
         <option value="hours">hours</option>
         <option value="days">days</option>
       </select>
+    </div>
+  )
+}
+
+function StepsField({
+  steps,
+  onChange,
+}: {
+  steps: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  function update(i: number, value: string) {
+    const next = [...steps]
+    next[i] = value
+    onChange(next)
+  }
+  function add() {
+    onChange([...steps, ''])
+  }
+  function remove(i: number) {
+    onChange(steps.filter((_, idx) => idx !== i))
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v)
+          if (!open && steps.length === 0) onChange([''])
+        }}
+        className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]"
+      >
+        <span>
+          Steps
+          {steps.filter((s) => s.trim()).length > 0
+            ? ` (${steps.filter((s) => s.trim()).length})`
+            : ''}
+        </span>
+        <span aria-hidden className="text-[var(--sea-ink-soft)]">
+          {open ? '−' : '+'}
+        </span>
+      </button>
+      {open ? (
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-[var(--sea-ink-soft)]">
+            Optional checklist. Each step earns a slice of the task's XP
+            when checked off; the parent grants a smaller bonus on
+            completion.
+          </p>
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={s}
+                onChange={(e) => update(i, e.target.value)}
+                placeholder={`Step ${i + 1}`}
+                className="field-input min-w-0 flex-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label={`Remove step ${i + 1}`}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={add}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+          >
+            + Add another
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
