@@ -141,6 +141,13 @@
       "when": 1776930000000,
       "tag": "0019_task_steps",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1776940000000,
+      "tag": "0020_arcade_onboarding_2048_sliding",
+      "breakpoints": true
     }
   ]
 }
