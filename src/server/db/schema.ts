@@ -132,6 +132,7 @@ export const taskInstances = pgTable(
     completedAt: timestamp('completed_at'),
     skippedAt: timestamp('skipped_at'),
     snoozedUntil: timestamp('snoozed_until'),
+    xpOverride: integer('xp_override'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('task_instances_user_due_idx').on(t.userId, t.dueAt)],

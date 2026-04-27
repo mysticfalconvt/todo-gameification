@@ -11,6 +11,7 @@
 import { get as idbGet, set as idbSet } from 'idb-keyval'
 import {
   completeInstance,
+  deferInstanceToTomorrow,
   skipInstance,
   snoozeInstance,
 } from '../server/functions/tasks'
@@ -21,6 +22,7 @@ export type QueueInput =
   | { type: 'complete'; instanceId: string; force?: boolean }
   | { type: 'skip'; instanceId: string }
   | { type: 'snooze'; instanceId: string; hours: number }
+  | { type: 'defer'; instanceId: string }
 
 export type QueuedOp = QueueInput & { id: string; queuedAt: number }
 
@@ -85,6 +87,11 @@ async function runOp(op: QueuedOp): Promise<void> {
     case 'snooze':
       await snoozeInstance({
         data: { instanceId: op.instanceId, hours: op.hours },
+      })
+      return
+    case 'defer':
+      await deferInstanceToTomorrow({
+        data: { instanceId: op.instanceId },
       })
       return
   }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { getTask, getTaskStats } from '../server/functions/tasks'
 import {
   addTaskStep,
@@ -10,6 +11,7 @@ import {
   reorderTaskSteps,
   toggleTaskStep,
 } from '../server/functions/taskSteps'
+import { runOrQueue } from '../lib/offline-queue'
 import { xpLabel } from '../lib/xp-label'
 import type { Difficulty } from '../domain/events'
 import type { Recurrence, DurationUnit } from '../domain/recurrence'
@@ -38,6 +40,7 @@ interface Props {
 
 export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
+  const qc = useQueryClient()
 
   // Drive the native <dialog> from React state. showModal gives us focus
   // trap, esc-to-close and a backdrop for free.
@@ -52,6 +55,20 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
   }, [instance])
 
   const taskId = instance?.taskId ?? null
+
+  const defer = useMutation({
+    mutationFn: (instanceId: string) =>
+      runOrQueue({ type: 'defer', instanceId }),
+    onSuccess: () => {
+      toast.success('Moved to tomorrow (−30% XP)')
+      qc.invalidateQueries({ queryKey: ['today'] })
+      qc.invalidateQueries({ queryKey: ['someday'] })
+      onClose()
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Could not defer')
+    },
+  })
 
   const taskQuery = useQuery({
     queryKey: ['task', taskId],
@@ -189,6 +206,16 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
           </div>
 
           <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--line)] px-5 py-3">
+            {instance.dueAt && instance.instanceId ? (
+              <button
+                type="button"
+                onClick={() => defer.mutate(instance.instanceId!)}
+                disabled={defer.isPending}
+                className="mr-auto rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)] disabled:opacity-60"
+              >
+                🌅 Tomorrow (−30% XP)
+              </button>
+            ) : null}
             <Link
               to="/stats/task/$taskId"
               params={{ taskId: instance.taskId }}

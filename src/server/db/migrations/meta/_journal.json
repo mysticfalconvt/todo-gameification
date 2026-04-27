@@ -148,6 +148,13 @@
       "when": 1776940000000,
       "tag": "0020_arcade_onboarding_2048_sliding",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1776950000000,
+      "tag": "0021_instance_xp_override",
+      "breakpoints": true
     }
   ]
 }

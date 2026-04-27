@@ -752,6 +752,7 @@ export async function listTodayInstances(
       title: tasks.title,
       difficulty: tasks.difficulty,
       xpOverride: tasks.xpOverride,
+      instanceXpOverride: taskInstances.xpOverride,
       categorySlug: tasks.categorySlug,
       timeOfDay: tasks.timeOfDay,
       dueAt: taskInstances.dueAt,
@@ -786,7 +787,7 @@ export async function listTodayInstances(
     taskId: r.taskId,
     title: r.title,
     difficulty: r.difficulty as Difficulty,
-    xpOverride: r.xpOverride,
+    xpOverride: r.instanceXpOverride ?? r.xpOverride,
     categorySlug: r.categorySlug,
     dueAt: r.dueAt!.toISOString(),
     timeOfDay: r.timeOfDay,
@@ -1196,16 +1197,19 @@ export async function completeInstance(
 
     // When the task has steps, the parent only grants a 25% completion
     // bonus on top of whatever XP the steps already awarded. Without
-    // steps, behavior is unchanged.
+    // steps, behavior is unchanged. An instance-level xpOverride wins
+    // over the task default — that's how "Move to tomorrow" applies its
+    // -30% penalty without touching the task itself.
+    const effectiveXpOverride = instance.xpOverride ?? task.xpOverride
     const parentXpOverride =
       totalSteps > 0
         ? parentBonusBaseXp(
             baseXpForDifficulty(
               task.difficulty as Difficulty,
-              task.xpOverride,
+              effectiveXpOverride,
             ),
           )
-        : task.xpOverride
+        : effectiveXpOverride
 
     const event: DomainEvent = {
       type: 'task.completed',
@@ -1394,6 +1398,69 @@ export async function skipInstance(
   }
 
   return { alreadyHandled: txResult.alreadyHandled }
+}
+
+// "Move to tomorrow": shifts the instance's dueAt to tomorrow at the
+// task's timeOfDay (or 9:00 if anytime), parks snoozedUntil at the same
+// moment so it leaves today's list, and stamps a per-instance xpOverride
+// at 70% of whatever base would have applied (compounds across repeated
+// defers — repeat-deferring loses more XP each time).
+const DEFER_PENALTY = 0.7
+const DEFAULT_DEFER_TIME_OF_DAY = '09:00'
+
+export async function deferInstanceToTomorrow(
+  userId: string,
+  instanceId: string,
+): Promise<{ deferredUntil: string; xpOverride: number }> {
+  if (!instanceId) throw new Error('instanceId required')
+  const now = new Date()
+  const timeZone = await getUserTimeZone(userId)
+
+  return await db.transaction(async (tx) => {
+    const instance = await tx.query.taskInstances.findFirst({
+      where: and(
+        eq(taskInstances.id, instanceId),
+        eq(taskInstances.userId, userId),
+      ),
+    })
+    if (!instance) throw new Error('instance not found')
+    if (instance.completedAt || instance.skippedAt) {
+      throw new Error('instance already handled')
+    }
+
+    const task = await tx.query.tasks.findFirst({
+      where: eq(tasks.id, instance.taskId),
+    })
+    if (!task) throw new Error('task missing')
+
+    const tomorrowDate = formatInTimeZone(
+      new Date(now.getTime() + 86_400_000),
+      timeZone,
+      'yyyy-MM-dd',
+    )
+    const tod = task.timeOfDay ?? DEFAULT_DEFER_TIME_OF_DAY
+    const newDueAt = fromZonedTime(`${tomorrowDate} ${tod}:00`, timeZone)
+
+    const currentBase = baseXpForDifficulty(
+      task.difficulty as Difficulty,
+      instance.xpOverride ?? task.xpOverride,
+    )
+    const newOverride = Math.max(1, Math.round(currentBase * DEFER_PENALTY))
+
+    await tx
+      .update(taskInstances)
+      .set({
+        dueAt: newDueAt,
+        snoozedUntil: newDueAt,
+        xpOverride: newOverride,
+      })
+      .where(eq(taskInstances.id, instance.id))
+
+    return {
+      deferredUntil: newDueAt.toISOString(),
+      xpOverride: newOverride,
+    }
+  })
 }
 
 export async function snoozeInstance(
@@ -2485,7 +2552,7 @@ export async function toggleTaskStep(
     const xpEarned = computeStepXp({
       parentBaseXp: baseXpForDifficulty(
         task.difficulty as Difficulty,
-        task.xpOverride,
+        instance.xpOverride ?? task.xpOverride,
       ),
       totalSteps,
       currentStreak: prevState.currentStreak,
