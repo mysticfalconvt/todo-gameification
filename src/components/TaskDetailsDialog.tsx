@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -140,7 +140,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
                   Notes
                 </p>
                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--sea-ink)]">
-                  {task.notes}
+                  {linkifyNotes(task.notes)}
                 </p>
               </section>
             ) : null}
@@ -474,6 +474,41 @@ function Stat({ label, value }: { label: string; value: string }) {
       <p className="mt-0.5 text-lg font-bold text-[var(--sea-ink)]">{value}</p>
     </div>
   )
+}
+
+const URL_REGEX = /(https?:\/\/[^\s]+)/g
+const TRAILING_PUNCT = /[.,;:!?)\]}>]+$/
+
+function linkifyNotes(text: string): ReactNode[] {
+  const out: ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+  for (const match of text.matchAll(URL_REGEX)) {
+    const start = match.index ?? 0
+    if (start > lastIndex) out.push(text.slice(lastIndex, start))
+    let url = match[0]
+    let trailing = ''
+    const trail = TRAILING_PUNCT.exec(url)
+    if (trail) {
+      trailing = trail[0]
+      url = url.slice(0, -trailing.length)
+    }
+    out.push(
+      <a
+        key={`url-${key++}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[var(--lagoon-deep)] underline hover:no-underline"
+      >
+        {url}
+      </a>,
+    )
+    if (trailing) out.push(trailing)
+    lastIndex = start + match[0].length
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex))
+  return out
 }
 
 function dueLabel(dueAt: string, timeOfDay: string | null): string {

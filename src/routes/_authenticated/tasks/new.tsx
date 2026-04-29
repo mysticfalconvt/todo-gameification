@@ -194,6 +194,8 @@ function NewTaskPage() {
           />
         </label>
 
+        <StepsField steps={steps} onChange={setSteps} />
+
         {llmEnabled ? null : (
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
@@ -376,8 +378,6 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        <StepsField steps={steps} onChange={setSteps} />
-
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Who can see this
@@ -520,76 +520,109 @@ function StepsField({
   steps: string[]
   onChange: (next: string[]) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
 
   function update(i: number, value: string) {
     const next = [...steps]
     next[i] = value
     onChange(next)
   }
-  function add() {
-    onChange([...steps, ''])
-  }
   function remove(i: number) {
     onChange(steps.filter((_, idx) => idx !== i))
   }
+  function move(index: number, dir: -1 | 1) {
+    const next = [...steps]
+    const target = index + dir
+    if (target < 0 || target >= next.length) return
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    onChange(next)
+  }
+  function add() {
+    const trimmed = newTitle.trim()
+    if (!trimmed) return
+    onChange([...steps, trimmed])
+    setNewTitle('')
+  }
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((v) => !v)
-          if (!open && steps.length === 0) onChange([''])
-        }}
-        className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]"
-      >
-        <span>
-          Steps
-          {steps.filter((s) => s.trim()).length > 0
-            ? ` (${steps.filter((s) => s.trim()).length})`
-            : ''}
-        </span>
-        <span aria-hidden className="text-[var(--sea-ink-soft)]">
-          {open ? '−' : '+'}
-        </span>
-      </button>
-      {open ? (
-        <div className="mt-2 space-y-2">
-          <p className="text-xs text-[var(--sea-ink-soft)]">
-            Optional checklist. Each step earns a slice of the task's XP
-            when checked off; the parent grants a smaller bonus on
-            completion.
-          </p>
+    <fieldset>
+      <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        Steps
+        {steps.filter((s) => s.trim()).length > 0
+          ? ` (${steps.filter((s) => s.trim()).length})`
+          : ''}
+      </legend>
+      {steps.length > 0 ? (
+        <ul className="mb-2 space-y-1">
           {steps.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <li
+              key={i}
+              className="group flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1.5"
+            >
               <input
                 type="text"
                 value={s}
                 onChange={(e) => update(i, e.target.value)}
                 placeholder={`Step ${i + 1}`}
-                className="field-input min-w-0 flex-1 text-sm"
+                className="field-input min-w-0 flex-1 px-2 py-1 text-sm"
               />
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                aria-label={`Remove step ${i + 1}`}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]"
-              >
-                ✕
-              </button>
-            </div>
+              <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Move up"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)] disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(i, 1)}
+                  disabled={i === steps.length - 1}
+                  aria-label="Move down"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)] disabled:opacity-30"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  aria-label={`Remove step ${i + 1}`}
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--sea-ink-soft)] hover:bg-red-100 hover:text-red-600"
+                >
+                  ✕
+                </button>
+              </div>
+            </li>
           ))}
-          <button
-            type="button"
-            onClick={add}
-            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
-          >
-            + Add another
-          </button>
-        </div>
+        </ul>
       ) : null}
-    </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
+          placeholder="+ Add step"
+          className="field-input min-w-0 flex-1 px-2 py-1 text-sm"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!newTitle.trim()}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
+    </fieldset>
   )
 }
 
