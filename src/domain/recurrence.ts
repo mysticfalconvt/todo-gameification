@@ -1,4 +1,4 @@
-import { dayOfWeekInTz, nextOccurrenceAt, setTimeInTz } from './time'
+import { dayOfWeekInTz, nextOccurrenceAt, pinDateInTz, setTimeInTz } from './time'
 import { formatInTimeZone } from 'date-fns-tz'
 
 // Legacy `days: number` shape is still accepted on read; new writes use
@@ -6,6 +6,11 @@ import { formatInTimeZone } from 'date-fns-tz'
 // or "30 minutes after done." No SQL migration needed — `tasks.recurrence`
 // is jsonb and readers tolerate both shapes.
 export type DurationUnit = 'minutes' | 'hours' | 'days'
+
+// `monthly_weekday.week` is 1..4 for the first/second/third/fourth
+// occurrence of `dayOfWeek` in the month, or -1 for the last. We omit "5th"
+// because it doesn't exist in every month and its semantics get fuzzy.
+export type MonthlyWeekIndex = 1 | 2 | 3 | 4 | -1
 
 export type Recurrence =
   | { type: 'daily' }
@@ -23,6 +28,12 @@ export type Recurrence =
       days?: number
       amount?: number
       unit?: DurationUnit
+    }
+  | { type: 'monthly_day'; dayOfMonth: number }
+  | {
+      type: 'monthly_weekday'
+      week: MonthlyWeekIndex
+      dayOfWeek: number
     }
 
 const MS_PER_MINUTE = 60_000
@@ -60,6 +71,63 @@ function startOfUtcDay(date: Date): Date {
   const d = new Date(date)
   d.setUTCHours(0, 0, 0, 0)
   return d
+}
+
+// month is 1..12. Returns the number of days in that month (handles leap years).
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+// Advance (year, month) by one calendar month, where month is 1..12.
+function addOneMonth(year: number, month: number): { year: number; month: number } {
+  return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 }
+}
+
+// Return the day-of-month (1..31) for the nth occurrence of `dayOfWeek` in the
+// given month. Returns -1 if it doesn't exist (e.g. some months have only four
+// Tuesdays — but we never offer the 5th in the UI, so this only matters
+// defensively).
+function nthWeekdayDay(
+  year: number,
+  month: number,
+  week: MonthlyWeekIndex,
+  dayOfWeek: number,
+): number {
+  if (week > 0) {
+    for (let day = 1; day <= 7; day++) {
+      const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+      if (dow === dayOfWeek) {
+        const target = day + (week - 1) * 7
+        return target <= daysInMonth(year, month) ? target : -1
+      }
+    }
+    return -1
+  }
+  const last = daysInMonth(year, month)
+  for (let day = last; day >= last - 6 && day >= 1; day--) {
+    const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+    if (dow === dayOfWeek) return day
+  }
+  return -1
+}
+
+function buildUnpinnedDate(
+  year: number,
+  month: number,
+  day: number,
+  timeFrom: Date,
+): Date {
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      timeFrom.getUTCHours(),
+      timeFrom.getUTCMinutes(),
+      timeFrom.getUTCSeconds(),
+      timeFrom.getUTCMilliseconds(),
+    ),
+  )
 }
 
 export interface ComputeNextDueInput {
@@ -134,6 +202,57 @@ export function computeNextDue(input: ComputeNextDueInput): Date {
         ? setTimeInTz(next, timeOfDay!, timeZone!)
         : next
     }
+
+    case 'monthly_day': {
+      const dom = recurrence.dayOfMonth
+      if (hasLocalPin) {
+        const ym = formatInTimeZone(previousDueAt, timeZone!, 'yyyy-MM')
+        const [yStr, mStr] = ym.split('-')
+        const { year, month } = addOneMonth(Number(yStr), Number(mStr))
+        const day = Math.min(dom, daysInMonth(year, month))
+        return pinDateInTz(year, month, day, timeOfDay!, timeZone!)
+      }
+      const { year, month } = addOneMonth(
+        previousDueAt.getUTCFullYear(),
+        previousDueAt.getUTCMonth() + 1,
+      )
+      const day = Math.min(dom, daysInMonth(year, month))
+      return buildUnpinnedDate(year, month, day, previousDueAt)
+    }
+
+    case 'monthly_weekday': {
+      const { week, dayOfWeek } = recurrence
+      if (hasLocalPin) {
+        const ym = formatInTimeZone(previousDueAt, timeZone!, 'yyyy-MM')
+        const [yStr, mStr] = ym.split('-')
+        let year = Number(yStr)
+        let month = Number(mStr)
+        let advanced = addOneMonth(year, month)
+        year = advanced.year
+        month = advanced.month
+        let day = nthWeekdayDay(year, month, week, dayOfWeek)
+        while (day < 0) {
+          advanced = addOneMonth(year, month)
+          year = advanced.year
+          month = advanced.month
+          day = nthWeekdayDay(year, month, week, dayOfWeek)
+        }
+        return pinDateInTz(year, month, day, timeOfDay!, timeZone!)
+      }
+      let year = previousDueAt.getUTCFullYear()
+      let month = previousDueAt.getUTCMonth() + 1
+      let advanced = addOneMonth(year, month)
+      year = advanced.year
+      month = advanced.month
+      let day = nthWeekdayDay(year, month, week, dayOfWeek)
+      while (day < 0) {
+        advanced = addOneMonth(year, month)
+        year = advanced.year
+        month = advanced.month
+        day = nthWeekdayDay(year, month, week, dayOfWeek)
+      }
+      return buildUnpinnedDate(year, month, day, previousDueAt)
+    }
   }
 }
 
@@ -148,6 +267,42 @@ export function firstDueAt(options: {
 
   if (someday) return null
   if (!timeOfDay) return now
+
+  if (recurrence?.type === 'monthly_day') {
+    const ym = formatInTimeZone(now, timeZone, 'yyyy-MM')
+    const [yStr, mStr] = ym.split('-')
+    let year = Number(yStr)
+    let month = Number(mStr)
+    let day = Math.min(recurrence.dayOfMonth, daysInMonth(year, month))
+    let candidate = pinDateInTz(year, month, day, timeOfDay, timeZone)
+    if (candidate > now) return candidate
+    const advanced = addOneMonth(year, month)
+    year = advanced.year
+    month = advanced.month
+    day = Math.min(recurrence.dayOfMonth, daysInMonth(year, month))
+    return pinDateInTz(year, month, day, timeOfDay, timeZone)
+  }
+
+  if (recurrence?.type === 'monthly_weekday') {
+    const ym = formatInTimeZone(now, timeZone, 'yyyy-MM')
+    const [yStr, mStr] = ym.split('-')
+    let year = Number(yStr)
+    let month = Number(mStr)
+    let day = nthWeekdayDay(year, month, recurrence.week, recurrence.dayOfWeek)
+    if (day > 0) {
+      const candidate = pinDateInTz(year, month, day, timeOfDay, timeZone)
+      if (candidate > now) return candidate
+    }
+    while (true) {
+      const advanced = addOneMonth(year, month)
+      year = advanced.year
+      month = advanced.month
+      day = nthWeekdayDay(year, month, recurrence.week, recurrence.dayOfWeek)
+      if (day > 0) {
+        return pinDateInTz(year, month, day, timeOfDay, timeZone)
+      }
+    }
+  }
 
   if (!recurrence || recurrence.type !== 'weekly') {
     // For a one-off task the user explicitly picked a clock time for

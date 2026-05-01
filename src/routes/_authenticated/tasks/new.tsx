@@ -3,7 +3,11 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createTask } from '../../../server/functions/tasks'
 import { getLlmStatus } from '../../../server/functions/config'
-import type { DurationUnit, Recurrence } from '../../../domain/recurrence'
+import type {
+  DurationUnit,
+  MonthlyWeekIndex,
+  Recurrence,
+} from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
@@ -20,7 +24,15 @@ type RecurrenceKind =
   | 'weekly'
   | 'interval'
   | 'after_completion'
+  | 'monthly_day'
+  | 'monthly_weekday'
 type DueKind = 'someday' | 'anytime' | 'timed' | 'in' | 'date'
+
+interface MonthlyForm {
+  dayOfMonth: number
+  week: MonthlyWeekIndex
+  dayOfWeek: number
+}
 
 function buildRecurrence(
   kind: RecurrenceKind,
@@ -29,6 +41,7 @@ function buildRecurrence(
   afterAmount: number,
   afterUnit: DurationUnit,
   weekdays: number[],
+  monthly: MonthlyForm,
 ): Recurrence | null {
   switch (kind) {
     case 'none':
@@ -44,6 +57,14 @@ function buildRecurrence(
         type: 'after_completion',
         amount: afterAmount,
         unit: afterUnit,
+      }
+    case 'monthly_day':
+      return { type: 'monthly_day', dayOfMonth: monthly.dayOfMonth }
+    case 'monthly_weekday':
+      return {
+        type: 'monthly_weekday',
+        week: monthly.week,
+        dayOfWeek: monthly.dayOfWeek,
       }
   }
 }
@@ -62,6 +83,9 @@ function NewTaskPage() {
   const [intervalAmount, setIntervalAmount] = useState(2)
   const [intervalUnit, setIntervalUnit] = useState<DurationUnit>('hours')
   const [weekdays, setWeekdays] = useState<number[]>([1]) // default Monday
+  const [monthlyDay, setMonthlyDay] = useState(1)
+  const [monthlyWeek, setMonthlyWeek] = useState<MonthlyWeekIndex>(1)
+  const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState(1) // Mon
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
   const [inAmount, setInAmount] = useState(2)
@@ -152,6 +176,11 @@ function NewTaskPage() {
             afterAmount,
             afterUnit,
             weekdays,
+            {
+              dayOfMonth: monthlyDay,
+              week: monthlyWeek,
+              dayOfWeek: monthlyDayOfWeek,
+            },
           ),
       timeOfDay: effectiveTimeOfDay,
       someday: isSomeday,
@@ -333,6 +362,10 @@ function NewTaskPage() {
             <option value="weekly">On specific days of the week</option>
             <option value="interval">Every N minutes / hours / days</option>
             <option value="after_completion">N after last done</option>
+            <option value="monthly_day">Monthly — on a specific date</option>
+            <option value="monthly_weekday">
+              Monthly — on the Nth weekday
+            </option>
           </select>
           {isSomeday ? (
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
@@ -374,6 +407,33 @@ function NewTaskPage() {
               unit={afterUnit}
               onAmountChange={setAfterAmount}
               onUnitChange={setAfterUnit}
+            />
+          </fieldset>
+        ) : null}
+
+        {recurrenceKind === 'monthly_day' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Day of the month
+            </legend>
+            <MonthlyDayPicker value={monthlyDay} onChange={setMonthlyDay} />
+            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+              Months without that day (e.g. 31st in February) fire on the
+              last day instead.
+            </p>
+          </fieldset>
+        ) : null}
+
+        {recurrenceKind === 'monthly_weekday' && !isSomeday ? (
+          <fieldset>
+            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Which weekday each month
+            </legend>
+            <MonthlyWeekdayPicker
+              week={monthlyWeek}
+              dayOfWeek={monthlyDayOfWeek}
+              onWeekChange={setMonthlyWeek}
+              onDayOfWeekChange={setMonthlyDayOfWeek}
             />
           </fieldset>
         ) : null}
@@ -511,6 +571,108 @@ function AmountUnitPicker({
       </select>
     </div>
   )
+}
+
+function MonthlyDayPicker({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-[var(--sea-ink-soft)]">On the</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="field-input max-w-[8rem]"
+      >
+        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+          <option key={d} value={d}>
+            {ordinal(d)}
+          </option>
+        ))}
+      </select>
+      <span className="text-sm text-[var(--sea-ink-soft)]">of every month</span>
+    </div>
+  )
+}
+
+const MONTHLY_WEEK_OPTIONS: { value: MonthlyWeekIndex; label: string }[] = [
+  { value: 1, label: 'First' },
+  { value: 2, label: 'Second' },
+  { value: 3, label: 'Third' },
+  { value: 4, label: 'Fourth' },
+  { value: -1, label: 'Last' },
+]
+
+const MONTHLY_DOW_OPTIONS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+]
+
+function MonthlyWeekdayPicker({
+  week,
+  dayOfWeek,
+  onWeekChange,
+  onDayOfWeekChange,
+}: {
+  week: MonthlyWeekIndex
+  dayOfWeek: number
+  onWeekChange: (w: MonthlyWeekIndex) => void
+  onDayOfWeekChange: (d: number) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-[var(--sea-ink-soft)]">The</span>
+      <select
+        value={week}
+        onChange={(e) =>
+          onWeekChange(Number(e.target.value) as MonthlyWeekIndex)
+        }
+        className="field-input max-w-[8rem]"
+      >
+        {MONTHLY_WEEK_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={dayOfWeek}
+        onChange={(e) => onDayOfWeekChange(Number(e.target.value))}
+        className="field-input max-w-[10rem]"
+      >
+        {MONTHLY_DOW_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span className="text-sm text-[var(--sea-ink-soft)]">of every month</span>
+    </div>
+  )
+}
+
+function ordinal(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  switch (n % 10) {
+    case 1:
+      return `${n}st`
+    case 2:
+      return `${n}nd`
+    case 3:
+      return `${n}rd`
+    default:
+      return `${n}th`
+  }
 }
 
 function StepsField({

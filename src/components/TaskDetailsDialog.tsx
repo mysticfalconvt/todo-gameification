@@ -571,6 +571,37 @@ function describeRecurrence(r: Recurrence): string {
     const { amount, unit } = resolveDuration(r)
     return `Every ${amount} ${unitLabel(amount, unit)}`
   }
+  if (r.type === 'monthly_day') {
+    return `Monthly on the ${ordinalLabel(r.dayOfMonth)}`
+  }
+  if (r.type === 'monthly_weekday') {
+    const week =
+      r.week === -1
+        ? 'last'
+        : r.week === 1
+          ? '1st'
+          : r.week === 2
+            ? '2nd'
+            : r.week === 3
+              ? '3rd'
+              : '4th'
+    return `Monthly — ${week} ${WEEKDAY_NAMES[r.dayOfWeek] ?? ''}`
+  }
   const { amount, unit } = resolveDuration(r)
   return `${amount} ${unitLabel(amount, unit)} after done`
+}
+
+function ordinalLabel(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  switch (n % 10) {
+    case 1:
+      return `${n}st`
+    case 2:
+      return `${n}nd`
+    case 3:
+      return `${n}rd`
+    default:
+      return `${n}th`
+  }
 }

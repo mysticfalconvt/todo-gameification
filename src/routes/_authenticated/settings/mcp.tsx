@@ -99,7 +99,7 @@ function McpDocsPage() {
           args={`title: string
 notes: string | null
 difficulty: 'small' | 'medium' | 'large'
-recurrence: { type: 'daily' } | { type: 'weekly', daysOfWeek: number[] } | { type: 'interval', days: number } | { type: 'after_completion', days: number } | null
+recurrence: { type: 'daily' } | { type: 'weekly', daysOfWeek: number[] } | { type: 'interval', days: number } | { type: 'after_completion', days: number } | { type: 'monthly_day', dayOfMonth: number } | { type: 'monthly_weekday', week: 1|2|3|4|-1, dayOfWeek: number } | null
 timeOfDay: 'HH:MM' | null
 someday: boolean`}
         />

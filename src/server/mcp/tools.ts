@@ -26,6 +26,21 @@ const recurrenceSchema = z.discriminatedUnion('type', [
     type: z.literal('after_completion'),
     days: z.number().int().positive(),
   }),
+  z.object({
+    type: z.literal('monthly_day'),
+    dayOfMonth: z.number().int().min(1).max(31),
+  }),
+  z.object({
+    type: z.literal('monthly_weekday'),
+    week: z.union([
+      z.literal(1),
+      z.literal(2),
+      z.literal(3),
+      z.literal(4),
+      z.literal(-1),
+    ]),
+    dayOfWeek: z.number().int().min(0).max(6),
+  }),
 ])
 
 export function registerTools(server: McpServer, getUserId: () => string) {

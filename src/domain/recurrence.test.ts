@@ -75,6 +75,87 @@ describe('computeNextDue', () => {
     })
   })
 
+  describe('monthly_day', () => {
+    it('advances to the same day-of-month next month', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_day', dayOfMonth: 15 },
+        previousDueAt: at('2026-04-15T09:00:00Z'),
+        completedAt: at('2026-04-15T10:00:00Z'),
+      })
+      expect(next.toISOString()).toBe('2026-05-15T09:00:00.000Z')
+    })
+
+    it('clamps day to the last day of a shorter month', () => {
+      // Previous due is Jan 31; next monthly_day=31 should fall on Feb 28
+      // (2026 is not a leap year).
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_day', dayOfMonth: 31 },
+        previousDueAt: at('2026-01-31T09:00:00Z'),
+        completedAt: at('2026-01-31T10:00:00Z'),
+      })
+      expect(next.toISOString()).toBe('2026-02-28T09:00:00.000Z')
+    })
+
+    it('rolls into the next year from December', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_day', dayOfMonth: 1 },
+        previousDueAt: at('2026-12-01T09:00:00Z'),
+        completedAt: at('2026-12-01T09:00:00Z'),
+      })
+      expect(next.toISOString()).toBe('2027-01-01T09:00:00.000Z')
+    })
+
+    it('honors timezone-pinned local clock time', () => {
+      // 2026-05-01 13:00 UTC = 08:00 America/Chicago (CDT, UTC-5).
+      // Next month at 08:00 local = Jun 1 at 13:00 UTC.
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_day', dayOfMonth: 1 },
+        previousDueAt: at('2026-05-01T13:00:00Z'),
+        completedAt: at('2026-05-01T13:00:00Z'),
+        timeOfDay: '08:00',
+        timeZone: 'America/Chicago',
+      })
+      expect(formatLocal(next, 'America/Chicago')).toBe('2026-06-01 08:00')
+    })
+  })
+
+  describe('monthly_weekday', () => {
+    it('returns the first Tuesday of the next month', () => {
+      // Previous due 2026-05-05 (1st Tuesday of May). Next firing should be
+      // the first Tuesday of June, which is 2026-06-02.
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_weekday', week: 1, dayOfWeek: 2 },
+        previousDueAt: at('2026-05-05T13:00:00Z'),
+        completedAt: at('2026-05-05T13:00:00Z'),
+      })
+      expect(next.toISOString().slice(0, 10)).toBe('2026-06-02')
+    })
+
+    it('returns the last Friday of the next month', () => {
+      // Previous due 2026-05-29 (last Friday of May). Next is last Friday
+      // of June, which is 2026-06-26.
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_weekday', week: -1, dayOfWeek: 5 },
+        previousDueAt: at('2026-05-29T13:00:00Z'),
+        completedAt: at('2026-05-29T13:00:00Z'),
+      })
+      expect(next.toISOString().slice(0, 10)).toBe('2026-06-26')
+    })
+
+    it('honors timezone-pinned local clock time', () => {
+      // First Monday of June 2026 is 2026-06-01. At 09:00 America/New_York
+      // (EDT = UTC-4) = 13:00 UTC.
+      const next = computeNextDue({
+        recurrence: { type: 'monthly_weekday', week: 1, dayOfWeek: 1 },
+        previousDueAt: at('2026-05-04T13:00:00Z'),
+        completedAt: at('2026-05-04T13:00:00Z'),
+        timeOfDay: '09:00',
+        timeZone: 'America/New_York',
+      })
+      expect(formatLocal(next, 'America/New_York')).toBe('2026-06-01 09:00')
+    })
+  })
+
   describe('timezone-pinned daily across DST', () => {
     it('stays at 08:00 Chicago local on the day US spring-forward shifts UTC offset', () => {
       // 2026 US DST begins Sun 2026-03-08 at 02:00 local
@@ -178,5 +259,39 @@ describe('firstDueAt', () => {
       timeZone: 'America/Chicago',
     })
     expect(formatLocal(result, 'America/Chicago')).toBe('2026-04-20 08:00')
+  })
+
+  it('monthly_day picks the same-month occurrence if still in the future', () => {
+    // now = 2026-05-10 10:00 UTC = 05:00 CDT. dayOfMonth=15 still ahead.
+    const result = firstDueAt({
+      now: at('2026-05-10T10:00:00Z'),
+      recurrence: { type: 'monthly_day', dayOfMonth: 15 },
+      timeOfDay: '08:00',
+      timeZone: 'America/Chicago',
+    })
+    expect(formatLocal(result, 'America/Chicago')).toBe('2026-05-15 08:00')
+  })
+
+  it('monthly_day rolls to next month if this month already passed', () => {
+    // now = May 16 already past the 15th
+    const result = firstDueAt({
+      now: at('2026-05-16T15:00:00Z'),
+      recurrence: { type: 'monthly_day', dayOfMonth: 15 },
+      timeOfDay: '08:00',
+      timeZone: 'America/Chicago',
+    })
+    expect(formatLocal(result, 'America/Chicago')).toBe('2026-06-15 08:00')
+  })
+
+  it('monthly_weekday picks the next Nth weekday occurrence', () => {
+    // now = 2026-05-04 10:00 UTC = 05:00 CDT (a Monday).
+    // First Tuesday of May 2026 is May 5 — still upcoming.
+    const result = firstDueAt({
+      now: at('2026-05-04T10:00:00Z'),
+      recurrence: { type: 'monthly_weekday', week: 1, dayOfWeek: 2 },
+      timeOfDay: '08:00',
+      timeZone: 'America/Chicago',
+    })
+    expect(formatLocal(result, 'America/Chicago')).toBe('2026-05-05 08:00')
   })
 })

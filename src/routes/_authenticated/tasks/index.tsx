@@ -437,6 +437,38 @@ function recurrenceLabel(r: Recurrence | null) {
       const { amount, unit } = resolveDuration(r)
       return `${amount} ${shortUnit(amount, unit)} after done`
     }
+    case 'monthly_day':
+      return `Monthly on the ${ordinalShort(r.dayOfMonth)}`
+    case 'monthly_weekday': {
+      const week =
+        r.week === -1
+          ? 'last'
+          : r.week === 1
+            ? '1st'
+            : r.week === 2
+              ? '2nd'
+              : r.week === 3
+                ? '3rd'
+                : '4th'
+      return `Monthly — ${week} ${WEEKDAY_SHORT[r.dayOfWeek] ?? ''}`
+    }
+  }
+}
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function ordinalShort(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  switch (n % 10) {
+    case 1:
+      return `${n}st`
+    case 2:
+      return `${n}nd`
+    case 3:
+      return `${n}rd`
+    default:
+      return `${n}th`
   }
 }
 
