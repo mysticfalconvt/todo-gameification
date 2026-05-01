@@ -8,9 +8,10 @@ import {
   startFocusSession,
 } from '../../server/functions/focus'
 import { completeInstance } from '../../server/functions/tasks'
+import { FOCUS_REWARDS } from '../../domain/events'
 
-type Duration = 15 | 25 | 50
-const DURATIONS: readonly Duration[] = [15, 25, 50] as const
+type Duration = 5 | 10 | 15 | 25 | 50
+const DURATIONS: readonly Duration[] = [5, 10, 15, 25, 50] as const
 
 type Phase = 'picking' | 'running' | 'confirming'
 
@@ -143,27 +144,30 @@ function FocusPage() {
       </header>
 
       <section className="island-shell mb-4 rounded-2xl p-4">
-        <div role="radiogroup" aria-label="Session duration" className="grid grid-cols-3 gap-2">
-          {DURATIONS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="radio"
-              aria-checked={duration === d}
-              onClick={() => setDuration(d)}
-              className={[
-                'rounded-xl border px-3 py-3 text-sm font-semibold transition',
-                duration === d
-                  ? 'border-[var(--lagoon-deep)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
-                  : 'border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] text-[var(--sea-ink)] hover:border-[var(--lagoon-deep)]',
-              ].join(' ')}
-            >
-              <div className="text-lg">{d}m</div>
-              <div className="text-xs opacity-80">
-                +{d === 15 ? 1 : d === 25 ? 2 : 4} 🪙 · +{d === 15 ? 5 : d === 25 ? 10 : 20} XP
-              </div>
-            </button>
-          ))}
+        <div role="radiogroup" aria-label="Session duration" className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          {DURATIONS.map((d) => {
+            const reward = FOCUS_REWARDS[d]
+            return (
+              <button
+                key={d}
+                type="button"
+                role="radio"
+                aria-checked={duration === d}
+                onClick={() => setDuration(d)}
+                className={[
+                  'rounded-xl border px-1 py-2.5 text-sm font-semibold transition sm:px-3 sm:py-3',
+                  duration === d
+                    ? 'border-[var(--lagoon-deep)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+                    : 'border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] text-[var(--sea-ink)] hover:border-[var(--lagoon-deep)]',
+                ].join(' ')}
+              >
+                <div className="text-base sm:text-lg">{d}m</div>
+                <div className="text-[10px] opacity-80 sm:text-xs">
+                  +{reward.tokens}🪙 +{reward.xp}xp
+                </div>
+              </button>
+            )
+          })}
         </div>
       </section>
 

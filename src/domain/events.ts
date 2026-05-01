@@ -41,13 +41,13 @@ export type DomainEvent =
       // Purely informational: doesn't affect progression. Lets admin analytics
       // see how many sessions get abandoned vs completed.
       type: 'focus.started'
-      durationMin: 15 | 25 | 50
+      durationMin: 5 | 10 | 15 | 25 | 50
       taskInstanceId: string | null
       occurredAt: Date
     }
   | {
       type: 'focus.completed'
-      durationMin: 15 | 25 | 50
+      durationMin: 5 | 10 | 15 | 25 | 50
       taskInstanceId: string | null
       tokensEarned: number
       xpEarned: number
@@ -100,8 +100,10 @@ export type DomainEvent =
 
 export type DomainEventType = DomainEvent['type']
 
-export const FOCUS_REWARDS: Record<15 | 25 | 50, { tokens: number; xp: number }> = {
-  15: { tokens: 1, xp: 5 },
-  25: { tokens: 2, xp: 10 },
-  50: { tokens: 4, xp: 20 },
+export const FOCUS_REWARDS: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> = {
+  5: { tokens: 1, xp: 5 },
+  10: { tokens: 1, xp: 11 },
+  15: { tokens: 1, xp: 18 },
+  25: { tokens: 2, xp: 35 },
+  50: { tokens: 4, xp: 80 },
 }

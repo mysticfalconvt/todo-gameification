@@ -5,7 +5,7 @@ import { FOCUS_REWARDS, type DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { getUserTimeZone } from './tasks'
 
-export type FocusDuration = 15 | 25 | 50
+export type FocusDuration = 5 | 10 | 15 | 25 | 50
 
 export async function recordFocusStart(input: {
   userId: string

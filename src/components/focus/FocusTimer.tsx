@@ -20,7 +20,7 @@ export function FocusTimer({
   onComplete,
   onCancel,
 }: {
-  durationMin: 15 | 25 | 50
+  durationMin: 5 | 10 | 15 | 25 | 50
   taskTitle?: string
   // Test-mode override (e.g., 10s instead of 15 min). Keeps the server
   // reward mapping unchanged since durationMin is still the logical value.

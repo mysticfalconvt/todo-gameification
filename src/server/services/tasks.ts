@@ -1020,8 +1020,12 @@ async function rebuildProgression(
       // No-op for progression projection.
     } else if (r.type === 'focus.completed') {
       const durationMin =
-        p['durationMin'] === 15 || p['durationMin'] === 25 || p['durationMin'] === 50
-          ? (p['durationMin'] as 15 | 25 | 50)
+        p['durationMin'] === 5 ||
+        p['durationMin'] === 10 ||
+        p['durationMin'] === 15 ||
+        p['durationMin'] === 25 ||
+        p['durationMin'] === 50
+          ? (p['durationMin'] as 5 | 10 | 15 | 25 | 50)
           : 25
       state = applyEvent(
         state,
