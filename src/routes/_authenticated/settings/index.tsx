@@ -393,13 +393,7 @@ function AppearanceSection() {
 // Coach attitude
 // ---------------------------------------------------------------------------
 
-type CoachAttitudeSlug =
-  | 'concise'
-  | 'detailed'
-  | 'snarky'
-  | 'stoic'
-  | 'drill'
-  | 'zen'
+type CoachAttitudeSlug = 'warm' | 'snarky' | 'stoic' | 'drill' | 'zen'
 
 const COACH_ATTITUDE_OPTIONS: ReadonlyArray<{
   value: CoachAttitudeSlug
@@ -408,16 +402,10 @@ const COACH_ATTITUDE_OPTIONS: ReadonlyArray<{
   hint: string
 }> = [
   {
-    value: 'concise',
-    label: 'Concise',
+    value: 'warm',
+    label: 'Warm',
     glyph: '·',
-    hint: 'A short, warm, ADHD-aware nudge. The original voice.',
-  },
-  {
-    value: 'detailed',
-    label: 'Detailed',
-    glyph: '¶',
-    hint: 'Same warmth, more context — names a task, calls out trends, and may suggest a next step.',
+    hint: 'A warm, ADHD-aware companion. The original voice.',
   },
   {
     value: 'snarky',
@@ -452,9 +440,11 @@ function CoachAttitudeSection() {
     queryFn: () => getProfile(),
   })
 
-  const setAttitude = useMutation({
-    mutationFn: (coachAttitude: CoachAttitudeSlug) =>
-      updatePrefs({ data: { coachAttitude } }),
+  const setPrefs = useMutation({
+    mutationFn: (patch: {
+      coachAttitude?: CoachAttitudeSlug
+      coachDetailed?: boolean
+    }) => updatePrefs({ data: patch }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] })
       // Force the today-page coach blurb to regenerate with the new voice
@@ -465,7 +455,8 @@ function CoachAttitudeSection() {
       toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
-  const current = (profileQuery.data?.coachAttitude ?? 'concise') as CoachAttitudeSlug
+  const current = (profileQuery.data?.coachAttitude ?? 'warm') as CoachAttitudeSlug
+  const detailed = profileQuery.data?.coachDetailed ?? false
   const selectedHint =
     COACH_ATTITUDE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
 
@@ -490,8 +481,8 @@ function CoachAttitudeSection() {
               type="button"
               role="radio"
               aria-checked={selected}
-              disabled={setAttitude.isPending}
-              onClick={() => setAttitude.mutate(o.value)}
+              disabled={setPrefs.isPending}
+              onClick={() => setPrefs.mutate({ coachAttitude: o.value })}
               className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition disabled:opacity-60 ${
                 selected
                   ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
@@ -507,7 +498,61 @@ function CoachAttitudeSection() {
       {selectedHint && (
         <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
       )}
+
+      <div className="mt-5 flex items-start justify-between gap-4 border-t border-[var(--line)] pt-4">
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-[var(--sea-ink)]">
+            Detailed responses
+          </p>
+          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+            Off: 1–3 sentences. On: 3–6 sentences with more context — names a
+            task, calls out weekly trends, may suggest a next step. Works with
+            any attitude above.
+          </p>
+        </div>
+        <Switch
+          checked={detailed}
+          disabled={setPrefs.isPending}
+          onChange={(v) => setPrefs.mutate({ coachDetailed: v })}
+          ariaLabel="Detailed responses"
+        />
+      </div>
     </section>
+  )
+}
+
+function Switch({
+  checked,
+  disabled,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: (next: boolean) => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition disabled:opacity-60 ${
+        checked
+          ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.5)]'
+          : 'border-[var(--line)] bg-[var(--option-bg)]'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
   )
 }
 

@@ -286,10 +286,11 @@ export const userPrefs = pgTable('user_prefs', {
   shareActivity: boolean('share_activity').notNull().default(true),
   shareTaskTitles: boolean('share_task_titles').notNull().default(false),
   coachAttitude: text('coach_attitude', {
-    enum: ['concise', 'detailed', 'snarky', 'stoic', 'drill', 'zen'],
+    enum: ['warm', 'snarky', 'stoic', 'drill', 'zen'],
   })
     .notNull()
-    .default('concise'),
+    .default('warm'),
+  coachDetailed: boolean('coach_detailed').notNull().default(false),
 })
 
 export const pushSubscriptions = pgTable('push_subscriptions', {

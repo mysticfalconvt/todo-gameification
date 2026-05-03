@@ -69,7 +69,8 @@ export const getProfile = createServerFn({ method: 'GET' })
       shareProgression: prefsRow?.shareProgression ?? true,
       shareActivity: prefsRow?.shareActivity ?? true,
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
-      coachAttitude: (prefsRow?.coachAttitude ?? 'concise') as CoachAttitude,
+      coachAttitude: (prefsRow?.coachAttitude ?? 'warm') as CoachAttitude,
+      coachDetailed: prefsRow?.coachDetailed ?? false,
       quietHoursStart: userRow?.quietHoursStart ?? null,
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
     }
@@ -179,6 +180,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       shareActivity?: boolean
       shareTaskTitles?: boolean
       coachAttitude?: string
+      coachDetailed?: boolean
     }) => {
       let coachAttitude: CoachAttitude | undefined
       if (typeof data.coachAttitude === 'string') {
@@ -201,6 +203,10 @@ export const updatePrefs = createServerFn({ method: 'POST' })
             ? data.shareTaskTitles
             : undefined,
         coachAttitude,
+        coachDetailed:
+          typeof data.coachDetailed === 'boolean'
+            ? data.coachDetailed
+            : undefined,
       }
     },
   )
@@ -215,7 +221,9 @@ export const updatePrefs = createServerFn({ method: 'POST' })
         data.shareTaskTitles ?? existing?.shareTaskTitles ?? false,
       coachAttitude: (data.coachAttitude ??
         existing?.coachAttitude ??
-        'concise') as CoachAttitude,
+        'warm') as CoachAttitude,
+      coachDetailed:
+        data.coachDetailed ?? existing?.coachDetailed ?? false,
     }
     if (existing) {
       await db

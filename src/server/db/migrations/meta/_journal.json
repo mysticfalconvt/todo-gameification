@@ -169,6 +169,13 @@
       "when": 1776970000000,
       "tag": "0023_coach_attitude_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1776980000000,
+      "tag": "0024_coach_attitude_split",
+      "breakpoints": true
     }
   ]
 }
