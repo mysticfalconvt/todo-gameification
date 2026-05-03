@@ -46,7 +46,7 @@ type RecurrenceKind =
   | 'after_completion'
   | 'monthly_day'
   | 'monthly_weekday'
-type DueKind = 'someday' | 'anytime' | 'timed'
+type DueKind = 'someday' | 'anytime' | 'timed' | 'week'
 
 interface RecurrenceForm {
   kind: RecurrenceKind
@@ -184,7 +184,9 @@ function EditTaskPage() {
     setNotes(t.notes ?? '')
     setDifficulty(t.difficulty)
     setForm(recurrenceToForm(t.recurrence))
-    if (t.timeOfDay) {
+    if (t.dueKind === 'week_target') {
+      setDueKind('week')
+    } else if (t.timeOfDay) {
       setDueKind('timed')
       setTimeOfDay(t.timeOfDay)
     } else {
@@ -198,7 +200,9 @@ function EditTaskPage() {
   }, [taskQuery.data, loadedFor])
 
   const isSomeday = dueKind === 'someday'
-  const recurrenceKind: RecurrenceKind = isSomeday ? 'none' : form.kind
+  // Week-target tasks are one-off in v1 — disable recurrence picker.
+  const recurrenceLocked = isSomeday || dueKind === 'week'
+  const recurrenceKind: RecurrenceKind = recurrenceLocked ? 'none' : form.kind
 
   const save = useMutation({
     mutationFn: (input: {
@@ -209,6 +213,7 @@ function EditTaskPage() {
       recurrence: Recurrence | null
       timeOfDay: string | null
       visibility: TaskVisibility
+      dueKind?: 'hard' | 'week_target'
     }) => updateTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -290,7 +295,7 @@ function EditTaskPage() {
     e.preventDefault()
     setError(null)
     if (
-      !isSomeday &&
+      !recurrenceLocked &&
       recurrenceKind === 'weekly' &&
       form.weekdays.length === 0
     ) {
@@ -302,11 +307,12 @@ function EditTaskPage() {
       title,
       notes: notes.trim() ? notes : null,
       difficulty,
-      recurrence: isSomeday
+      recurrence: recurrenceLocked
         ? null
         : buildRecurrence({ ...form, kind: recurrenceKind }),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       visibility,
+      dueKind: dueKind === 'week' ? 'week_target' : 'hard',
     })
   }
 
@@ -450,6 +456,13 @@ function EditTaskPage() {
               label="At a specific time"
               detail="Punctuality multiplier applies."
             />
+            <DueOption
+              current={dueKind}
+              value="week"
+              onChange={setDueKind}
+              label="By a target day"
+              detail="Soft target — bonus XP for finishing early, gentle penalty if late. To pick a specific target day, create a new task."
+            />
           </div>
           {dueKind === 'timed' ? (
             <div className="mt-3">
@@ -468,7 +481,7 @@ function EditTaskPage() {
           </p>
         </fieldset>
 
-        <label className={`block ${isSomeday ? 'opacity-50' : ''}`}>
+        <label className={`block ${recurrenceLocked ? 'opacity-50' : ''}`}>
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Recurrence
           </span>
@@ -480,7 +493,7 @@ function EditTaskPage() {
                 kind: e.target.value as RecurrenceKind,
               }))
             }
-            disabled={isSomeday}
+            disabled={recurrenceLocked}
             className="field-input"
           >
             <option value="none">One-off</option>
@@ -493,9 +506,14 @@ function EditTaskPage() {
               Monthly — on the Nth weekday
             </option>
           </select>
+          {dueKind === 'week' ? (
+            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+              Target-day tasks are one-off for now.
+            </p>
+          ) : null}
         </label>
 
-        {recurrenceKind === 'weekly' && !isSomeday ? (
+        {recurrenceKind === 'weekly' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Days of the week
@@ -507,7 +525,7 @@ function EditTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'interval' && !isSomeday ? (
+        {recurrenceKind === 'interval' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Every
@@ -525,7 +543,7 @@ function EditTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'after_completion' && !isSomeday ? (
+        {recurrenceKind === 'after_completion' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               After completion
@@ -543,7 +561,7 @@ function EditTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'monthly_day' && !isSomeday ? (
+        {recurrenceKind === 'monthly_day' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Day of the month
@@ -559,7 +577,7 @@ function EditTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'monthly_weekday' && !isSomeday ? (
+        {recurrenceKind === 'monthly_weekday' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Which weekday each month

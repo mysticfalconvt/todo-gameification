@@ -7,6 +7,7 @@ import {
   levelFor,
   punctualityMultiplier,
   replay,
+  weekTargetMultiplier,
 } from './gamification'
 import type { DomainEvent } from './events'
 
@@ -157,6 +158,130 @@ describe('punctualityMultiplier', () => {
         timeZone: 'America/Chicago',
       }),
     ).toBe(0.5)
+  })
+})
+
+describe('weekTargetMultiplier', () => {
+  // Friday target at 09:00 local for these cases.
+  const target = at('2026-05-08T13:00:00Z') // Fri 9am Chicago
+
+  it('is 1.0 when completed on the target day', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-08T18:00:00Z'),
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(1.0)
+  })
+
+  it('is 1.10x one day early', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-07T18:00:00Z'), // Thu
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(1.1)
+  })
+
+  it('is 1.20x two days early', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-06T18:00:00Z'), // Wed
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(1.2)
+  })
+
+  it('caps the early bonus at 1.25x for 3+ days early', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-05T18:00:00Z'), // Tue (-3)
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(1.25)
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-04T18:00:00Z'), // Mon (-4)
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(1.25)
+  })
+
+  it('is 0.95x one day late', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-09T15:00:00Z'), // Sat
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(0.95)
+  })
+
+  it('is 0.85x two days late', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-10T15:00:00Z'), // Sun
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(0.85)
+  })
+
+  it('drops to 0.5x after the surrounding week (3+ days late)', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-11T15:00:00Z'), // Mon (+3)
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(0.5)
+    expect(
+      weekTargetMultiplier({
+        dueAt: target,
+        completedAt: at('2026-05-15T15:00:00Z'), // Fri (+7)
+        timeZone: 'America/Chicago',
+      }),
+    ).toBe(0.5)
+  })
+
+  it('returns 1.0 when dueAt is null (defensive)', () => {
+    expect(
+      weekTargetMultiplier({
+        dueAt: null,
+        completedAt: at('2026-05-08T18:00:00Z'),
+        timeZone: 'UTC',
+      }),
+    ).toBe(1.0)
+  })
+})
+
+describe('applyEvent picks weekTargetMultiplier when dueKind is week_target', () => {
+  it('applies the soft curve, not the strict timed curve, regardless of timeOfDay', () => {
+    // No streak, no override → base = 25 (medium). Completed 1 day early
+    // → 1.10x → 28 (rounded).
+    const dueAt = at('2026-05-08T13:00:00Z') // Fri
+    const completedAt = at('2026-05-07T18:00:00Z') // Thu
+    const next = applyEvent(
+      INITIAL_PROGRESSION,
+      {
+        type: 'task.completed',
+        taskId: 't',
+        instanceId: 'i',
+        difficulty: 'medium',
+        xpOverride: null,
+        dueAt,
+        timeOfDay: null,
+        dueKind: 'week_target',
+        occurredAt: completedAt,
+      },
+      { timeZone: 'America/Chicago' },
+    )
+    expect(next.xp).toBe(28)
   })
 })
 

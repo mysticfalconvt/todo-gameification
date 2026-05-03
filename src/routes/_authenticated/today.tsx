@@ -845,7 +845,7 @@ function BucketList({
               ) : null}
             </p>
             <p className="text-xs text-[var(--sea-ink-soft)]">
-              {dueLabel(inst.dueAt, inst.timeOfDay)}
+              {dueLabel(inst.dueAt, inst.timeOfDay, inst.dueKind)}
               {' • '}
               {xpLabel(inst.difficulty, inst.xpOverride)}
               {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
@@ -926,10 +926,32 @@ function IconButton({
   )
 }
 
-function dueLabel(dueAt: string, timeOfDay: string | null): string {
+function dueLabel(
+  dueAt: string,
+  timeOfDay: string | null,
+  dueKind: 'hard' | 'week_target' = 'hard',
+): string {
   const d = new Date(dueAt)
   const now = new Date()
   const dayMs = 86_400_000
+  // Week-target tasks live in the list all week, so the label needs to
+  // tell the user where in the curve they are: target day name + a tiny
+  // "bonus if early" cue.
+  if (dueKind === 'week_target') {
+    const sameDay = d.toDateString() === now.toDateString()
+    if (sameDay) return 'Target today • full XP'
+    const diffMs = d.getTime() - now.getTime()
+    if (diffMs > 0) {
+      const days = Math.ceil(diffMs / dayMs)
+      const weekday = d.toLocaleDateString(undefined, { weekday: 'short' })
+      return `Target ${weekday} • bonus if early (${days}d)`
+    }
+    // Past the target day — falls into the soft late curve.
+    const daysLate = Math.floor(-diffMs / dayMs)
+    return daysLate <= 2
+      ? `Past target by ${daysLate}d • partial XP`
+      : `Past target by ${daysLate}d • late floor`
+  }
   const label =
     d.toDateString() === now.toDateString()
       ? 'Today'

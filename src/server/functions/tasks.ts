@@ -73,6 +73,7 @@ export const updateTask = createServerFn({ method: 'POST' })
       recurrence: Recurrence | null
       timeOfDay: string | null
       visibility?: service.TaskVisibility
+      dueKind?: 'hard' | 'week_target'
     }) => data,
   )
   .handler(({ data, context }) => service.updateTask(context.userId, data))

@@ -71,6 +71,7 @@ export const getProfile = createServerFn({ method: 'GET' })
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
       coachAttitude: (prefsRow?.coachAttitude ?? 'warm') as CoachAttitude,
       coachDetailed: prefsRow?.coachDetailed ?? false,
+      bio: prefsRow?.bio ?? '',
       quietHoursStart: userRow?.quietHoursStart ?? null,
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
     }
@@ -181,6 +182,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       shareTaskTitles?: boolean
       coachAttitude?: string
       coachDetailed?: boolean
+      bio?: string
     }) => {
       let coachAttitude: CoachAttitude | undefined
       if (typeof data.coachAttitude === 'string') {
@@ -188,6 +190,14 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           throw new Error('invalid coach attitude')
         }
         coachAttitude = data.coachAttitude as CoachAttitude
+      }
+      let bio: string | undefined
+      if (typeof data.bio === 'string') {
+        const trimmed = data.bio.trim()
+        if (trimmed.length > 500) {
+          throw new Error('Bio must be 500 characters or fewer.')
+        }
+        bio = trimmed
       }
       return {
         shareProgression:
@@ -207,6 +217,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           typeof data.coachDetailed === 'boolean'
             ? data.coachDetailed
             : undefined,
+        bio,
       }
     },
   )
@@ -224,6 +235,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
         'warm') as CoachAttitude,
       coachDetailed:
         data.coachDetailed ?? existing?.coachDetailed ?? false,
+      bio: data.bio ?? existing?.bio ?? '',
     }
     if (existing) {
       await db

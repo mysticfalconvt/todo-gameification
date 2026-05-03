@@ -176,6 +176,20 @@
       "when": 1776980000000,
       "tag": "0024_coach_attitude_split",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1776990000000,
+      "tag": "0025_user_bio",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0026_due_kind",
+      "breakpoints": true
     }
   ]
 }

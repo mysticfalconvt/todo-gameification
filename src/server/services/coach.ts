@@ -58,6 +58,8 @@ STYLE:
 - You may reference the someday backlog by name when an item has been waiting a long time and it feels worth a gentle nudge — but never guilt-trip about age, and only mention one. Short items ("waiting 2 days") are usually not worth mentioning.
 - You may contextualize today's pace ("already past yesterday", "same as usual", "quiet day") when it adds warmth, but never turn cadence into a metric to beat. If today is 0 and yesterday was 5, don't shame.
 - Match the time-of-day. Morning voice, evening voice, and late-night voice should feel different. Don't push a big task at night.
+- You know the day of the week. Adjust accordingly — weekday work tasks are odd to nudge on a Saturday morning; Sunday evening can be a gentle prep-for-Monday moment.
+- Respect time-of-day intent in task titles. If a title says "evening …", "morning …", "after work …", "before bed …", etc., do NOT suggest that task outside that window. "Evening toothbrush" at 11am is a no.
 
 ${OUTPUT_RULES}`,
 
@@ -72,6 +74,8 @@ STYLE:
 - Be specific. If you name a task, use its real title. One name max per blurb.
 - Late at night, ease off the snark. Tired humans don't need to be roasted.
 - Never just list the remaining tasks (the UI already shows them). Land a joke or a sharp observation, then stop.
+- You know the day of the week. Lean into it — Monday-morning energy and Sunday-evening "the week is happening to you" both deserve their own jokes.
+- Respect time-of-day intent in task titles ("evening …", "morning …", "before bed …", etc.). Don't suggest "evening toothbrush" at 11am. You can roast that the user even has an "evening toothbrush" task, but don't push doing it at the wrong time.
 
 ${OUTPUT_RULES}`,
 
@@ -85,6 +89,8 @@ STYLE:
 - If the list is empty, say so plainly. Don't add commentary.
 - If you name a task, use its real title.
 - Numbers are welcome. "Three remaining. Dentist call is two days overdue." is exactly the voice.
+- The day-of-week is a fact, not flavor. Use it the same way: "Saturday. Two tasks remain."
+- Respect time-of-day intent in task titles. A title that says "evening …" or "morning …" should not be suggested outside that window. State the fact, don't push the wrong-time action.
 
 ${OUTPUT_RULES}`,
 
@@ -99,6 +105,8 @@ STYLE:
 - Late at night, ease off — even drill sergeants let recruits sleep.
 - Be specific. If you name a task, use its real title. One target per blurb.
 - Don't list the full task roster (the UI already shows it). Pick one target and bark.
+- You know the day of the week. Weekends are leave; ease the bit. Mondays are formation day; bring it.
+- Respect time-of-day intent in task titles. "Evening …" tasks are evening orders; do not bark them at 11 hundred hours.
 
 ${OUTPUT_RULES}`,
 
@@ -113,6 +121,8 @@ STYLE:
 - If they're on a streak, treat it as steady practice — not a score to defend.
 - Be specific when it helps. If you name a task, use its real title. One name max.
 - Match the time-of-day. Evenings and nights especially lean into rest.
+- You know the day of the week. Weekends invite stillness; Sunday evening is a soft return to routine; weekday mornings can carry a small intention.
+- Respect time-of-day intent in task titles. A task named "evening …" or "before bed …" belongs to that window — don't invite it earlier in the day.
 
 ${OUTPUT_RULES}`,
 }
@@ -174,6 +184,16 @@ function formatClock(date: Date, timeZone: string): string {
     timeZone,
     hour: 'numeric',
     minute: '2-digit',
+  }).format(date)
+}
+
+function formatLongDate(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   }).format(date)
 }
 
@@ -265,17 +285,21 @@ async function loadCompletionCadence(
 
 async function loadCoachPrefs(
   userId: string,
-): Promise<{ attitude: CoachAttitude; detailed: boolean }> {
+): Promise<{ attitude: CoachAttitude; detailed: boolean; bio: string }> {
   const row = await db.query.userPrefs.findFirst({
     where: eq(userPrefs.userId, userId),
-    columns: { coachAttitude: true, coachDetailed: true },
+    columns: { coachAttitude: true, coachDetailed: true, bio: true },
   })
   const a = row?.coachAttitude
   const attitude =
     a && (COACH_ATTITUDES as readonly string[]).includes(a)
       ? (a as CoachAttitude)
       : DEFAULT_ATTITUDE
-  return { attitude, detailed: row?.coachDetailed ?? false }
+  return {
+    attitude,
+    detailed: row?.coachDetailed ?? false,
+    bio: row?.bio ?? '',
+  }
 }
 
 // Context budgets keyed on verbosity. Detailed mode gets meatier slices
@@ -288,6 +312,7 @@ const PROMPT_LIMITS = {
 function buildUserPrompt(input: {
   attitude: CoachAttitude
   detailed: boolean
+  bio: string
   today: Awaited<ReturnType<typeof taskService.listTodayInstances>>
   someday: Awaited<ReturnType<typeof taskService.listSomedayInstances>>
   progression: Awaited<ReturnType<typeof taskService.getProgression>>
@@ -299,6 +324,7 @@ function buildUserPrompt(input: {
   const {
     attitude,
     detailed,
+    bio,
     today,
     someday,
     progression,
@@ -310,11 +336,18 @@ function buildUserPrompt(input: {
   const limits = PROMPT_LIMITS[detailed ? 'detailed' : 'short']
   const parts: string[] = []
 
+  // User-provided "About you" — color, not authority. The block is wrapped
+  // in quotes so the model treats it as data, not as system instructions.
+  if (bio) {
+    parts.push(`About the user (their words): "${bio}"`)
+  }
+
   const now = new Date()
   const localClock = formatClock(now, timeZone)
+  const longDate = formatLongDate(now, timeZone)
   const part = currentDayPart(now, timeZone)
   parts.push(
-    `Local time: ${localClock} (${timeZone}). Day-part: ${DAY_PART_LABEL[part]}.`,
+    `Local time: ${localClock} on ${longDate} (${timeZone}). Day-part: ${DAY_PART_LABEL[part]}.`,
   )
 
   if (today.length === 0) {
@@ -419,7 +452,7 @@ export async function generateCoachSummary(
     taskService.getUserTimeZone(userId),
     loadCoachPrefs(userId),
   ])
-  const { attitude, detailed } = prefs
+  const { attitude, detailed, bio } = prefs
   const since = new Date(Date.now() - 24 * 3_600_000)
   const cadenceWindow = detailed ? 14 : 7
   const [today, someday, progression, activityDays, recentEvents, cadence] =
@@ -435,6 +468,7 @@ export async function generateCoachSummary(
   const userPrompt = buildUserPrompt({
     attitude,
     detailed,
+    bio,
     today,
     someday,
     progression,

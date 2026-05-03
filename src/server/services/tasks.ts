@@ -74,6 +74,10 @@ export interface CreateTaskInput {
   // land at any moment (not just a same-day HH:MM), while still
   // letting `recurrence` drive later occurrences.
   dueAtOverride?: string | null
+  // Discriminator for the punctuality curve at completion. Defaults to
+  // 'hard' when missing. 'week_target' selects the soft early-bird/late
+  // curve and is set by the "By a target day" form option.
+  dueKind?: 'hard' | 'week_target'
   // Optional checklist steps to seed the task with. Empty/whitespace
   // titles are dropped. Each grants a slice of the parent's XP at
   // completion time (see computeStepXp).
@@ -88,6 +92,9 @@ export interface UpdateTaskInput {
   recurrence: Recurrence | null
   timeOfDay: string | null
   visibility?: TaskVisibility
+  // Affects only future instances (matching the existing edit-form copy).
+  // The currently open instance keeps whatever due_kind it was created with.
+  dueKind?: 'hard' | 'week_target'
 }
 
 export interface CreateTaskResult {
@@ -109,6 +116,7 @@ export interface TodayInstance {
   createdAt: string
   stepsTotal: number
   stepsCompleted: number
+  dueKind: 'hard' | 'week_target'
 }
 
 export interface SomedayInstance {
@@ -135,6 +143,7 @@ export interface TaskSummary {
   snoozeUntil: string | null
   createdAt: string
   visibility: TaskVisibility
+  dueKind: 'hard' | 'week_target'
 }
 
 export interface TaskDetail extends TaskSummary {
@@ -292,6 +301,9 @@ export async function createTask(
   ])
 
   const result = await db.transaction(async (tx) => {
+    const dueKind: 'hard' | 'week_target' =
+      input.dueKind === 'week_target' ? 'week_target' : 'hard'
+
     const [task] = await tx
       .insert(tasks)
       .values({
@@ -304,12 +316,13 @@ export async function createTask(
         timeOfDay: input.someday ? null : input.timeOfDay,
         categorySlug: categorization?.slug ?? null,
         visibility: input.visibility ?? 'friends',
+        dueKind,
       })
       .returning()
 
     const [inst] = await tx
       .insert(taskInstances)
-      .values({ taskId: task.id, userId, dueAt })
+      .values({ taskId: task.id, userId, dueAt, dueKind })
       .returning()
 
     const cleanedSteps = (input.steps ?? [])
@@ -361,6 +374,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
       snoozeUntil: tasks.snoozeUntil,
       createdAt: tasks.createdAt,
       visibility: tasks.visibility,
+      dueKind: tasks.dueKind,
     })
     .from(tasks)
     .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
@@ -378,6 +392,7 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
     snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
     visibility: r.visibility as TaskVisibility,
+    dueKind: r.dueKind as 'hard' | 'week_target',
   }))
 }
 
@@ -404,6 +419,7 @@ export async function getTask(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     visibility: row.visibility as TaskVisibility,
+    dueKind: row.dueKind as 'hard' | 'week_target',
   }
 }
 
@@ -422,6 +438,9 @@ export async function updateTask(
   }
   if (input.visibility !== undefined) {
     setValues.visibility = input.visibility
+  }
+  if (input.dueKind !== undefined) {
+    setValues.dueKind = input.dueKind === 'week_target' ? 'week_target' : 'hard'
   }
   const result = await db
     .update(tasks)
@@ -756,6 +775,7 @@ export async function listTodayInstances(
       categorySlug: tasks.categorySlug,
       timeOfDay: tasks.timeOfDay,
       dueAt: taskInstances.dueAt,
+      dueKind: taskInstances.dueKind,
       snoozedUntil: taskInstances.snoozedUntil,
       createdAt: tasks.createdAt,
     })
@@ -767,7 +787,14 @@ export async function listTodayInstances(
         isNull(taskInstances.completedAt),
         isNull(taskInstances.skippedAt),
         isNotNull(taskInstances.dueAt),
-        lt(taskInstances.dueAt, horizon),
+        // Hard-deadline tasks appear only inside today's window or once
+        // overdue. Week-target tasks live in the list from creation
+        // through their target day (and remain visible after, as overdue)
+        // so the user can pick them up early — that's the whole point.
+        or(
+          lt(taskInstances.dueAt, horizon),
+          eq(taskInstances.dueKind, 'week_target'),
+        ),
         or(
           isNull(taskInstances.snoozedUntil),
           lt(taskInstances.snoozedUntil, now),
@@ -795,6 +822,7 @@ export async function listTodayInstances(
     createdAt: r.createdAt.toISOString(),
     stepsTotal: stepCounts.get(r.taskId)?.total ?? 0,
     stepsCompleted: stepCounts.get(r.taskId)?.completedByInstance.get(r.instanceId) ?? 0,
+    dueKind: r.dueKind as 'hard' | 'week_target',
   }))
 }
 
@@ -980,6 +1008,7 @@ async function rebuildProgression(
             typeof p['timeOfDay'] === 'string'
               ? (p['timeOfDay'] as string)
               : null,
+          dueKind: p['dueKind'] === 'week_target' ? 'week_target' : 'hard',
           occurredAt,
         },
         { timeZone },
@@ -1215,6 +1244,9 @@ export async function completeInstance(
           )
         : effectiveXpOverride
 
+    const dueKind: 'hard' | 'week_target' =
+      instance.dueKind === 'week_target' ? 'week_target' : 'hard'
+
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
@@ -1223,6 +1255,7 @@ export async function completeInstance(
       xpOverride: parentXpOverride,
       dueAt: instance.dueAt,
       timeOfDay: task.timeOfDay,
+      dueKind,
       occurredAt: now,
     }
 
@@ -1236,6 +1269,7 @@ export async function completeInstance(
         xpOverride: event.xpOverride,
         dueAt: event.dueAt?.toISOString() ?? null,
         timeOfDay: event.timeOfDay,
+        dueKind,
       },
       occurredAt: now,
     })

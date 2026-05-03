@@ -1,5 +1,7 @@
 export type Difficulty = 'small' | 'medium' | 'large'
 
+export type DueKind = 'hard' | 'week_target'
+
 export type DomainEvent =
   | {
       type: 'task.completed'
@@ -9,6 +11,10 @@ export type DomainEvent =
       xpOverride: number | null
       dueAt: Date | null
       timeOfDay: string | null
+      // Discriminator picked at completion time. Defaults to 'hard' when
+      // missing (back-compat with old events written before this field
+      // existed). 'week_target' selects the soft early-bird/late curve.
+      dueKind?: DueKind
       occurredAt: Date
     }
   | {

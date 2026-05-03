@@ -831,11 +831,16 @@ function ProfileSection({
   })
   const [name, setName] = useState('')
   const [handle, setHandle] = useState('')
-  const [savedField, setSavedField] = useState<null | 'name' | 'handle'>(null)
+  const [bio, setBio] = useState('')
+  const [savedField, setSavedField] = useState<
+    null | 'name' | 'handle' | 'bio'
+  >(null)
   const [nameError, setNameError] = useState<string | null>(null)
   const [handleError, setHandleError] = useState<string | null>(null)
+  const [bioError, setBioError] = useState<string | null>(null)
   const [pendingName, setPendingName] = useState(false)
   const [pendingHandle, setPendingHandle] = useState(false)
+  const [pendingBio, setPendingBio] = useState(false)
 
   useEffect(() => {
     if (user?.name) setName(user.name)
@@ -843,6 +848,11 @@ function ProfileSection({
   useEffect(() => {
     if (profileQuery.data?.handle) setHandle(profileQuery.data.handle)
   }, [profileQuery.data?.handle])
+  useEffect(() => {
+    if (typeof profileQuery.data?.bio === 'string') {
+      setBio(profileQuery.data.bio)
+    }
+  }, [profileQuery.data?.bio])
 
   async function onSaveName(e: React.FormEvent) {
     e.preventDefault()
@@ -876,6 +886,23 @@ function ProfileSection({
       setHandleError(e instanceof Error ? e.message : 'Failed to update handle')
     } finally {
       setPendingHandle(false)
+    }
+  }
+
+  async function onSaveBio(e: React.FormEvent) {
+    e.preventDefault()
+    setBioError(null)
+    setSavedField(null)
+    setPendingBio(true)
+    try {
+      await updatePrefs({ data: { bio } })
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      setSavedField('bio')
+      setTimeout(() => setSavedField(null), 2000)
+    } catch (e) {
+      setBioError(e instanceof Error ? e.message : 'Failed to save bio')
+    } finally {
+      setPendingBio(false)
     }
   }
 
@@ -962,6 +989,44 @@ function ProfileSection({
           className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
         >
           {pendingHandle ? 'Saving…' : 'Save handle'}
+        </button>
+      </form>
+      <form onSubmit={onSaveBio} className="mt-4 space-y-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            About you (for the coach)
+          </span>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="A few sentences about what you do, what's going on in your life, what kinds of nudges work for you. Optional."
+            className="field-input"
+          />
+          <span className="mt-1 flex items-center justify-between text-xs text-[var(--sea-ink-soft)]">
+            <span>Private. Only the coach sees this.</span>
+            <span aria-live="polite">{bio.length} / 500</span>
+          </span>
+        </label>
+        {bioError ? (
+          <p className="text-sm text-red-600" role="alert">
+            {bioError}
+          </p>
+        ) : null}
+        {savedField === 'bio' ? (
+          <p className="text-sm text-[var(--palm)]">Saved.</p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={
+            pendingBio ||
+            profileQuery.isLoading ||
+            bio === (profileQuery.data?.bio ?? '')
+          }
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {pendingBio ? 'Saving…' : 'Save bio'}
         </button>
       </form>
     </section>

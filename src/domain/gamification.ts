@@ -50,6 +50,26 @@ export function punctualityMultiplier(input: {
   return 0.5
 }
 
+// Soft-target multiplier for week-target tasks. Rewards early completion,
+// gently docks late completion, falls to the hard-late floor only after
+// the week is over. dayDelta = (completedDay − targetDay) in user TZ,
+// computed at day granularity so a midnight rollover doesn't matter.
+export function weekTargetMultiplier(input: {
+  dueAt: Date | null
+  completedAt: Date
+  timeZone: string
+}): number {
+  if (!input.dueAt) return 1.0
+  const dayDelta = daysBetween(input.dueAt, input.completedAt, input.timeZone)
+  if (dayDelta <= -3) return 1.25
+  if (dayDelta === -2) return 1.2
+  if (dayDelta === -1) return 1.1
+  if (dayDelta === 0) return 1.0
+  if (dayDelta === 1) return 0.95
+  if (dayDelta === 2) return 0.85
+  return 0.5
+}
+
 export function computeXp(input: {
   difficulty: Difficulty
   xpOverride: number | null
@@ -124,12 +144,19 @@ export function applyEvent(
         currentStreak = Math.max(state.currentStreak, 1)
       }
 
-      const punctuality = punctualityMultiplier({
-        dueAt: event.dueAt,
-        completedAt: event.occurredAt,
-        timeOfDay: event.timeOfDay,
-        timeZone: options.timeZone,
-      })
+      const punctuality =
+        event.dueKind === 'week_target'
+          ? weekTargetMultiplier({
+              dueAt: event.dueAt,
+              completedAt: event.occurredAt,
+              timeZone: options.timeZone,
+            })
+          : punctualityMultiplier({
+              dueAt: event.dueAt,
+              completedAt: event.occurredAt,
+              timeOfDay: event.timeOfDay,
+              timeZone: options.timeZone,
+            })
 
       const xpGain = computeXp({
         difficulty: event.difficulty,

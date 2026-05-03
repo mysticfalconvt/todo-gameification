@@ -26,7 +26,45 @@ type RecurrenceKind =
   | 'after_completion'
   | 'monthly_day'
   | 'monthly_weekday'
-type DueKind = 'someday' | 'anytime' | 'timed' | 'in' | 'date'
+type DueKind = 'someday' | 'anytime' | 'timed' | 'in' | 'date' | 'week'
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+const WEEKDAY_LONG = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
+
+// dayOffset = the number of calendar days from today (in the browser's
+// local time) to the next occurrence of `targetDow` within the chosen
+// week scope. Negative for past days within "this week" — caller treats
+// that as "disabled / pick another day".
+function weekTargetOffset(
+  currentDow: number,
+  targetDow: number,
+  weekKind: 'this' | 'next',
+): number {
+  if (weekKind === 'this') return targetDow - currentDow
+  return targetDow - currentDow + 7
+}
+
+// Build the target Date at 09:00 local on the chosen day, or null if
+// the chosen ("this week") day is already past.
+function buildWeekTargetDate(
+  weekKind: 'this' | 'next',
+  targetDow: number,
+): Date | null {
+  const now = new Date()
+  const offset = weekTargetOffset(now.getDay(), targetDow, weekKind)
+  if (offset < 0) return null
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset)
+  d.setHours(9, 0, 0, 0)
+  return d
+}
 
 interface MonthlyForm {
   dayOfMonth: number
@@ -96,12 +134,19 @@ function NewTaskPage() {
     return d.toISOString().slice(0, 10)
   })
   const [dateTime, setDateTime] = useState('')
+  const [weekKind, setWeekKind] = useState<'this' | 'next'>('this')
+  // Default target day = Friday (5). If today is already Saturday or
+  // Sunday, "this week" + Friday is past, so we auto-flip to next week
+  // when the user picks the option.
+  const [weekTargetDow, setWeekTargetDow] = useState<number>(5)
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [steps, setSteps] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const isSomeday = dueKind === 'someday'
-  const recurrenceKind = isSomeday ? 'none' : kind
+  // Week-target tasks are one-off in v1 — disable recurrence when picked.
+  const recurrenceLocked = isSomeday || dueKind === 'week'
+  const recurrenceKind = recurrenceLocked ? 'none' : kind
 
   const mutation = useMutation({
     mutationFn: (input: {
@@ -113,6 +158,7 @@ function NewTaskPage() {
       someday: boolean
       visibility: TaskVisibility
       dueAtOverride?: string | null
+      dueKind?: 'hard' | 'week_target'
       steps?: string[] | null
     }) => createTask({ data: input }),
     onSuccess: async () => {
@@ -153,6 +199,13 @@ function NewTaskPage() {
         return
       }
       dueAtOverride = local.toISOString()
+    } else if (dueKind === 'week') {
+      const target = buildWeekTargetDate(weekKind, weekTargetDow)
+      if (!target) {
+        setError('That day is already past — pick another or switch to next week.')
+        return
+      }
+      dueAtOverride = target.toISOString()
     }
     const effectiveTimeOfDay =
       dueKind === 'timed'
@@ -167,7 +220,7 @@ function NewTaskPage() {
       title,
       notes: notes.trim() ? notes : null,
       difficulty,
-      recurrence: isSomeday
+      recurrence: recurrenceLocked
         ? null
         : buildRecurrence(
             recurrenceKind,
@@ -186,6 +239,7 @@ function NewTaskPage() {
       someday: isSomeday,
       visibility,
       dueAtOverride,
+      dueKind: dueKind === 'week' ? 'week_target' : 'hard',
       steps: cleanedSteps.length > 0 ? cleanedSteps : null,
     })
   }
@@ -277,6 +331,24 @@ function NewTaskPage() {
             />
             <DueOption
               current={dueKind}
+              value="week"
+              onChange={(next) => {
+                setDueKind(next)
+                // Auto-flip to next week if the default Friday is already
+                // past in this calendar week.
+                if (
+                  next === 'week' &&
+                  weekTargetOffset(new Date().getDay(), weekTargetDow, 'this') <
+                    0
+                ) {
+                  setWeekKind('next')
+                }
+              }}
+              label="By a target day"
+              detail="Pick this week or next, plus a target day. Bonus XP for finishing early; small penalty if late. Default Friday."
+            />
+            <DueOption
+              current={dueKind}
               value="date"
               onChange={setDueKind}
               label="On a specific date"
@@ -345,16 +417,24 @@ function NewTaskPage() {
               />
             </div>
           ) : null}
+          {dueKind === 'week' ? (
+            <WeekTargetPicker
+              weekKind={weekKind}
+              onWeekKindChange={setWeekKind}
+              targetDow={weekTargetDow}
+              onTargetDowChange={setWeekTargetDow}
+            />
+          ) : null}
         </fieldset>
 
-        <label className={`block ${isSomeday ? 'opacity-50' : ''}`}>
+        <label className={`block ${recurrenceLocked ? 'opacity-50' : ''}`}>
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Recurrence
           </span>
           <select
             value={recurrenceKind}
             onChange={(e) => setKind(e.target.value as RecurrenceKind)}
-            disabled={isSomeday}
+            disabled={recurrenceLocked}
             className="field-input"
           >
             <option value="none">One-off</option>
@@ -371,10 +451,14 @@ function NewTaskPage() {
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
               Someday tasks don't repeat.
             </p>
+          ) : dueKind === 'week' ? (
+            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+              Target-day tasks are one-off for now.
+            </p>
           ) : null}
         </label>
 
-        {recurrenceKind === 'weekly' && !isSomeday ? (
+        {recurrenceKind === 'weekly' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Days of the week
@@ -383,7 +467,7 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'interval' && !isSomeday ? (
+        {recurrenceKind === 'interval' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Every
@@ -397,7 +481,7 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'after_completion' && !isSomeday ? (
+        {recurrenceKind === 'after_completion' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               After completion
@@ -411,7 +495,7 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'monthly_day' && !isSomeday ? (
+        {recurrenceKind === 'monthly_day' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Day of the month
@@ -424,7 +508,7 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
-        {recurrenceKind === 'monthly_weekday' && !isSomeday ? (
+        {recurrenceKind === 'monthly_weekday' && !recurrenceLocked ? (
           <fieldset>
             <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
               Which weekday each month
@@ -515,6 +599,95 @@ function DueOption({
   )
 }
 
+
+function WeekTargetPicker({
+  weekKind,
+  onWeekKindChange,
+  targetDow,
+  onTargetDowChange,
+}: {
+  weekKind: 'this' | 'next'
+  onWeekKindChange: (k: 'this' | 'next') => void
+  targetDow: number
+  onTargetDowChange: (d: number) => void
+}) {
+  const todayDow = new Date().getDay()
+  const target = buildWeekTargetDate(weekKind, targetDow)
+  const offset = weekTargetOffset(todayDow, targetDow, weekKind)
+  const targetLabel = target
+    ? target.toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null
+
+  return (
+    <div className="mt-3 space-y-3">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Week">
+        {(['this', 'next'] as const).map((k) => {
+          const selected = weekKind === k
+          return (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onWeekKindChange(k)}
+              className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
+                selected
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+              }`}
+            >
+              {k === 'this' ? 'This week' : 'Next week'}
+            </button>
+          )
+        })}
+      </div>
+      <div
+        className="flex flex-wrap gap-1"
+        role="radiogroup"
+        aria-label="Target day"
+      >
+        {WEEKDAY_SHORT.map((label, dow) => {
+          const isPast =
+            weekKind === 'this' && weekTargetOffset(todayDow, dow, 'this') < 0
+          const selected = targetDow === dow
+          return (
+            <button
+              key={dow}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={WEEKDAY_LONG[dow]}
+              disabled={isPast}
+              onClick={() => onTargetDowChange(dow)}
+              className={`min-w-[2.75rem] rounded-full border px-2 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                selected && !isPast
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-xs text-[var(--sea-ink-soft)]">
+        {target
+          ? `Target ${targetLabel} (${
+              offset === 0
+                ? 'today'
+                : offset === 1
+                  ? 'in 1 day'
+                  : `in ${offset} days`
+            }). Bonus XP if done a day or more early; ~95% one day late, ~85% two days; full hard-late floor after that.`
+          : 'That day is already past in this calendar week — pick another day or switch to Next week.'}
+      </p>
+    </div>
+  )
+}
 
 function PastTimeHint({
   time,

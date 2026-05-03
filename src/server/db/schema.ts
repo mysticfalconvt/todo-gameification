@@ -112,6 +112,12 @@ export const tasks = pgTable('tasks', {
     .notNull()
     .default('friends'),
   active: boolean('active').notNull().default(true),
+  // Default punctuality kind for future instances generated from this task.
+  // Persisted at the parent so updateTask can change it; per-instance
+  // value is what actually drives the multiplier at completion.
+  dueKind: text('due_kind', { enum: ['hard', 'week_target'] })
+    .notNull()
+    .default('hard'),
   // Dedup key for tasks auto-created from external systems (e.g.
   // `github-pr-<prId>`). Null for user-created tasks. Unique per user
   // when set — enforced via a partial unique index.
@@ -133,6 +139,14 @@ export const taskInstances = pgTable(
     skippedAt: timestamp('skipped_at'),
     snoozedUntil: timestamp('snoozed_until'),
     xpOverride: integer('xp_override'),
+    // Discriminator for the punctuality curve at completion.
+    //   'hard' — strict deadline (default; existing punctualityMultiplier).
+    //   'week_target' — soft target day; rewarded for being early, lightly
+    //                   docked for being late, full hard-late floor only
+    //                   after the surrounding week is over.
+    dueKind: text('due_kind', { enum: ['hard', 'week_target'] })
+      .notNull()
+      .default('hard'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('task_instances_user_due_idx').on(t.userId, t.dueAt)],
@@ -291,6 +305,11 @@ export const userPrefs = pgTable('user_prefs', {
     .notNull()
     .default('warm'),
   coachDetailed: boolean('coach_detailed').notNull().default(false),
+  // Free-text "About you" the user writes for the coach. Capped at 500
+  // chars in the input validator. Stable, non-obvious context the coach
+  // can reference (job, family situation, ADHD specifics, preferred
+  // nudge style). Empty string when unset.
+  bio: text('bio').notNull().default(''),
 })
 
 export const pushSubscriptions = pgTable('push_subscriptions', {
