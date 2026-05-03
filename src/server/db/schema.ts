@@ -285,6 +285,11 @@ export const userPrefs = pgTable('user_prefs', {
   shareProgression: boolean('share_progression').notNull().default(true),
   shareActivity: boolean('share_activity').notNull().default(true),
   shareTaskTitles: boolean('share_task_titles').notNull().default(false),
+  coachAttitude: text('coach_attitude', {
+    enum: ['concise', 'detailed', 'snarky', 'stoic', 'drill', 'zen'],
+  })
+    .notNull()
+    .default('concise'),
 })
 
 export const pushSubscriptions = pgTable('push_subscriptions', {

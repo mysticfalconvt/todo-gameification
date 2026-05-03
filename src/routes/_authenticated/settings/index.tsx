@@ -68,6 +68,7 @@ function SettingsPage() {
       <PrivacySection />
       <FriendsSection />
       <AppearanceSection />
+      <CoachAttitudeSection />
       <CategoriesSection />
       <PasswordSection />
       <NotificationsSection />
@@ -384,6 +385,128 @@ function AppearanceSection() {
         Choose the color theme. Auto follows your system setting.
       </p>
       <ThemePicker />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Coach attitude
+// ---------------------------------------------------------------------------
+
+type CoachAttitudeSlug =
+  | 'concise'
+  | 'detailed'
+  | 'snarky'
+  | 'stoic'
+  | 'drill'
+  | 'zen'
+
+const COACH_ATTITUDE_OPTIONS: ReadonlyArray<{
+  value: CoachAttitudeSlug
+  label: string
+  glyph: string
+  hint: string
+}> = [
+  {
+    value: 'concise',
+    label: 'Concise',
+    glyph: '·',
+    hint: 'A short, warm, ADHD-aware nudge. The original voice.',
+  },
+  {
+    value: 'detailed',
+    label: 'Detailed',
+    glyph: '¶',
+    hint: 'Same warmth, more context — names a task, calls out trends, and may suggest a next step.',
+  },
+  {
+    value: 'snarky',
+    label: 'Snarky',
+    glyph: '✦',
+    hint: 'Sarcastic and dry. Roasts the to-do list, never the human.',
+  },
+  {
+    value: 'stoic',
+    label: 'Stoic',
+    glyph: '◻',
+    hint: 'Just facts. No personality, no warmth, no humor.',
+  },
+  {
+    value: 'drill',
+    label: 'Drill Sergeant',
+    glyph: '★',
+    hint: 'Theatrical tough-love. Short, punchy, imperative.',
+  },
+  {
+    value: 'zen',
+    label: 'Zen',
+    glyph: '◯',
+    hint: 'Calm and unhurried. Reframes the day toward "do less, breathe."',
+  },
+]
+
+function CoachAttitudeSection() {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+
+  const setAttitude = useMutation({
+    mutationFn: (coachAttitude: CoachAttitudeSlug) =>
+      updatePrefs({ data: { coachAttitude } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      // Force the today-page coach blurb to regenerate with the new voice
+      // instead of waiting on its 2-hour refetchInterval.
+      qc.invalidateQueries({ queryKey: ['coach'] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  const current = (profileQuery.data?.coachAttitude ?? 'concise') as CoachAttitudeSlug
+  const selectedHint =
+    COACH_ATTITUDE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+        Coach attitude
+      </h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Pick the voice your daily coach uses on the Today page.
+      </p>
+      <div
+        className="flex flex-wrap gap-2"
+        role="radiogroup"
+        aria-label="Coach attitude"
+      >
+        {COACH_ATTITUDE_OPTIONS.map((o) => {
+          const selected = current === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={setAttitude.isPending}
+              onClick={() => setAttitude.mutate(o.value)}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition disabled:opacity-60 ${
+                selected
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+              }`}
+            >
+              <span aria-hidden>{o.glyph}</span>
+              <span>{o.label}</span>
+            </button>
+          )
+        })}
+      </div>
+      {selectedHint && (
+        <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
+      )}
     </section>
   )
 }

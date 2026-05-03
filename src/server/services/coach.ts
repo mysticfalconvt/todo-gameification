@@ -6,12 +6,35 @@
 // sentences the user actually wants to read.
 import { and, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { events, tasks } from '../db/schema'
+import { events, tasks, userPrefs } from '../db/schema'
 import { callLlmChat } from '../llm/client'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
 
-const SYSTEM_PROMPT = `You are a warm, ADHD-aware companion for a gamified personal todo app. You speak to the user in one short blurb that shows up in the app.
+export const COACH_ATTITUDES = [
+  'concise',
+  'detailed',
+  'snarky',
+  'stoic',
+  'drill',
+  'zen',
+] as const
+export type CoachAttitude = (typeof COACH_ATTITUDES)[number]
+const DEFAULT_ATTITUDE: CoachAttitude = 'concise'
+
+// Common tail every prompt ends with — the user-visible output rules. Kept
+// separate so each personality only owns its own STYLE block above and we
+// don't drift on the strict-output requirements.
+const OUTPUT_RULES = `OUTPUT RULES — STRICT:
+- Return ONLY the finished sentence(s) the user should see.
+- No preamble, no commentary, no quotes around the output, no markdown.
+- Never emit channel markers, reasoning traces, XML-like tags (for example "<channel>", "<analysis>", "<think>"), control tokens, JSON, or section headers.
+- Never prefix with "Here is" / "Sure, " / "Response:" / similar scaffolding.
+- If you have nothing useful to say, still write 1–2 honest sentences rather than emitting empty or structural output.
+- The first character of your reply must be a regular letter or digit, not a bracket or punctuation.`
+
+const COACH_PROMPTS: Record<CoachAttitude, string> = {
+  concise: `You are a warm, ADHD-aware companion for a gamified personal todo app. You speak to the user in one short blurb that shows up in the app.
 
 STYLE:
 - 1 to 3 sentences. Never longer.
@@ -27,13 +50,79 @@ STYLE:
 - You may contextualize today's pace ("already past yesterday", "same as usual", "quiet day") when it adds warmth, but never turn cadence into a metric to beat. If today is 0 and yesterday was 5, don't shame.
 - Match the time-of-day. Morning voice, evening voice, and late-night voice should feel different. Don't push a big task at night.
 
-OUTPUT RULES — STRICT:
-- Return ONLY the finished sentence(s) the user should see.
-- No preamble, no commentary, no quotes around the output, no markdown.
-- Never emit channel markers, reasoning traces, XML-like tags (for example "<channel>", "<analysis>", "<think>"), control tokens, JSON, or section headers.
-- Never prefix with "Here is" / "Sure, " / "Response:" / similar scaffolding.
-- If you have nothing useful to say, still write 1–2 honest sentences rather than emitting empty or structural output.
-- The first character of your reply must be a regular letter or digit, not a bracket or punctuation.`
+${OUTPUT_RULES}`,
+
+  detailed: `You are a warm, ADHD-aware companion for a gamified personal todo app. The user picked the "detailed" voice — they want a meatier, more thoughtful read on their day, not a one-liner.
+
+STYLE:
+- 3 to 6 sentences. You may use two short paragraphs separated by a blank line if it reads better.
+- Plain, friendly, second-person. No emojis, no hashtags, no all-caps.
+- No toxic positivity. No guilt. No "You got this!" filler.
+- Be concrete: name 1 or 2 specific tasks by their real title when it adds value (e.g. one good candidate for next, or one someday item that's been waiting a while).
+- Reference the trend if there is one ("third good day in a row", "first task back after a quiet stretch", "lighter than usual today"). Use the cadence + weekly numbers — don't invent.
+- It's okay to suggest one concrete next step, but only one. Make it the smallest reasonable thing.
+- If they're mid-streak, honor it without turning it into pressure. If they've missed days, be gentle.
+- If the list is empty, validate the break — don't push more work, but you can still reflect on the week.
+- Never just enumerate the task list (the UI already shows it). Speak to the human and add insight.
+- Match the time-of-day. Morning voice, evening voice, and late-night voice should feel different.
+
+${OUTPUT_RULES}`,
+
+  snarky: `You are the daily coach for a gamified todo app, and today you are in a sarcastic, dry, gently roasting mood. The user opted into this voice on purpose — they want humor, not a hug.
+
+STYLE:
+- 1 to 3 sentences. Never longer.
+- Sarcastic, dry, deadpan. Light roasting of procrastination is fair game. Plain second-person, no emojis, no hashtags, no all-caps.
+- Punch up at the to-do list, not at the user. Tease the dentist appointment that's been overdue for a week — don't tease the user for being human.
+- Never be cruel about emotional, health, mental-health, or grief-coded tasks. Drop the snark entirely for those and just be straight.
+- No guilt. The point is to be funny, not heavy. If today is 0 completions, a dry "hard-earned nothing" beat is fine; shaming is not.
+- Be specific. If you name a task, use its real title. One name max per blurb.
+- Late at night, ease off the snark. Tired humans don't need to be roasted.
+- Never just list the remaining tasks (the UI already shows them). Land a joke or a sharp observation, then stop.
+
+${OUTPUT_RULES}`,
+
+  stoic: `You are the daily coach for a gamified todo app, in a stoic / pragmatic voice. No personality, no warmth, no humor. Just facts the user can act on.
+
+STYLE:
+- 1 to 2 short sentences or fragments. Never longer.
+- Plain second-person or impersonal. No emojis, no hashtags, no all-caps, no exclamation points.
+- State the most useful concrete fact about today (count remaining, biggest item, the overdue one, the streak number) and at most one short observation.
+- No motivational language. No "you can do this" / "great job" / "keep it up". Don't praise, don't scold.
+- If the list is empty, say so plainly. Don't add commentary.
+- If you name a task, use its real title.
+- Numbers are welcome. "Three remaining. Dentist call is two days overdue." is exactly the voice.
+
+${OUTPUT_RULES}`,
+
+  drill: `You are the daily coach for a gamified todo app, doing a theatrical drill-sergeant bit. The user picked this voice on purpose — they want barked motivation, not a hug.
+
+STYLE:
+- 1 to 3 sentences. Short. Punchy. Imperative.
+- Military framing is fine ("on your feet", "move", "front and center"). One ALL-CAPS word per blurb is the cap. Exclamation points allowed but don't spray them.
+- Tease slacking on the LIST — never berate the user for being human, tired, anxious, or sad.
+- Never apply the drill voice to emotional, health, mental-health, or grief-coded tasks. Drop the bit and be straight for those.
+- No guilt or shaming for low-completion days. If today is 0, the bit is "fresh recruit, first move is yours" — not "you failed".
+- Late at night, ease off — even drill sergeants let recruits sleep.
+- Be specific. If you name a task, use its real title. One target per blurb.
+- Don't list the full task roster (the UI already shows it). Pick one target and bark.
+
+${OUTPUT_RULES}`,
+
+  zen: `You are the daily coach for a gamified todo app, speaking in a calm, mindful, gently-reframing voice. The user picked this on purpose — they want a slow-breath companion, not a hype machine.
+
+STYLE:
+- 1 to 3 sentences. Calm, unhurried, present-tense.
+- Plain, soft second-person. No emojis, no hashtags, no all-caps, no exclamation points.
+- Reframe the day toward "do less, breathe" energy. One small thing well > many things rushed.
+- If the list is heavy or overdue, name the weight and invite them to pick the smallest doable next step. Never pile on.
+- If the list is empty, honor the rest fully. Don't backdoor in another suggestion.
+- If they're on a streak, treat it as steady practice — not a score to defend.
+- Be specific when it helps. If you name a task, use its real title. One name max.
+- Match the time-of-day. Evenings and nights especially lean into rest.
+
+${OUTPUT_RULES}`,
+}
 
 export interface CoachSummary {
   summary: string
@@ -115,16 +204,22 @@ function localDayKey(date: Date, timeZone: string): string {
 // Returns completion counts per local day for the last `days` days, plus
 // the usual reference days (today / yesterday / prior-7-average excluding
 // today). Used so the coach can say "ahead of yesterday" style things.
+// `windowDays` controls how many trailing days the comparison span uses:
+// 7 for the standard prompt, 14 for the detailed prompt (which also gets
+// a this-week-vs-last-week split).
 async function loadCompletionCadence(
   userId: string,
   timeZone: string,
-  days = 8,
+  windowDays = 7,
 ): Promise<{
   today: number
   yesterday: number
   priorAverage: number
+  thisWeek: number
+  lastWeek: number
 }> {
-  const since = new Date(Date.now() - days * 86_400_000)
+  const span = Math.max(windowDays + 1, 8)
+  const since = new Date(Date.now() - span * 86_400_000)
   const rows = await db
     .select({ occurredAt: events.occurredAt })
     .from(events)
@@ -154,14 +249,55 @@ async function loadCompletionCadence(
     priorSum += counts.get(key) ?? 0
     priorDays += 1
   }
+  // Two contiguous 7-day buckets (today + 6 back; the 7 days before that).
+  // Used by the detailed attitude to phrase trends like "up from last week."
+  let thisWeek = 0
+  let lastWeek = 0
+  for (let i = 0; i <= 6; i++) {
+    const key = localDayKey(new Date(Date.now() - i * 86_400_000), timeZone)
+    thisWeek += counts.get(key) ?? 0
+  }
+  for (let i = 7; i <= 13; i++) {
+    const key = localDayKey(new Date(Date.now() - i * 86_400_000), timeZone)
+    lastWeek += counts.get(key) ?? 0
+  }
   return {
     today: counts.get(todayKey) ?? 0,
     yesterday: counts.get(yesterdayKey) ?? 0,
     priorAverage: priorDays > 0 ? priorSum / priorDays : 0,
+    thisWeek,
+    lastWeek,
   }
 }
 
+async function loadCoachAttitude(userId: string): Promise<CoachAttitude> {
+  const row = await db.query.userPrefs.findFirst({
+    where: eq(userPrefs.userId, userId),
+    columns: { coachAttitude: true },
+  })
+  const a = row?.coachAttitude
+  if (a && (COACH_ATTITUDES as readonly string[]).includes(a)) {
+    return a as CoachAttitude
+  }
+  return DEFAULT_ATTITUDE
+}
+
+// Per-attitude budgets for what we feed the model. The detailed voice
+// gets meatier slices; the rest share the original limits.
+const PROMPT_LIMITS: Record<
+  CoachAttitude,
+  { today: number; someday: number; recent: number; weeklyTrend: boolean }
+> = {
+  concise: { today: 8, someday: 5, recent: 5, weeklyTrend: false },
+  detailed: { today: 15, someday: 10, recent: 10, weeklyTrend: true },
+  snarky: { today: 8, someday: 5, recent: 5, weeklyTrend: false },
+  stoic: { today: 8, someday: 5, recent: 5, weeklyTrend: false },
+  drill: { today: 8, someday: 5, recent: 5, weeklyTrend: false },
+  zen: { today: 8, someday: 5, recent: 5, weeklyTrend: false },
+}
+
 function buildUserPrompt(input: {
+  attitude: CoachAttitude
   today: Awaited<ReturnType<typeof taskService.listTodayInstances>>
   someday: Awaited<ReturnType<typeof taskService.listSomedayInstances>>
   progression: Awaited<ReturnType<typeof taskService.getProgression>>
@@ -171,6 +307,7 @@ function buildUserPrompt(input: {
   timeZone: string
 }): string {
   const {
+    attitude,
     today,
     someday,
     progression,
@@ -179,6 +316,7 @@ function buildUserPrompt(input: {
     cadence,
     timeZone,
   } = input
+  const limits = PROMPT_LIMITS[attitude]
   const parts: string[] = []
 
   const now = new Date()
@@ -191,7 +329,7 @@ function buildUserPrompt(input: {
   if (today.length === 0) {
     parts.push('Remaining tasks today: none.')
   } else {
-    const lines = today.slice(0, 8).map((t) => {
+    const lines = today.slice(0, limits.today).map((t) => {
       const when = t.timeOfDay ? `due ${t.timeOfDay}` : 'anytime'
       const overdue =
         t.dueAt && new Date(t.dueAt).getTime() < now.getTime()
@@ -210,14 +348,18 @@ function buildUserPrompt(input: {
     const sorted = [...someday].sort((a, b) =>
       a.createdAt < b.createdAt ? -1 : 1,
     )
-    const lines = sorted.slice(0, 5).map((s) => {
+    const shown = sorted.slice(0, limits.someday)
+    const lines = shown.map((s) => {
       const age = daysAgo(s.createdAt)
       const ageLabel =
         age < 1 ? 'today' : age === 1 ? '1 day' : `${age} days`
       const xp = s.xpOverride ?? '?'
       return `- "${s.title}" (waiting ${ageLabel}, ${xp} XP)`
     })
-    const extra = someday.length > sorted.length ? ` (+${someday.length - sorted.length} more)` : ''
+    const extra =
+      someday.length > shown.length
+        ? ` (+${someday.length - shown.length} more)`
+        : ''
     parts.push(
       `Someday backlog (${someday.length} total${extra}); oldest first:`,
     )
@@ -236,6 +378,15 @@ function buildUserPrompt(input: {
     `Completions cadence — today: ${cadence.today}, yesterday: ${cadence.yesterday}, prior 7-day average: ${avgLabel}/day.`,
   )
 
+  if (limits.weeklyTrend) {
+    const delta = cadence.thisWeek - cadence.lastWeek
+    const direction =
+      delta > 0 ? `up ${delta}` : delta < 0 ? `down ${Math.abs(delta)}` : 'flat'
+    parts.push(
+      `Weekly trend — last 7 days: ${cadence.thisWeek} completions; previous 7 days: ${cadence.lastWeek}; ${direction} vs. previous week.`,
+    )
+  }
+
   const daysWithActivity = activityDays.length
   parts.push(
     `This week: completed tasks on ${daysWithActivity} of the last 7 days.`,
@@ -243,7 +394,7 @@ function buildUserPrompt(input: {
 
   const recentCompletions = recentEvents
     .filter((e) => e.type === 'task.completed')
-    .slice(0, 5)
+    .slice(0, limits.recent)
   if (recentCompletions.length > 0) {
     const lines = recentCompletions.map((e) => {
       const title = e.title ?? '(unknown task)'
@@ -264,15 +415,19 @@ function buildUserPrompt(input: {
     )
   }
 
-  parts.push('Write the coach message now.')
+  parts.push(`Selected attitude: ${attitude}. Write the coach message now.`)
   return parts.join('\n\n')
 }
 
 export async function generateCoachSummary(
   userId: string,
 ): Promise<CoachSummary | null> {
-  const timeZone = await taskService.getUserTimeZone(userId)
+  const [timeZone, attitude] = await Promise.all([
+    taskService.getUserTimeZone(userId),
+    loadCoachAttitude(userId),
+  ])
   const since = new Date(Date.now() - 24 * 3_600_000)
+  const cadenceWindow = PROMPT_LIMITS[attitude].weeklyTrend ? 14 : 7
   const [today, someday, progression, activityDays, recentEvents, cadence] =
     await Promise.all([
       taskService.listTodayInstances(userId),
@@ -280,10 +435,11 @@ export async function generateCoachSummary(
       taskService.getProgression(userId),
       taskService.listRecentActivity(userId),
       loadRecentEvents(userId, since),
-      loadCompletionCadence(userId, timeZone),
+      loadCompletionCadence(userId, timeZone, cadenceWindow),
     ])
 
   const userPrompt = buildUserPrompt({
+    attitude,
     today,
     someday,
     progression,
@@ -293,13 +449,16 @@ export async function generateCoachSummary(
     timeZone,
   })
 
+  // Detailed voice writes longer paragraphs; the others stay tight.
+  const maxTokens = attitude === 'detailed' ? 400 : 200
+
   const raw = await callLlmChat({
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: COACH_PROMPTS[attitude] },
       { role: 'user', content: userPrompt },
     ],
     temperature: 0.7,
-    maxTokens: 200,
+    maxTokens,
     timeoutMs: 15_000,
     track: { kind: 'coach', userId },
   })

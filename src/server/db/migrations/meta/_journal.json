@@ -155,6 +155,20 @@
       "when": 1776950000000,
       "tag": "0021_instance_xp_override",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1776960000000,
+      "tag": "0022_coach_attitude",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1776970000000,
+      "tag": "0023_coach_attitude_onboarding",
+      "breakpoints": true
     }
   ]
 }

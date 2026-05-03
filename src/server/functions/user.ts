@@ -8,6 +8,7 @@ import {
   isValidHandle,
   normalizeHandle,
 } from '../services/handles'
+import { COACH_ATTITUDES, type CoachAttitude } from '../services/coach'
 
 const VISIBILITY_VALUES = ['public', 'friends', 'private'] as const
 type Visibility = (typeof VISIBILITY_VALUES)[number]
@@ -68,6 +69,7 @@ export const getProfile = createServerFn({ method: 'GET' })
       shareProgression: prefsRow?.shareProgression ?? true,
       shareActivity: prefsRow?.shareActivity ?? true,
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
+      coachAttitude: (prefsRow?.coachAttitude ?? 'concise') as CoachAttitude,
       quietHoursStart: userRow?.quietHoursStart ?? null,
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
     }
@@ -176,7 +178,15 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       shareProgression?: boolean
       shareActivity?: boolean
       shareTaskTitles?: boolean
+      coachAttitude?: string
     }) => {
+      let coachAttitude: CoachAttitude | undefined
+      if (typeof data.coachAttitude === 'string') {
+        if (!(COACH_ATTITUDES as readonly string[]).includes(data.coachAttitude)) {
+          throw new Error('invalid coach attitude')
+        }
+        coachAttitude = data.coachAttitude as CoachAttitude
+      }
       return {
         shareProgression:
           typeof data.shareProgression === 'boolean'
@@ -190,6 +200,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           typeof data.shareTaskTitles === 'boolean'
             ? data.shareTaskTitles
             : undefined,
+        coachAttitude,
       }
     },
   )
@@ -202,6 +213,9 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       shareActivity: data.shareActivity ?? existing?.shareActivity ?? true,
       shareTaskTitles:
         data.shareTaskTitles ?? existing?.shareTaskTitles ?? false,
+      coachAttitude: (data.coachAttitude ??
+        existing?.coachAttitude ??
+        'concise') as CoachAttitude,
     }
     if (existing) {
       await db
