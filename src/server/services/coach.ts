@@ -337,9 +337,17 @@ function buildUserPrompt(input: {
   const parts: string[] = []
 
   // User-provided "About you" — color, not authority. The block is wrapped
-  // in quotes so the model treats it as data, not as system instructions.
+  // in quotes so the model treats it as data, not system instructions. We
+  // also escape backslashes, double quotes, and newlines so a user who
+  // tries to break out of the quoted context with a stray `"` or
+  // newline-instructions can't (self-attack only since coach is per-user,
+  // but cheap to harden).
   if (bio) {
-    parts.push(`About the user (their words): "${bio}"`)
+    const safeBio = bio
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+    parts.push(`About the user (their words): "${safeBio}"`)
   }
 
   const now = new Date()

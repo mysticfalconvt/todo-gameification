@@ -10,6 +10,7 @@ import {
 } from '../../server/functions/tasks'
 import { listCategories } from '../../server/functions/categories'
 import { getCoachSummary } from '../../server/functions/coach'
+import { getProfile } from '../../server/functions/user'
 import type { GardenView } from '../../server/services/garden'
 import { runOrQueue } from '../../lib/offline-queue'
 import {
@@ -78,6 +79,14 @@ function TodayPage() {
     queryKey: ['categories'],
     queryFn: () => listCategories(),
   })
+  // Cheap to query — already cached from settings if the user's been there.
+  // Used here only to decide whether to stack the header on mobile when
+  // the coach is in detailed (longer) mode.
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+  const coachDetailed = profileQuery.data?.coachDetailed ?? false
   const catBySlug = useMemo(() => {
     const m = new Map<string, { label: string; color: string }>()
     // Defensive: a stale or corrupted persisted query entry could come
@@ -257,7 +266,13 @@ function TodayPage() {
 
   return (
     <main className="page-wrap px-4 py-8">
-      <header className="mb-6 flex items-end justify-between gap-3">
+      <header
+        className={`mb-6 flex justify-between gap-3 ${
+          coachDetailed
+            ? 'flex-col items-stretch sm:flex-row sm:items-end'
+            : 'items-end'
+        }`}
+      >
         <div className="min-w-0 flex-1">
           <p className="island-kicker mb-1">Today</p>
           <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
@@ -267,16 +282,22 @@ function TodayPage() {
           </h1>
           <CoachBlurb instances={instances} />
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div
+          className={
+            coachDetailed
+              ? 'flex flex-row gap-2 sm:flex-col sm:items-end'
+              : 'flex flex-col items-end gap-2'
+          }
+        >
           <Link
             to="/tasks/new"
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
           >
             + New
           </Link>
           <Link
             to="/focus"
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
           >
             🎯 Focus
           </Link>
