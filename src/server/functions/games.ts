@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '../middleware/auth'
 import * as service from '../services/games'
+import { getArcadeStats as getArcadeStatsService } from '../services/arcadeStats'
 
 export const listGames = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
@@ -30,3 +31,7 @@ export const finishGame = createServerFn({ method: 'POST' })
       result: data.result,
     }),
   )
+
+export const getArcadeStats = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(({ context }) => getArcadeStatsService(context.userId))
