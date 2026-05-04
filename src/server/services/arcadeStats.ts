@@ -30,6 +30,24 @@ const SCORE_DIRECTION: Record<string, 'lower' | 'higher'> = {
   '2048': 'higher',
 }
 
+// Most games only have a meaningful score on a win — losing Wordle by
+// running out of guesses, or quitting sliding-puzzle mid-game, isn't a
+// "best." 2048 is the exception: even on a loss the highest-tile-reached
+// is real progress (you might have hit 512 and gotten stuck), so we
+// count those too. Defaults to true (must-win) so adding a new game
+// without thinking about it errs on the safe side.
+const SCORE_NEEDS_WIN: Record<string, boolean> = {
+  wordle: true,
+  'sliding-puzzle': true,
+  'memory-flip': true,
+  '2048': false,
+}
+
+function scoreCounts(gameId: string, won: boolean): boolean {
+  if (won) return true
+  return SCORE_NEEDS_WIN[gameId] === false
+}
+
 function isBetter(gameId: string, candidate: number, current: number): boolean {
   return SCORE_DIRECTION[gameId] === 'lower'
     ? candidate < current
@@ -170,9 +188,10 @@ function aggregatePersonal(
       } as PersonalGameStats)
     existing.played += 1
     if (p.won) existing.won += 1
-    // Best score is only counted for wins — losing 2048 with score=512
-    // shouldn't beat a winning play of 1024.
-    if (p.won && typeof p.score === 'number') {
+    // Best score is counted on wins, plus on losses for games where the
+    // raw score is still meaningful (e.g. 2048's highest-tile-reached).
+    // See SCORE_NEEDS_WIN.
+    if (typeof p.score === 'number' && scoreCounts(p.gameId, p.won)) {
       if (
         existing.bestScore === null ||
         isBetter(p.gameId, p.score, existing.bestScore)
@@ -332,8 +351,13 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
     if (!play) continue
     if (r.userId === userId) {
       myPlays.push(play)
-    } else if (play.won && typeof play.score === 'number') {
-      // Only winning plays with a score can become a friend "best".
+    } else if (
+      typeof play.score === 'number' &&
+      scoreCounts(play.gameId, play.won)
+    ) {
+      // Friend "best" mirrors the personal rule: wins always count, losses
+      // count only for games where the score is meaningful regardless
+      // (e.g. 2048's highest tile).
       friendPlays.push({
         userId: r.userId,
         gameId: play.gameId,
