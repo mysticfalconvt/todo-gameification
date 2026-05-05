@@ -176,6 +176,9 @@ function AppNav() {
               <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                 Garden
               </Link>
+              <Link to="/arcade" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                Arcade
+              </Link>
               <FriendsNavLink />
               <AdminNavLink />
             </div>
@@ -295,6 +298,7 @@ function MobileTabBar() {
         <TabLink to="/today" icon="☀️" label="Today" />
         <TabLink to="/tasks" icon="✅" label="Tasks" />
         <TabLink to="/garden" icon="🪴" label="Garden" />
+        <TabLink to="/arcade" icon="🕹️" label="Arcade" />
         <TabLink to="/stats" icon="📊" label="Stats" />
         <TabLink to="/friends" icon="👥" label="Friends" badge={friendCount} />
         {isAdmin ? <TabLink to="/admin" icon="🛠" label="Admin" /> : null}
