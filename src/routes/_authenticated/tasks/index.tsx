@@ -15,6 +15,10 @@ import { SortSelect } from '../../../components/SortSelect'
 import { CategoryHistogram } from '../../../components/CategoryHistogram'
 import { formatWeeklyLabel } from '../../../components/WeekdayPicker'
 import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
+import {
+  TaskDetailsDialog,
+  type TaskDetailsInstance,
+} from '../../../components/TaskDetailsDialog'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
   component: AllTasksPage,
@@ -31,6 +35,9 @@ function AllTasksPage() {
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkPending, setBulkPending] = useState(false)
+  const [openDetails, setOpenDetails] = useState<TaskDetailsInstance | null>(
+    null,
+  )
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -68,6 +75,12 @@ function AllTasksPage() {
   const catBySlug = useMemo(() => {
     const m = new Map<string, Category>()
     for (const c of categories) m.set(c.slug, c)
+    return m
+  }, [categories])
+
+  const dialogCatBySlug = useMemo(() => {
+    const m = new Map<string, { label: string; color: string }>()
+    for (const c of categories) m.set(c.slug, { label: c.label, color: c.color })
     return m
   }, [categories])
 
@@ -378,10 +391,21 @@ function AllTasksPage() {
                   className="h-3 w-3 flex-shrink-0 rounded-full"
                   style={{ backgroundColor: cat?.color ?? 'transparent', border: cat ? 'none' : '1px dashed var(--line)' }}
                 />
-                <Link
-                  to="/tasks/$taskId"
-                  params={{ taskId: t.id }}
-                  className="min-w-0 flex-1 no-underline"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenDetails({
+                      taskId: t.id,
+                      instanceId: null,
+                      title: t.title,
+                      difficulty: t.difficulty,
+                      xpOverride: t.xpOverride,
+                      categorySlug: t.categorySlug,
+                      dueAt: null,
+                      timeOfDay: t.timeOfDay,
+                    })
+                  }
+                  className="min-w-0 flex-1 cursor-pointer bg-transparent text-left"
                 >
                   <p className="truncate font-semibold text-[var(--sea-ink)]">
                     {t.title}
@@ -392,7 +416,7 @@ function AllTasksPage() {
                     {recurrenceLabel(t.recurrence)}
                     {cat ? ` • ${cat.label}` : ''}
                   </p>
-                </Link>
+                </button>
                 <Link
                   to="/tasks/$taskId"
                   params={{ taskId: t.id }}
@@ -418,6 +442,12 @@ function AllTasksPage() {
           </ul>
         </>
       )}
+
+      <TaskDetailsDialog
+        instance={openDetails}
+        onClose={() => setOpenDetails(null)}
+        catBySlug={dialogCatBySlug}
+      />
     </main>
   )
 }

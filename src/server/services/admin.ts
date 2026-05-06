@@ -40,6 +40,31 @@ export async function isAdmin(userId: string): Promise<boolean> {
   return isAdminEmail(row?.email)
 }
 
+// Returns the user records whose email is on the ADMIN_EMAILS allowlist.
+// Empty list when the env var is unset or no matching users exist.
+export async function listAdminUsers(): Promise<
+  Array<{ id: string; email: string; handle: string; name: string }>
+> {
+  const emails = Array.from(allowlist())
+  if (emails.length === 0) return []
+  const rows = await db
+    .select({
+      id: userTable.id,
+      email: userTable.email,
+      handle: userTable.handle,
+      name: userTable.name,
+    })
+    .from(userTable)
+  // Filter in JS so we can do case-insensitive matching without depending on
+  // collation. The user table is small.
+  const wanted = new Set(emails)
+  return rows.filter((r) => wanted.has(r.email.toLowerCase()))
+}
+
+export function listAdminEmails(): string[] {
+  return Array.from(allowlist())
+}
+
 export interface FocusGameStats {
   focus: {
     started: number

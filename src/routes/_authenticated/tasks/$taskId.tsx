@@ -11,6 +11,7 @@ import {
   getTask,
   reanalyzeTask,
   reopenLastCompletion,
+  repeatTask,
   snoozeTask,
   updateTask,
 } from '../../../server/functions/tasks'
@@ -289,6 +290,19 @@ function EditTaskPage() {
     },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Failed to reopen'),
+  })
+
+  const repeat = useMutation({
+    mutationFn: () => repeatTask({ data: { taskId } }),
+    onSuccess: async () => {
+      toast.success('Added back to your list')
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['someday'] })
+      await qc.invalidateQueries({ queryKey: ['task', taskId] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to re-add task'),
   })
 
   function onSubmit(e: React.FormEvent) {
@@ -681,18 +695,40 @@ function EditTaskPage() {
             so you don't end up with duplicates. XP and streaks are
             re-computed from the event log.
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm('Reopen the most recent completion of this task?')) {
-                reopen.mutate()
-              }
-            }}
-            disabled={reopen.isPending}
-            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-          >
-            {reopen.isPending ? 'Reopening…' : 'Reopen last completion'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm('Reopen the most recent completion of this task?')
+                ) {
+                  reopen.mutate()
+                }
+              }}
+              disabled={reopen.isPending}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+            >
+              {reopen.isPending ? 'Reopening…' : 'Reopen last completion'}
+            </button>
+            {!task.recurrence &&
+            task.lastCompletedAt &&
+            !task.hasOpenInstance ? (
+              <button
+                type="button"
+                onClick={() => repeat.mutate()}
+                disabled={repeat.isPending}
+                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+              >
+                {repeat.isPending ? 'Adding…' : '🔁 Do it again'}
+              </button>
+            ) : null}
+          </div>
+          <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+            <strong>Reopen</strong> rolls back the prior completion (XP &amp;
+            streak adjust). <strong>Do it again</strong> keeps the prior
+            completion in your stats and just adds a fresh open instance for
+            today.
+          </p>
         </fieldset>
 
         <div className="flex items-center justify-between gap-3 pt-2">

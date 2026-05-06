@@ -99,6 +99,13 @@ export const reopenLastCompletion = createServerFn({ method: 'POST' })
     service.reopenLastCompletion(context.userId, data.taskId),
   )
 
+export const repeatTask = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { taskId: string }) => data)
+  .handler(({ data, context }) =>
+    service.repeatTask(context.userId, data.taskId),
+  )
+
 export const snoozeTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string; until: string | null }) => data)

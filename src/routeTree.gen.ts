@@ -20,6 +20,7 @@ import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
 import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
 import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
+import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
 import { Route as AuthenticatedArcadeRouteImport } from './routes/_authenticated/arcade'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
@@ -100,6 +101,11 @@ const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
 const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
   id: '/focus',
   path: '/focus',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFeedbackRoute = AuthenticatedFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedArcadeRoute = AuthenticatedArcadeRouteImport.update({
@@ -254,6 +260,7 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/arcade': typeof AuthenticatedArcadeRoute
+  '/feedback': typeof AuthenticatedFeedbackRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/arcade': typeof AuthenticatedArcadeRoute
+  '/feedback': typeof AuthenticatedFeedbackRoute
   '/focus': typeof AuthenticatedFocusRoute
   '/friends': typeof AuthenticatedFriendsRoute
   '/garden': typeof AuthenticatedGardenRoute
@@ -334,6 +342,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/arcade': typeof AuthenticatedArcadeRoute
+  '/_authenticated/feedback': typeof AuthenticatedFeedbackRoute
   '/_authenticated/focus': typeof AuthenticatedFocusRoute
   '/_authenticated/friends': typeof AuthenticatedFriendsRoute
   '/_authenticated/garden': typeof AuthenticatedGardenRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/arcade'
+    | '/feedback'
     | '/focus'
     | '/friends'
     | '/garden'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/arcade'
+    | '/feedback'
     | '/focus'
     | '/friends'
     | '/garden'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/_authenticated/arcade'
+    | '/_authenticated/feedback'
     | '/_authenticated/focus'
     | '/_authenticated/friends'
     | '/_authenticated/garden'
@@ -589,6 +601,13 @@ declare module '@tanstack/react-router' {
       path: '/focus'
       fullPath: '/focus'
       preLoaderRoute: typeof AuthenticatedFocusRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/feedback': {
+      id: '/_authenticated/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof AuthenticatedFeedbackRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/arcade': {
@@ -785,6 +804,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedArcadeRoute: typeof AuthenticatedArcadeRoute
+  AuthenticatedFeedbackRoute: typeof AuthenticatedFeedbackRoute
   AuthenticatedFocusRoute: typeof AuthenticatedFocusRoute
   AuthenticatedFriendsRoute: typeof AuthenticatedFriendsRoute
   AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
@@ -808,6 +828,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedArcadeRoute: AuthenticatedArcadeRoute,
+  AuthenticatedFeedbackRoute: AuthenticatedFeedbackRoute,
   AuthenticatedFocusRoute: AuthenticatedFocusRoute,
   AuthenticatedFriendsRoute: AuthenticatedFriendsRoute,
   AuthenticatedGardenRoute: AuthenticatedGardenRoute,

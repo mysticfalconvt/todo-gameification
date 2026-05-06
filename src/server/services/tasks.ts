@@ -144,6 +144,8 @@ export interface TaskSummary {
   createdAt: string
   visibility: TaskVisibility
   dueKind: 'hard' | 'week_target'
+  lastCompletedAt: string | null
+  hasOpenInstance: boolean
 }
 
 export interface TaskDetail extends TaskSummary {
@@ -375,6 +377,20 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
       createdAt: tasks.createdAt,
       visibility: tasks.visibility,
       dueKind: tasks.dueKind,
+      lastCompletedAt: sql<Date | null>`(
+        SELECT MAX(${taskInstances.completedAt})
+        FROM ${taskInstances}
+        WHERE ${taskInstances.taskId} = ${tasks.id}
+          AND ${taskInstances.completedAt} IS NOT NULL
+      )`,
+      openInstanceId: sql<string | null>`(
+        SELECT ${taskInstances.id}
+        FROM ${taskInstances}
+        WHERE ${taskInstances.taskId} = ${tasks.id}
+          AND ${taskInstances.completedAt} IS NULL
+          AND ${taskInstances.skippedAt} IS NULL
+        LIMIT 1
+      )`,
     })
     .from(tasks)
     .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
@@ -393,6 +409,10 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
     createdAt: r.createdAt.toISOString(),
     visibility: r.visibility as TaskVisibility,
     dueKind: r.dueKind as 'hard' | 'week_target',
+    lastCompletedAt: r.lastCompletedAt
+      ? new Date(r.lastCompletedAt).toISOString()
+      : null,
+    hasOpenInstance: r.openInstanceId !== null,
   }))
 }
 
@@ -405,6 +425,28 @@ export async function getTask(
     where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
   })
   if (!row) throw new Error('task not found')
+  const [latestCompletion] = await db
+    .select({ completedAt: taskInstances.completedAt })
+    .from(taskInstances)
+    .where(
+      and(
+        eq(taskInstances.taskId, taskId),
+        isNotNull(taskInstances.completedAt),
+      ),
+    )
+    .orderBy(desc(taskInstances.completedAt))
+    .limit(1)
+  const [openInst] = await db
+    .select({ id: taskInstances.id })
+    .from(taskInstances)
+    .where(
+      and(
+        eq(taskInstances.taskId, taskId),
+        isNull(taskInstances.completedAt),
+        isNull(taskInstances.skippedAt),
+      ),
+    )
+    .limit(1)
   return {
     id: row.id,
     title: row.title,
@@ -420,6 +462,10 @@ export async function getTask(
     updatedAt: row.updatedAt.toISOString(),
     visibility: row.visibility as TaskVisibility,
     dueKind: row.dueKind as 'hard' | 'week_target',
+    lastCompletedAt: latestCompletion?.completedAt
+      ? latestCompletion.completedAt.toISOString()
+      : null,
+    hasOpenInstance: !!openInst,
   }
 }
 
@@ -954,6 +1000,65 @@ export async function reopenLastCompletion(
     await rebuildProgression(tx, userId, timeZone)
     return { instanceId: latest.id }
   })
+}
+
+// "Do it again" — spawn a fresh open instance for a previously completed
+// one-off task, preserving the prior completion event(s) and stats.
+// Differs from reopenLastCompletion in that it does NOT touch the event
+// log or rebuild progression; the new instance simply produces a new
+// task.completed event when the user finishes it again.
+export async function repeatTask(
+  userId: string,
+  taskId: string,
+): Promise<{ instanceId: string; dueAt: Date | null }> {
+  if (!taskId) throw new Error('taskId required')
+  const timeZone = await getUserTimeZone(userId)
+  const task = await db.query.tasks.findFirst({
+    where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
+  })
+  if (!task) throw new Error('task not found')
+  if (task.recurrence) {
+    throw new Error('Recurring tasks already auto-repeat on completion')
+  }
+
+  const open = await db
+    .select({ id: taskInstances.id })
+    .from(taskInstances)
+    .where(
+      and(
+        eq(taskInstances.taskId, taskId),
+        eq(taskInstances.userId, userId),
+        isNull(taskInstances.completedAt),
+        isNull(taskInstances.skippedAt),
+      ),
+    )
+    .limit(1)
+  if (open.length > 0) {
+    throw new Error('Task already has an open instance')
+  }
+
+  const now = new Date()
+  const dueAt = firstDueAt({
+    now,
+    recurrence: null,
+    timeOfDay: task.timeOfDay,
+    timeZone,
+    someday: false,
+  })
+
+  const [inst] = await db
+    .insert(taskInstances)
+    .values({ taskId, userId, dueAt, dueKind: task.dueKind })
+    .returning()
+
+  if (dueAt && dueAt > now) {
+    scheduleReminder(
+      { taskInstanceId: inst.id, attempt: 1 },
+      dueAt,
+    ).catch((e) => console.error('scheduleReminder failed', e))
+  }
+
+  return { instanceId: inst.id, dueAt: inst.dueAt }
 }
 
 // Replay all surviving events for this user through applyEvent and

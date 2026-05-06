@@ -75,6 +75,15 @@ function SettingsPage() {
       <GithubSection />
       <TokensSection />
       <SignOutSection />
+      <p className="pt-4 text-center text-xs text-[var(--sea-ink-soft)]">
+        Have an idea for the app?{' '}
+        <Link
+          to="/feedback"
+          className="font-semibold text-[var(--lagoon-deep)] underline"
+        >
+          Send a feature request →
+        </Link>
+      </p>
     </main>
   )
 }

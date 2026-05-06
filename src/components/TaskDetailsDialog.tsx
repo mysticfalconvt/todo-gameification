@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getTask, getTaskStats } from '../server/functions/tasks'
+import { getTask, getTaskStats, repeatTask } from '../server/functions/tasks'
 import {
   addTaskStep,
   deleteTaskStep,
@@ -67,6 +67,21 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Could not defer')
+    },
+  })
+
+  const repeat = useMutation({
+    mutationFn: (id: string) => repeatTask({ data: { taskId: id } }),
+    onSuccess: () => {
+      toast.success('Added back to your list')
+      qc.invalidateQueries({ queryKey: ['today'] })
+      qc.invalidateQueries({ queryKey: ['someday'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['task', taskId] })
+      onClose()
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Could not re-add task')
     },
   })
 
@@ -214,6 +229,19 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
                 className="mr-auto rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)] disabled:opacity-60"
               >
                 🌅 Tomorrow (−30% XP)
+              </button>
+            ) : null}
+            {task &&
+            !task.recurrence &&
+            task.lastCompletedAt &&
+            !task.hasOpenInstance ? (
+              <button
+                type="button"
+                onClick={() => repeat.mutate(instance.taskId)}
+                disabled={repeat.isPending}
+                className="mr-auto rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+              >
+                🔁 Do it again
               </button>
             ) : null}
             <Link
