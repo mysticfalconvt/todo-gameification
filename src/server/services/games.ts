@@ -91,6 +91,12 @@ export async function finishGame(
     }
     const word = event.meta?.word
     if (typeof word === 'string') basePayload.word = word
+    // Word Search promotes theme + size so per-user variety queries
+    // ("don't repeat the same theme on Surprise me") can be a flat lookup.
+    const theme = event.meta?.theme
+    if (typeof theme === 'string') basePayload.theme = theme
+    const size = event.meta?.size
+    if (size === 'small' || size === 'large') basePayload.size = size
 
     await tx.insert(events).values({
       userId: input.userId,

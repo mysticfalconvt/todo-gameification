@@ -7,6 +7,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { Recurrence } from '../../domain/recurrence'
@@ -361,6 +362,27 @@ export const wordleWords = pgTable('wordle_words', {
   }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+// Cache of LLM-generated themed word lists for the Word Search arcade game.
+// Keyed on lowercased theme + size bucket so a hot custom theme is paid for
+// only once. Grids themselves are generated fresh per play.
+export const wordSearchWordLists = pgTable(
+  'word_search_word_lists',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    themeKey: text('theme_key').notNull(),
+    themeDisplay: text('theme_display').notNull(),
+    sizeBucket: text('size_bucket', { enum: ['small', 'large'] }).notNull(),
+    words: jsonb('words').notNull().$type<string[]>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('word_search_word_lists_theme_size_uq').on(
+      t.themeKey,
+      t.sizeBucket,
+    ),
+  ],
+)
 
 // Per-call audit log for outbound LLM requests. Used by the admin
 // dashboard to watch latency + success rate against the single LM Studio
