@@ -14,11 +14,18 @@ export type GameProps = {
   onExit: () => void
 }
 
+// Membership gating for the arcade. 'free' games are always playable; the
+// arcade page renders 'member' games with a lock + upsell overlay for
+// non-members, and the server gates startGame/finishGame so a direct API
+// call can't bypass the UI.
+export type GameTier = 'free' | 'member'
+
 export type GameDefinition = {
   id: string
   name: string
   description: string
   tokenCost: number
+  tier: GameTier
   rewardXp: (result: GameResult) => number
   Component: ComponentType<GameProps>
 }

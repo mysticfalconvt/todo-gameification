@@ -7,9 +7,11 @@ import {
   finishGame,
   getArcadeStats,
 } from '../../server/functions/games'
+import { getMemberStatusFn } from '../../server/functions/billing'
 import { getProgression } from '../../server/functions/tasks'
 import { findGame } from '../../games/registry'
 import type { GameResult } from '../../games/types'
+import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 
 interface PersonalGameStats {
   gameId: string
@@ -64,6 +66,7 @@ export const Route = createFileRoute('/_authenticated/arcade')({
 function ArcadePage() {
   const qc = useQueryClient()
   const [playingId, setPlayingId] = useState<string | null>(null)
+  const [upsellOpen, setUpsellOpen] = useState(false)
 
   const gamesQuery = useQuery({
     queryKey: ['games'],
@@ -76,6 +79,10 @@ function ArcadePage() {
   const statsQuery = useQuery({
     queryKey: ['arcade-stats'],
     queryFn: () => getArcadeStats(),
+  })
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
   })
 
   const finish = useMutation({
@@ -97,6 +104,7 @@ function ArcadePage() {
   const progression = progressionQuery.data
   const games = Array.isArray(gamesQuery.data) ? gamesQuery.data : []
   const balance = progression?.tokens ?? 0
+  const isMember = memberQuery.data?.isMember ?? false
 
   const activeGame = playingId ? findGame(playingId) : null
 
@@ -148,6 +156,7 @@ function ArcadePage() {
       <ul className="space-y-3">
         {games.map((g) => {
           const affordable = balance >= g.tokenCost
+          const locked = g.tier === 'member' && !isMember
           const personal = statsQuery.data?.personal.find(
             (p) => p.gameId === g.id,
           ) as PersonalGameStats | undefined
@@ -165,26 +174,43 @@ function ArcadePage() {
             >
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[var(--sea-ink)]">{g.name}</p>
+                  <p className="flex items-center gap-2 font-semibold text-[var(--sea-ink)]">
+                    {g.name}
+                    {locked ? (
+                      <span className="rounded-full bg-[rgba(50,143,151,0.14)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lagoon-deep)]">
+                        🔒 Members
+                      </span>
+                    ) : null}
+                  </p>
                   <p className="text-xs text-[var(--sea-ink-soft)]">
                     {g.description}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={!affordable || finish.isPending}
-                  onClick={() => setPlayingId(g.id)}
-                  className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
-                >
-                  Play · 🪙 {g.tokenCost}
-                </button>
+                {locked ? (
+                  <button
+                    type="button"
+                    onClick={() => setUpsellOpen(true)}
+                    className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)]"
+                  >
+                    Unlock
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!affordable || finish.isPending}
+                    onClick={() => setPlayingId(g.id)}
+                    className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+                  >
+                    Play · 🪙 {g.tokenCost}
+                  </button>
+                )}
               </div>
               <GameStatsRow
                 personal={personal}
                 friendBest={friendBest}
                 gameId={g.id}
               />
-              {wordle ? <WordlePanel details={wordle} /> : null}
+              {wordle && !locked ? <WordlePanel details={wordle} /> : null}
             </li>
           )
         })}
@@ -195,6 +221,13 @@ function ArcadePage() {
           No games yet.
         </p>
       ) : null}
+
+      <MembersOnlyUpsell
+        open={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+        headline="Unlock the full arcade"
+        subline="Memory Flip and Sliding Puzzle stay free. Members also get Wordle, 2048, and Word Search — plus the AI Coach personalities and the Garden."
+      />
     </main>
   )
 }

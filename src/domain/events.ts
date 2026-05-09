@@ -103,6 +103,63 @@ export type DomainEvent =
       xpRefunded: number
       occurredAt: Date
     }
+  | {
+      // Admin granted a membership outside Stripe. Lifetime today; annual is
+      // allowed by the type for future flexibility (e.g. one-year comp).
+      type: 'membership.granted'
+      tier: 'lifetime' | 'annual'
+      grantedBy: string
+      reason: string | null
+      occurredAt: Date
+    }
+  | {
+      // Stripe checkout completed (subscription OR one-time payment). For
+      // annual: stripeSubscriptionId + currentPeriodEnd are set. For
+      // lifetime: both are null.
+      type: 'membership.activated'
+      tier: 'annual' | 'lifetime'
+      stripeCustomerId: string
+      stripeSubscriptionId: string | null
+      currentPeriodEnd: Date | null
+      stripeEventId: string
+      occurredAt: Date
+    }
+  | {
+      // Annual subscription successfully renewed (invoice.paid).
+      type: 'membership.renewed'
+      currentPeriodEnd: Date
+      stripeEventId: string
+      occurredAt: Date
+    }
+  | {
+      // User clicked "cancel" in the Stripe Customer Portal — sub still
+      // active until currentPeriodEnd.
+      type: 'membership.cancel_scheduled'
+      currentPeriodEnd: Date
+      stripeEventId: string
+      occurredAt: Date
+    }
+  | {
+      // Subscription ended (period_end after cancel, or payment failed past
+      // grace). Drop tier to free.
+      type: 'membership.lapsed'
+      reason: 'period_end' | 'payment_failed' | 'voluntary'
+      stripeEventId: string
+      occurredAt: Date
+    }
+  | {
+      // Lifetime payment refunded. Drop tier to free.
+      type: 'membership.refunded'
+      stripeEventId: string
+      occurredAt: Date
+    }
+  | {
+      // Admin revoked an admin-granted membership.
+      type: 'membership.revoked'
+      revokedBy: string
+      reason: string | null
+      occurredAt: Date
+    }
 
 export type DomainEventType = DomainEvent['type']
 

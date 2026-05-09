@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth'
 import {
   countOpenInstances,
   getLlmCallDetail,
+  grantLifetime,
   grantTokens,
   isAdmin,
   listAllUsers,
@@ -12,6 +13,7 @@ import {
   loadAdminSummary,
   loadLlmUsage,
   loadUserDetail,
+  revokeMembership,
 } from '../services/admin'
 import { loadLlmMetrics } from '../services/llmTracking'
 import { loadJobStats } from '../services/jobs'
@@ -97,6 +99,50 @@ export const getAdminLlmCallFn = createServerFn({ method: 'POST' })
     return { id: data.id }
   })
   .handler(async ({ data }) => getLlmCallDetail(data.id))
+
+export const grantLifetimeFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .inputValidator((data: { userId: string; reason?: string | null }) => {
+    if (typeof data?.userId !== 'string' || !data.userId) {
+      throw new Error('userId required')
+    }
+    return {
+      userId: data.userId,
+      reason:
+        typeof data.reason === 'string' && data.reason.trim()
+          ? data.reason.trim()
+          : null,
+    }
+  })
+  .handler(({ data, context }) =>
+    grantLifetime({
+      targetUserId: data.userId,
+      grantedBy: context.userId,
+      reason: data.reason,
+    }),
+  )
+
+export const revokeMembershipFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .inputValidator((data: { userId: string; reason?: string | null }) => {
+    if (typeof data?.userId !== 'string' || !data.userId) {
+      throw new Error('userId required')
+    }
+    return {
+      userId: data.userId,
+      reason:
+        typeof data.reason === 'string' && data.reason.trim()
+          ? data.reason.trim()
+          : null,
+    }
+  })
+  .handler(({ data, context }) =>
+    revokeMembership({
+      targetUserId: data.userId,
+      revokedBy: context.userId,
+      reason: data.reason,
+    }),
+  )
 
 export const grantTokensFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])

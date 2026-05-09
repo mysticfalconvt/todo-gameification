@@ -5,11 +5,13 @@ import {
   getCommunityGardenFn,
   getGardenFn,
 } from '../../server/functions/garden'
+import { getMemberStatusFn } from '../../server/functions/billing'
 import type { GardenPlant } from '../../server/services/garden'
 import type {
   CommunityGardenEntry,
   CommunityGardenScope,
 } from '../../server/services/communityGarden'
+import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 
 export const Route = createFileRoute('/_authenticated/garden')({
   component: GardenPage,
@@ -244,6 +246,23 @@ type Tab = 'yours' | 'community'
 
 function GardenPage() {
   const [tab, setTab] = useState<Tab>('yours')
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+  })
+
+  if (memberQuery.isLoading) {
+    return (
+      <main className="page-wrap px-4 py-8">
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      </main>
+    )
+  }
+
+  if (!memberQuery.data?.isMember) {
+    return <GardenUpsell />
+  }
+
   return (
     <main className="page-wrap space-y-6 px-4 py-8">
       <header>
@@ -275,6 +294,48 @@ function GardenPage() {
       </nav>
 
       {tab === 'yours' ? <YoursPanel /> : <CommunityPanel />}
+    </main>
+  )
+}
+
+function GardenUpsell() {
+  const [open, setOpen] = useState(false)
+  return (
+    <main className="page-wrap px-4 py-12">
+      <section className="mx-auto max-w-xl text-center">
+        <p className="island-kicker mb-3">Members</p>
+        <div className="mb-4 text-7xl" aria-hidden>
+          🌱
+        </div>
+        <h1 className="display-title mb-3 text-3xl font-bold text-[var(--sea-ink)]">
+          Your garden grows when you upgrade
+        </h1>
+        <p className="mx-auto mb-6 max-w-md text-[var(--sea-ink-soft)]">
+          Every task you complete waters a plant in its category. Consistency
+          makes them bloom — and members can compare gardens with friends.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="btn-primary"
+          >
+            See pricing
+          </button>
+          <Link
+            to="/today"
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+          >
+            Back to today
+          </Link>
+        </div>
+      </section>
+      <MembersOnlyUpsell
+        open={open}
+        onClose={() => setOpen(false)}
+        headline="Grow a garden"
+        subline="Members get the full Garden, the AI Coach personalities, and the full arcade."
+      />
     </main>
   )
 }

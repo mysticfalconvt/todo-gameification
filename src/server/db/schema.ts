@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -383,6 +384,53 @@ export const wordSearchWordLists = pgTable(
     ),
   ],
 )
+
+// Membership projection. Source of truth is the `events` table
+// (membership.* variants); this row is folded from the event log on
+// every state change so reads are O(1). `stripeCustomerId` is unique
+// when set so the webhook can attribute by customer; admin-granted
+// lifetime rows have it null.
+export const memberships = pgTable(
+  'memberships',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    tier: text('tier', { enum: ['free', 'annual', 'lifetime'] })
+      .notNull()
+      .default('free'),
+    status: text('status', {
+      enum: ['active', 'canceled', 'past_due', 'lapsed', 'none'],
+    })
+      .notNull()
+      .default('none'),
+    source: text('source', { enum: ['stripe', 'admin', 'none'] })
+      .notNull()
+      .default('none'),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    currentPeriodEnd: timestamp('current_period_end'),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    grantedBy: text('granted_by'),
+    grantedAt: timestamp('granted_at'),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('memberships_stripe_customer_uq')
+      .on(t.stripeCustomerId)
+      .where(sql`${t.stripeCustomerId} IS NOT NULL`),
+  ],
+)
+
+// Idempotency table for Stripe webhook delivery. Webhook handler does
+// `INSERT … ON CONFLICT DO NOTHING RETURNING id`; an empty result means
+// Stripe is replaying an event we've already processed, so we return 200
+// without doing the work twice.
+export const stripeWebhookEvents = pgTable('stripe_webhook_events', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  processedAt: timestamp('processed_at').notNull().defaultNow(),
+})
 
 // Per-call audit log for outbound LLM requests. Used by the admin
 // dashboard to watch latency + success rate against the single LM Studio

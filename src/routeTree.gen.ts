@@ -9,12 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe-webhook'
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
@@ -49,6 +51,11 @@ import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api
 import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
 import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
 
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -76,6 +83,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/auth/forgot-password',
   path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe-webhook',
+  path: '/api/stripe-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMcpRoute = ApiMcpRouteImport.update({
@@ -259,6 +271,7 @@ const ApiV1InstancesInstanceIdCompleteRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/pricing': typeof PricingRoute
   '/arcade': typeof AuthenticatedArcadeRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
   '/focus': typeof AuthenticatedFocusRoute
@@ -266,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -299,6 +313,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/pricing': typeof PricingRoute
   '/arcade': typeof AuthenticatedArcadeRoute
   '/feedback': typeof AuthenticatedFeedbackRoute
   '/focus': typeof AuthenticatedFocusRoute
@@ -306,6 +321,7 @@ export interface FileRoutesByTo {
   '/garden': typeof AuthenticatedGardenRoute
   '/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -341,6 +357,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/pricing': typeof PricingRoute
   '/_authenticated/arcade': typeof AuthenticatedArcadeRoute
   '/_authenticated/feedback': typeof AuthenticatedFeedbackRoute
   '/_authenticated/focus': typeof AuthenticatedFocusRoute
@@ -348,6 +365,7 @@ export interface FileRoutesById {
   '/_authenticated/garden': typeof AuthenticatedGardenRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -383,6 +401,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/pricing'
     | '/arcade'
     | '/feedback'
     | '/focus'
@@ -390,6 +409,7 @@ export interface FileRouteTypes {
     | '/garden'
     | '/today'
     | '/api/mcp'
+    | '/api/stripe-webhook'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -423,6 +443,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/pricing'
     | '/arcade'
     | '/feedback'
     | '/focus'
@@ -430,6 +451,7 @@ export interface FileRouteTypes {
     | '/garden'
     | '/today'
     | '/api/mcp'
+    | '/api/stripe-webhook'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -464,6 +486,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/pricing'
     | '/_authenticated/arcade'
     | '/_authenticated/feedback'
     | '/_authenticated/focus'
@@ -471,6 +494,7 @@ export interface FileRouteTypes {
     | '/_authenticated/garden'
     | '/_authenticated/today'
     | '/api/mcp'
+    | '/api/stripe-webhook'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -506,7 +530,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  PricingRoute: typeof PricingRoute
   ApiMcpRoute: typeof ApiMcpRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
@@ -526,6 +552,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -566,6 +599,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/forgot-password'
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe-webhook': {
+      id: '/api/stripe-webhook'
+      path: '/api/stripe-webhook'
+      fullPath: '/api/stripe-webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/mcp': {
@@ -858,7 +898,9 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  PricingRoute: PricingRoute,
   ApiMcpRoute: ApiMcpRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,

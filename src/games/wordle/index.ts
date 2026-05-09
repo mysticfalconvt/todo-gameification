@@ -7,6 +7,7 @@ export const wordle: GameDefinition = {
   description:
     'Guess the 5-letter word in 6 tries. Fewer guesses = more XP (20 → 5).',
   tokenCost: 1,
+  tier: 'member',
   rewardXp: (result) => {
     if (!result.won) return 0
     const guesses = result.score ?? MAX_GUESSES

@@ -5,7 +5,9 @@ import { toast } from 'sonner'
 import {
   getAdminUserDetailFn,
   getIsAdminFn,
+  grantLifetimeFn,
   grantTokensFn,
+  revokeMembershipFn,
 } from '../../../server/functions/admin'
 
 export const Route = createFileRoute('/_authenticated/admin/users/$userId')({
@@ -56,6 +58,7 @@ function AdminUserDetailPage() {
         <>
           <SummaryGrid data={data} />
           <MotivationSection data={data} />
+          <MembershipSection data={data} />
           <GrantTokensForm data={data} />
           <OpenInstancesTable data={data} />
           <RecentTasksTable data={data} />
@@ -278,6 +281,137 @@ function GrantTokensForm({ data }: { data: UserDetail }) {
         Current balance: 🪙 {data.progression.tokens}. Grants are recorded as{' '}
         <code>tokens.granted</code> events and survive progression rebuilds.
       </p>
+    </section>
+  )
+}
+
+function MembershipSection({ data }: { data: UserDetail }) {
+  const qc = useQueryClient()
+  // Defensive default: an in-flight cache or older API response may not
+  // carry the membership block. Treat it as a synthesized free row.
+  const m = data.membership ?? {
+    tier: 'free' as const,
+    status: 'none' as const,
+    source: 'none' as const,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    grantedBy: null,
+    grantedAt: null,
+    stripeCustomerId: null,
+  }
+  const [reason, setReason] = useState('')
+
+  const grant = useMutation({
+    mutationFn: (input: { userId: string; reason: string | null }) =>
+      grantLifetimeFn({ data: input }),
+    onSuccess: () => {
+      toast.success('Lifetime granted ✨')
+      setReason('')
+      qc.invalidateQueries({ queryKey: ['admin', 'user-detail', data.user.id] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Grant failed'),
+  })
+
+  const revoke = useMutation({
+    mutationFn: (input: { userId: string; reason: string | null }) =>
+      revokeMembershipFn({ data: input }),
+    onSuccess: () => {
+      toast.success('Membership revoked')
+      setReason('')
+      qc.invalidateQueries({ queryKey: ['admin', 'user-detail', data.user.id] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Revoke failed'),
+  })
+
+  const isStripeSourced = m.source === 'stripe'
+  const canRevoke = m.tier !== 'free' && !isStripeSourced
+  const tierLabel =
+    m.tier === 'lifetime'
+      ? 'Lifetime'
+      : m.tier === 'annual'
+        ? 'Annual'
+        : 'Free'
+  const statusBits: string[] = []
+  if (m.tier !== 'free') statusBits.push(m.status)
+  if (m.cancelAtPeriodEnd && m.currentPeriodEnd) {
+    statusBits.push(`cancels ${formatDate(m.currentPeriodEnd)}`)
+  } else if (m.tier === 'annual' && m.currentPeriodEnd) {
+    statusBits.push(`renews ${formatDate(m.currentPeriodEnd)}`)
+  }
+  if (m.source === 'admin' && m.grantedAt) {
+    statusBits.push(`granted ${relativeTime(m.grantedAt)}`)
+  }
+  if (m.stripeCustomerId) {
+    statusBits.push(`stripe ${m.stripeCustomerId.slice(-8)}`)
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-bold text-[var(--sea-ink)]">Membership</h2>
+      <div className="island-shell space-y-3 rounded-2xl p-4">
+        <p className="text-sm">
+          <span className="font-semibold text-[var(--sea-ink)]">{tierLabel}</span>
+          {statusBits.length > 0 ? (
+            <span className="text-[var(--sea-ink-soft)]"> · {statusBits.join(' · ')}</span>
+          ) : null}
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-1 flex-col text-xs text-[var(--sea-ink-soft)]">
+            Reason (optional)
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. beta tester thank-you"
+              className="mt-1 w-full rounded border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1 text-sm text-[var(--sea-ink)]"
+              maxLength={200}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() =>
+              grant.mutate({
+                userId: data.user.id,
+                reason: reason.trim() || null,
+              })
+            }
+            disabled={grant.isPending || m.tier === 'lifetime'}
+            className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+          >
+            {m.tier === 'lifetime'
+              ? 'Already lifetime'
+              : grant.isPending
+                ? 'Granting…'
+                : 'Grant lifetime'}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              revoke.mutate({
+                userId: data.user.id,
+                reason: reason.trim() || null,
+              })
+            }
+            disabled={!canRevoke || revoke.isPending}
+            title={
+              isStripeSourced
+                ? 'Refund this user in the Stripe dashboard instead.'
+                : undefined
+            }
+            className="rounded-full border border-[rgba(230,90,90,0.3)] bg-[rgba(230,90,90,0.1)] px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-40"
+          >
+            {revoke.isPending ? 'Revoking…' : 'Revoke'}
+          </button>
+        </div>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          Grants are recorded as <code>membership.granted</code> events and
+          rebuild deterministically from the event log. Stripe-sourced
+          memberships must be refunded in Stripe — that fires a webhook which
+          drops this user back to free.
+        </p>
+      </div>
     </section>
   )
 }

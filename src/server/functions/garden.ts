@@ -5,10 +5,14 @@ import {
   getCommunityGarden,
   type CommunityGardenScope,
 } from '../services/communityGarden'
+import { requireMember } from '../services/membership'
 
 export const getGardenFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => getGarden(context.userId))
+  .handler(async ({ context }) => {
+    await requireMember(context.userId)
+    return getGarden(context.userId)
+  })
 
 export const getCommunityGardenFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
@@ -18,6 +22,7 @@ export const getCommunityGardenFn = createServerFn({ method: 'GET' })
     }
     return data
   })
-  .handler(({ data, context }) =>
-    getCommunityGarden(context.userId, { scope: data.scope }),
-  )
+  .handler(async ({ data, context }) => {
+    await requireMember(context.userId)
+    return getCommunityGarden(context.userId, { scope: data.scope })
+  })

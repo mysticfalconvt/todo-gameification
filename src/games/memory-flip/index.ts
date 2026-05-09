@@ -6,6 +6,7 @@ export const memoryFlip: GameDefinition = {
   name: 'Memory Flip',
   description: 'Match all 6 pairs before 6 mismatches. Fewer moves = more XP.',
   tokenCost: 1,
+  tier: 'free',
   rewardXp: (result) => {
     if (!result.won) return 0
     const moves = result.score ?? 99

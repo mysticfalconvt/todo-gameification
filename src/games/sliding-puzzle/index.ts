@@ -7,6 +7,7 @@ export const slidingPuzzle: GameDefinition = {
   description:
     'Slide the 8 tiles into order. Fewer moves = more XP (20 → 5).',
   tokenCost: 1,
+  tier: 'free',
   rewardXp: (result) => {
     if (!result.won) return 0
     const moves = result.score ?? 100

@@ -7,6 +7,7 @@ import { db } from '../db/client'
 import {
   events,
   llmCallLog,
+  memberships,
   progression,
   pushSubscriptions,
   taskInstances,
@@ -15,6 +16,12 @@ import {
 } from '../db/schema'
 import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
+import {
+  applyMembershipEvent,
+  INITIAL_MEMBERSHIP,
+  type MembershipState,
+} from '../../domain/membership'
+import { upsertProjection } from './membership'
 
 function allowlist(): Set<string> {
   const raw = process.env.ADMIN_EMAILS
@@ -458,6 +465,16 @@ export interface AdminUserDetail {
     errorMessage: string | null
   }>
   motivation: FocusGameStats
+  membership: {
+    tier: 'free' | 'annual' | 'lifetime'
+    status: 'active' | 'canceled' | 'past_due' | 'lapsed' | 'none'
+    source: 'stripe' | 'admin' | 'none'
+    currentPeriodEnd: string | null
+    cancelAtPeriodEnd: boolean
+    grantedBy: string | null
+    grantedAt: string | null
+    stripeCustomerId: string | null
+  }
 }
 
 export async function loadUserDetail(
@@ -478,6 +495,7 @@ export async function loadUserDetail(
     recentEventRows,
     pushRows,
     llmRows,
+    membershipRow,
   ] = await Promise.all([
     db.query.progression.findFirst({
       where: eq(progression.userId, targetUserId),
@@ -579,6 +597,9 @@ export async function loadUserDetail(
       .where(eq(llmCallLog.userId, targetUserId))
       .orderBy(desc(llmCallLog.startedAt))
       .limit(20),
+    db.query.memberships.findFirst({
+      where: eq(memberships.userId, targetUserId),
+    }),
   ])
 
   const open = openInstanceRows[0]
@@ -655,6 +676,16 @@ export async function loadUserDetail(
       errorMessage: l.errorMessage,
     })),
     motivation: await loadFocusGameStats(targetUserId),
+    membership: {
+      tier: membershipRow?.tier ?? 'free',
+      status: membershipRow?.status ?? 'none',
+      source: membershipRow?.source ?? 'none',
+      currentPeriodEnd: membershipRow?.currentPeriodEnd?.toISOString() ?? null,
+      cancelAtPeriodEnd: membershipRow?.cancelAtPeriodEnd ?? false,
+      grantedBy: membershipRow?.grantedBy ?? null,
+      grantedAt: membershipRow?.grantedAt?.toISOString() ?? null,
+      stripeCustomerId: membershipRow?.stripeCustomerId ?? null,
+    },
   }
 }
 
@@ -969,6 +1000,125 @@ export async function getLlmCallDetail(
     messages: r.messages,
     response: r.response,
   }
+}
+
+// Admin-issued lifetime grant. Writes a `membership.granted` event and
+// upserts the membership projection in one transaction. Idempotent on
+// repeated calls (each call writes a new event but the projection
+// converges on the same lifetime/admin state).
+export async function grantLifetime(input: {
+  targetUserId: string
+  grantedBy: string
+  reason: string | null
+}): Promise<{ tier: 'lifetime' }> {
+  const now = new Date()
+  const event: DomainEvent = {
+    type: 'membership.granted',
+    tier: 'lifetime',
+    grantedBy: input.grantedBy,
+    reason: input.reason,
+    occurredAt: now,
+  }
+
+  await db.transaction(async (tx) => {
+    const target = await tx.query.user.findFirst({
+      where: eq(userTable.id, input.targetUserId),
+      columns: { id: true },
+    })
+    if (!target) throw new Error('target user not found')
+
+    const current = await tx.query.memberships.findFirst({
+      where: eq(memberships.userId, input.targetUserId),
+    })
+    const prev: MembershipState = current
+      ? {
+          tier: current.tier,
+          status: current.status,
+          source: current.source,
+          stripeCustomerId: current.stripeCustomerId,
+          stripeSubscriptionId: current.stripeSubscriptionId,
+          currentPeriodEnd: current.currentPeriodEnd,
+          cancelAtPeriodEnd: current.cancelAtPeriodEnd,
+          grantedBy: current.grantedBy,
+          grantedAt: current.grantedAt,
+        }
+      : INITIAL_MEMBERSHIP
+    const next = applyMembershipEvent(prev, event)
+
+    await tx.insert(events).values({
+      userId: input.targetUserId,
+      type: event.type,
+      payload: {
+        tier: event.tier,
+        grantedBy: event.grantedBy,
+        reason: event.reason,
+      },
+      occurredAt: now,
+    })
+
+    await upsertProjection(input.targetUserId, next, tx as unknown as typeof db)
+  })
+
+  return { tier: 'lifetime' }
+}
+
+// Admin-issued revoke. Only meaningful for admin-granted memberships;
+// the route disables the button for stripe-sourced rows so we never end
+// up here for those, but the service stays defensive.
+export async function revokeMembership(input: {
+  targetUserId: string
+  revokedBy: string
+  reason: string | null
+}): Promise<{ tier: 'free' }> {
+  const now = new Date()
+  const event: DomainEvent = {
+    type: 'membership.revoked',
+    revokedBy: input.revokedBy,
+    reason: input.reason,
+    occurredAt: now,
+  }
+
+  await db.transaction(async (tx) => {
+    const target = await tx.query.user.findFirst({
+      where: eq(userTable.id, input.targetUserId),
+      columns: { id: true },
+    })
+    if (!target) throw new Error('target user not found')
+
+    const current = await tx.query.memberships.findFirst({
+      where: eq(memberships.userId, input.targetUserId),
+    })
+    if (!current) throw new Error('user has no membership to revoke')
+    if (current.source === 'stripe') {
+      throw new Error(
+        'Refund this user in the Stripe dashboard — admin revoke only applies to admin-granted memberships.',
+      )
+    }
+
+    const prev: MembershipState = {
+      tier: current.tier,
+      status: current.status,
+      source: current.source,
+      stripeCustomerId: current.stripeCustomerId,
+      stripeSubscriptionId: current.stripeSubscriptionId,
+      currentPeriodEnd: current.currentPeriodEnd,
+      cancelAtPeriodEnd: current.cancelAtPeriodEnd,
+      grantedBy: current.grantedBy,
+      grantedAt: current.grantedAt,
+    }
+    const next = applyMembershipEvent(prev, event)
+
+    await tx.insert(events).values({
+      userId: input.targetUserId,
+      type: event.type,
+      payload: { revokedBy: event.revokedBy, reason: event.reason },
+      occurredAt: now,
+    })
+
+    await upsertProjection(input.targetUserId, next, tx as unknown as typeof db)
+  })
+
+  return { tier: 'free' }
 }
 
 // Admin-issued token grant. Writes a `tokens.granted` event so the balance

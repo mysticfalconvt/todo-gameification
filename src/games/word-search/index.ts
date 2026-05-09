@@ -10,6 +10,7 @@ export const wordSearch: GameDefinition = {
   description:
     'Pick a theme (or write your own) and tap two ends of each hidden word. Find them all for full XP.',
   tokenCost: 1,
+  tier: 'member',
   rewardXp: (result) => {
     const total =
       typeof result.meta?.total === 'number' && result.meta.total > 0

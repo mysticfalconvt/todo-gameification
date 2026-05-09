@@ -1,5 +1,6 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { getCurrentSession } from '../server/session'
+import { PricingTable } from '../components/pricing/PricingTable'
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
@@ -62,6 +63,20 @@ function LandingPage() {
           title="Your data, your rules"
           body="Public / friends / private visibility, per-profile and per-task. A REST API and MCP server so your own tools can read and write."
         />
+      </section>
+
+      <section className="mx-auto mt-16 max-w-5xl">
+        <header className="mb-6 text-center">
+          <p className="island-kicker mb-2">Pricing</p>
+          <h2 className="display-title mb-2 text-3xl font-bold text-[var(--sea-ink)]">
+            Free tier you can actually live in
+          </h2>
+          <p className="text-[var(--sea-ink-soft)]">
+            Memory Flip and Sliding Puzzle stay free. Upgrade unlocks the rest
+            of the arcade, the AI Coach personalities, and the Garden.
+          </p>
+        </header>
+        <PricingTable publicVariant />
       </section>
 
       <section className="mx-auto mt-16 max-w-2xl text-center">

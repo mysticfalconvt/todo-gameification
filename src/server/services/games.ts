@@ -4,6 +4,8 @@ import { events, progression } from '../db/schema'
 import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { findGame, GAMES } from '../../games/registry'
+import type { GameTier } from '../../games/types'
+import { getMemberStatus } from './membership'
 import { getUserTimeZone } from './tasks'
 import { checkAndNotifyLowPool } from './wordle'
 
@@ -12,6 +14,7 @@ export interface GameMeta {
   name: string
   description: string
   tokenCost: number
+  tier: GameTier
 }
 
 export function listGames(): GameMeta[] {
@@ -20,6 +23,7 @@ export function listGames(): GameMeta[] {
     name: g.name,
     description: g.description,
     tokenCost: g.tokenCost,
+    tier: g.tier,
   }))
 }
 
@@ -59,6 +63,16 @@ export async function finishGame(
 ): Promise<FinishGameResult> {
   const game = findGame(input.gameId)
   if (!game) throw new Error('unknown game')
+
+  // Server-side gate. The arcade UI already hides member-tier games for
+  // free users, but a direct API call would otherwise bypass it.
+  if (game.tier === 'member') {
+    const status = await getMemberStatus(input.userId)
+    if (!status.isMember) {
+      throw new Error('Members only — upgrade to play this game')
+    }
+  }
+
   const xpReward = game.rewardXp(input.result)
   const timeZone = await getUserTimeZone(input.userId)
   const now = new Date()

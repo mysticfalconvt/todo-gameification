@@ -4,7 +4,7 @@
 // filenames mean stale JS/CSS is usually harmless — but bumping on schema or
 // API contract changes is a fast way to flush stale shells on everyone's
 // phones.)
-const CACHE_VERSION = 'v13'
+const CACHE_VERSION = 'v14'
 const ASSET_CACHE = `todo-xp-assets-${CACHE_VERSION}`
 const HTML_CACHE = `todo-xp-html-${CACHE_VERSION}`
 const API_CACHE = `todo-xp-api-${CACHE_VERSION}`
@@ -32,7 +32,8 @@ self.addEventListener('activate', (event) => {
 
 function isAuthRequest(url) {
   return url.pathname.startsWith('/api/auth/') ||
-    url.pathname.startsWith('/api/push/')
+    url.pathname.startsWith('/api/push/') ||
+    url.pathname.startsWith('/api/stripe-webhook')
 }
 
 function isHashedAsset(url) {

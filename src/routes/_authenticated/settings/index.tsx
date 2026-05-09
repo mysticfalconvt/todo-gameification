@@ -51,6 +51,17 @@ import {
   sendFriendRequestFn,
   unblockUserFn,
 } from '../../../server/functions/social'
+import {
+  createAnnualCheckoutFn,
+  createLifetimeCheckoutFn,
+  createPortalSessionFn,
+  getMemberStatusFn,
+  getPricingDisplayFn,
+} from '../../../server/functions/billing'
+import {
+  MembersOnlyUpsell,
+  formatMoney,
+} from '../../../components/membership/MembersOnlyUpsell'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
@@ -65,6 +76,7 @@ function SettingsPage() {
         Profile & settings
       </h1>
       <ProfileSection user={session?.user} />
+      <MembershipSection />
       <PrivacySection />
       <FriendsSection />
       <AppearanceSection />
@@ -399,6 +411,168 @@ function AppearanceSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Membership
+// ---------------------------------------------------------------------------
+
+function MembershipSection() {
+  // After Stripe Checkout we're redirected to /settings?billing=pending;
+  // the webhook is the only thing that flips the projection, so poll for
+  // ~30s before falling back to a "we'll email when ready" message.
+  const [pending, setPending] = useState(() =>
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('billing') === 'pending'
+      : false,
+  )
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+    refetchInterval: pending ? 2000 : false,
+  })
+
+  useEffect(() => {
+    if (!pending) return
+    if (memberQuery.data?.isMember) {
+      setPending(false)
+      // Strip the query so a refresh doesn't restart polling.
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('billing')
+        window.history.replaceState({}, '', url.toString())
+      }
+      toast.success('Membership activated 🎉')
+      return
+    }
+    const timeout = setTimeout(() => setPending(false), 30_000)
+    return () => clearTimeout(timeout)
+  }, [pending, memberQuery.data?.isMember])
+
+  const pricingQuery = useQuery({
+    queryKey: ['pricing-display'],
+    queryFn: () => getPricingDisplayFn(),
+    enabled: memberQuery.data ? !memberQuery.data.isMember : false,
+    staleTime: 60_000,
+  })
+
+  const annual = useMutation({
+    mutationFn: () => createAnnualCheckoutFn(),
+    onSuccess: ({ url }) => window.location.assign(url),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+  })
+  const lifetime = useMutation({
+    mutationFn: () => createLifetimeCheckoutFn(),
+    onSuccess: ({ url }) => window.location.assign(url),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+  })
+  const portal = useMutation({
+    mutationFn: () => createPortalSessionFn(),
+    onSuccess: ({ url }) => window.location.assign(url),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not open portal'),
+  })
+
+  const m = memberQuery.data
+  if (memberQuery.isLoading || !m) {
+    return (
+      <section className="island-shell max-w-xl rounded-2xl p-6">
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+          Membership
+        </h2>
+        <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
+      </section>
+    )
+  }
+
+  const a = pricingQuery.data?.annual
+  const l = pricingQuery.data?.lifetime
+  const annualLabel = a
+    ? `${formatMoney(a.amount, a.currency)}/${a.interval}`
+    : '…'
+  const lifetimeLabel = l ? `${formatMoney(l.amount, l.currency)} once` : '…'
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+        Membership
+      </h2>
+      {m.tier === 'lifetime' ? (
+        <div className="space-y-2">
+          <p className="text-base font-semibold text-[var(--sea-ink)]">
+            Lifetime ✨
+          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            {m.source === 'admin'
+              ? 'Granted by the team — thank you for testing.'
+              : 'You bought lifetime access. No renewals, no expiry.'}
+          </p>
+        </div>
+      ) : m.tier === 'annual' ? (
+        <div className="space-y-3">
+          <p className="text-base font-semibold text-[var(--sea-ink)]">
+            Annual member
+          </p>
+          {m.cancelAtPeriodEnd && m.currentPeriodEnd ? (
+            <p className="text-sm text-[rgb(180,90,40)]">
+              Cancels {new Date(m.currentPeriodEnd).toLocaleDateString()}.
+            </p>
+          ) : m.currentPeriodEnd ? (
+            <p className="text-sm text-[var(--sea-ink-soft)]">
+              Renews {new Date(m.currentPeriodEnd).toLocaleDateString()}.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => portal.mutate()}
+            disabled={portal.isPending}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+          >
+            {portal.isPending ? 'Opening…' : 'Manage billing'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pending ? (
+            <div className="rounded-2xl border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.1)] p-3 text-sm text-[var(--lagoon-deep)]">
+              Finalizing your payment with Stripe… this usually takes a few
+              seconds. The page updates automatically.
+            </div>
+          ) : null}
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            You're on Free. Upgrade to unlock the full arcade, the AI Coach
+            personalities + detailed mode, and the Garden.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => annual.mutate()}
+              disabled={annual.isPending || lifetime.isPending}
+              className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+            >
+              {annual.isPending ? 'Redirecting…' : `Annual · ${annualLabel}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => lifetime.mutate()}
+              disabled={annual.isPending || lifetime.isPending}
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+            >
+              {lifetime.isPending ? 'Redirecting…' : `Lifetime · ${lifetimeLabel}`}
+            </button>
+            <Link
+              to="/pricing"
+              className="self-center text-xs text-[var(--lagoon-deep)] no-underline"
+            >
+              Compare features →
+            </Link>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Coach attitude
 // ---------------------------------------------------------------------------
 
@@ -448,6 +622,11 @@ function CoachAttitudeSection() {
     queryKey: ['profile'],
     queryFn: () => getProfile(),
   })
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+  })
+  const [upsellOpen, setUpsellOpen] = useState(false)
 
   const setPrefs = useMutation({
     mutationFn: (patch: {
@@ -468,6 +647,7 @@ function CoachAttitudeSection() {
   const detailed = profileQuery.data?.coachDetailed ?? false
   const selectedHint =
     COACH_ATTITUDE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
+  const isMember = memberQuery.data?.isMember ?? false
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
@@ -484,6 +664,7 @@ function CoachAttitudeSection() {
       >
         {COACH_ATTITUDE_OPTIONS.map((o) => {
           const selected = current === o.value
+          const locked = !isMember && o.value !== 'warm'
           return (
             <button
               key={o.value}
@@ -491,14 +672,20 @@ function CoachAttitudeSection() {
               role="radio"
               aria-checked={selected}
               disabled={setPrefs.isPending}
-              onClick={() => setPrefs.mutate({ coachAttitude: o.value })}
+              onClick={() => {
+                if (locked) {
+                  setUpsellOpen(true)
+                  return
+                }
+                setPrefs.mutate({ coachAttitude: o.value })
+              }}
               className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition disabled:opacity-60 ${
                 selected
                   ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
                   : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
               }`}
             >
-              <span aria-hidden>{o.glyph}</span>
+              <span aria-hidden>{locked ? '🔒' : o.glyph}</span>
               <span>{o.label}</span>
             </button>
           )
@@ -507,11 +694,22 @@ function CoachAttitudeSection() {
       {selectedHint && (
         <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
       )}
+      {!isMember && (
+        <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+          Warm is the free voice. Members get the other four personalities and
+          detailed responses.
+        </p>
+      )}
 
       <div className="mt-5 flex items-start justify-between gap-4 border-t border-[var(--line)] pt-4">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-[var(--sea-ink)]">
+          <p className="flex items-center gap-2 text-sm font-semibold text-[var(--sea-ink)]">
             Detailed responses
+            {!isMember ? (
+              <span className="rounded-full bg-[rgba(50,143,151,0.14)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lagoon-deep)]">
+                🔒 Members
+              </span>
+            ) : null}
           </p>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
             Off: 1–3 sentences. On: 3–6 sentences with more context — names a
@@ -520,12 +718,24 @@ function CoachAttitudeSection() {
           </p>
         </div>
         <Switch
-          checked={detailed}
+          checked={detailed && isMember}
           disabled={setPrefs.isPending}
-          onChange={(v) => setPrefs.mutate({ coachDetailed: v })}
+          onChange={(v) => {
+            if (!isMember) {
+              setUpsellOpen(true)
+              return
+            }
+            setPrefs.mutate({ coachDetailed: v })
+          }}
           ariaLabel="Detailed responses"
         />
       </div>
+      <MembersOnlyUpsell
+        open={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+        headline="Unlock the full coach"
+        subline="Members get all five personalities (Snarky, Stoic, Drill Sergeant, Zen) and detailed mode."
+      />
     </section>
   )
 }

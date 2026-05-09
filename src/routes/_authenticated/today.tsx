@@ -10,7 +10,9 @@ import {
 } from '../../server/functions/tasks'
 import { listCategories } from '../../server/functions/categories'
 import { getCoachSummary } from '../../server/functions/coach'
+import { getMemberStatusFn } from '../../server/functions/billing'
 import { getProfile } from '../../server/functions/user'
+import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 import type { GardenView } from '../../server/services/garden'
 import { runOrQueue } from '../../lib/offline-queue'
 import {
@@ -442,6 +444,8 @@ function TodayPage() {
         }}
       />
 
+      <MembershipUpsellCard />
+
       <p className="pt-8 text-center text-xs text-[var(--sea-ink-soft)]">
         Have an idea for the app?{' '}
         <Link
@@ -452,6 +456,55 @@ function TodayPage() {
         </Link>
       </p>
     </main>
+  )
+}
+
+function MembershipUpsellCard() {
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+  })
+  const [open, setOpen] = useState(false)
+
+  // Hide entirely for members and while loading — no point in a flicker.
+  if (!memberQuery.data || memberQuery.data.isMember) return null
+
+  return (
+    <section className="mt-10 rounded-2xl border border-[rgba(50,143,151,0.25)] bg-[rgba(79,184,178,0.08)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="island-kicker mb-1">Members</p>
+          <p className="text-sm font-semibold text-[var(--sea-ink)]">
+            Unlock the Garden, the full arcade, and all five coach voices.
+          </p>
+          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+            Annual or lifetime — Memory Flip and Sliding Puzzle stay free either
+            way.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)]"
+          >
+            Upgrade
+          </button>
+          <Link
+            to="/pricing"
+            className="text-xs text-[var(--lagoon-deep)] no-underline"
+          >
+            Compare →
+          </Link>
+        </div>
+      </div>
+      <MembersOnlyUpsell
+        open={open}
+        onClose={() => setOpen(false)}
+        headline="Unlock the full app"
+        subline="Memory Flip and Sliding Puzzle stay free. Members get the rest of the arcade, the AI Coach personalities + detailed mode, and the Garden."
+      />
+    </section>
   )
 }
 

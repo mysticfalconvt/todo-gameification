@@ -7,6 +7,7 @@ export const two048: GameDefinition = {
   description:
     'Slide tiles to merge matching pairs. Reach 1024 to win — higher tiles = more XP.',
   tokenCost: 1,
+  tier: 'member',
   rewardXp: (result) => {
     if (!result.won) return 0
     const top = result.score ?? 1024

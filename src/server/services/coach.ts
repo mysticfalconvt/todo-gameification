@@ -8,6 +8,7 @@ import { and, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { events, tasks, userPrefs } from '../db/schema'
 import { callLlmChat } from '../llm/client'
+import { getMemberStatus } from './membership'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
 
@@ -456,11 +457,17 @@ function buildUserPrompt(input: {
 export async function generateCoachSummary(
   userId: string,
 ): Promise<CoachSummary | null> {
-  const [timeZone, prefs] = await Promise.all([
+  const [timeZone, prefs, member] = await Promise.all([
     taskService.getUserTimeZone(userId),
     loadCoachPrefs(userId),
+    getMemberStatus(userId),
   ])
-  const { attitude, detailed, bio } = prefs
+  // Free tier gets the warm attitude in concise mode only. We do NOT
+  // overwrite the user's saved preference — the moment they upgrade,
+  // their picked attitude/detailed mode comes back automatically.
+  const attitude: CoachAttitude = member.isMember ? prefs.attitude : 'warm'
+  const detailed = member.isMember ? prefs.detailed : false
+  const { bio } = prefs
   const since = new Date(Date.now() - 24 * 3_600_000)
   const cadenceWindow = detailed ? 14 : 7
   const [today, someday, progression, activityDays, recentEvents, cadence] =
@@ -497,7 +504,10 @@ export async function generateCoachSummary(
     : COACH_PROMPTS[attitude]
 
   // Detailed mode writes longer paragraphs; short mode stays tight.
-  const maxTokens = detailed ? 400 : 200
+  // Reasoning models (gpt-oss, o1-style) burn tokens on internal
+  // reasoning before any visible output, so we give detailed mode
+  // enough headroom that the visible answer isn't starved.
+  const maxTokens = detailed ? 800 : 200
 
   const raw = await callLlmChat({
     messages: [
@@ -542,8 +552,42 @@ function sanitizeCoachOutput(raw: string | null): string | null {
     '',
   )
 
+  // Strip markdown formatting the model occasionally adds despite the
+  // OUTPUT RULES — tables, bullets, numbered lists, blockquotes. The
+  // table case is the common one (gpt-oss likes wrapping a single
+  // sentence in a one-cell table). For tables we drop separator rows
+  // (|---|---|) entirely and replace remaining pipes with spaces so the
+  // cell text reads as a sentence.
+  s = s
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\|?[\s\-:|]+\|?\s*$/.test(line))
+    .map((line) =>
+      line
+        .replace(/^\s*\|/, '')
+        .replace(/\|\s*$/, '')
+        .replace(/\s*\|\s*/g, ' '),
+    )
+    .map((line) =>
+      line
+        .replace(/^\s*[-*+>]\s+/, '')
+        .replace(/^\s*\d+[.)]\s+/, ''),
+    )
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  // Strip emphasis markers (**bold**, *italic*, __bold__, _italic_, `code`).
+  s = s.replace(/[*_`]+/g, '').trim()
+
+  // If the first line is a short label and there's a longer line after,
+  // drop the label. Catches the "Coach\nActual message…" pattern that
+  // falls out of the markdown-table cleanup above.
+  const lines = s.split(/\n+/).map((l) => l.trim()).filter(Boolean)
+  if (lines.length >= 2 && lines[0].length <= 25 && !/[.!?]$/.test(lines[0])) {
+    s = lines.slice(1).join('\n').trim()
+  }
+
   // Strip wrapping quotes/backticks, common conversational preambles.
-  s = s.trim()
   s = s.replace(/^["'`]+|["'`]+$/g, '').trim()
   s = s.replace(/^(?:response:|here(?:'s| is)?:?|sure[,.!:]?)\s+/i, '')
   s = s.trim()
