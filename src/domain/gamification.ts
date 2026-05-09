@@ -238,6 +238,12 @@ export function applyEvent(
       const xp = Math.max(0, state.xp - event.xpRefunded)
       return { ...state, xp, level: levelFor(xp) }
     }
+
+    default:
+      // Events that don't affect progression (e.g. the membership.*
+      // family) fall through unchanged. Their projection lives in a
+      // separate reducer (`src/domain/membership.ts`).
+      return state
   }
 }
 
