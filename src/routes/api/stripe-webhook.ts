@@ -15,13 +15,8 @@ export const Route = createFileRoute('/api/stripe-webhook')({
       POST: async ({ request }) => {
         const rawBody = await request.text()
         const signature = request.headers.get('stripe-signature')
-        console.log('[stripe-webhook] received', {
-          bytes: rawBody.length,
-          hasSignature: Boolean(signature),
-        })
         try {
           const result = await processWebhookEvent(rawBody, signature)
-          console.log('[stripe-webhook] processed', result)
           return new Response(JSON.stringify(result), {
             status: 200,
             headers: { 'content-type': 'application/json' },

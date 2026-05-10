@@ -197,8 +197,6 @@ export async function processWebhookEvent(
     })
   }
 
-  console.log('[billing] webhook verified', { id: event.id, type: event.type })
-
   // Dedup: Stripe replays events on transient failures. Insert the id
   // first; an empty result means we already processed it.
   const dedup = await db
@@ -207,7 +205,6 @@ export async function processWebhookEvent(
     .onConflictDoNothing()
     .returning({ id: stripeWebhookEvents.id })
   if (dedup.length === 0) {
-    console.log('[billing] webhook replay (already processed)', { id: event.id })
     return { status: 'replay' }
   }
 
@@ -234,7 +231,6 @@ export async function processWebhookEvent(
     })
     throw err
   }
-  console.log('[billing] webhook ok', { id: event.id, type: event.type })
   return { status: 'ok' }
 }
 
@@ -263,10 +259,6 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       // Many event types fire on a connected Stripe account that we don't
       // care about. Silently no-op so we still 200 and Stripe stops
       // retrying. Dedup row was already written above.
-      console.log('[billing] webhook ignored (no handler)', {
-        id: event.id,
-        type: event.type,
-      })
       return
   }
 }
@@ -334,15 +326,6 @@ async function handleCheckoutCompleted(
       ? session.customer
       : session.customer?.id ?? null
 
-  console.log('[billing] checkout.session.completed received', {
-    sessionId: session.id,
-    mode: session.mode,
-    customerId,
-    metadataUserId,
-    metadataKeys: session.metadata ? Object.keys(session.metadata) : [],
-    clientReferenceId: session.client_reference_id,
-  })
-
   const userId = await resolveUserIdForEvent(event, {
     metadataUserId,
     customerId,
@@ -377,12 +360,6 @@ async function handleCheckoutCompleted(
     }
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     const periodEnd = periodEndFromSubscription(subscription)
-    console.log('[billing] activating annual', {
-      userId,
-      customerId,
-      subscriptionId,
-      periodEnd: periodEnd?.toISOString() ?? null,
-    })
     await applyAndPersist(userId, {
       type: 'membership.activated',
       tier: 'annual',
@@ -392,7 +369,7 @@ async function handleCheckoutCompleted(
       stripeEventId: event.id,
       occurredAt: new Date(event.created * 1000),
     })
-    console.log('[billing] activated annual', { userId })
+    console.log('[billing] activated annual', { userId, subscriptionId })
     return
   }
 
@@ -401,7 +378,6 @@ async function handleCheckoutCompleted(
     // attribution but not required to grant entitlement. Older sessions
     // (before we added customer_creation: always) and any edge case
     // arrive here with customerId = null and we still honor the payment.
-    console.log('[billing] activating lifetime', { userId, customerId })
     await applyAndPersist(userId, {
       type: 'membership.activated',
       tier: 'lifetime',
@@ -411,7 +387,7 @@ async function handleCheckoutCompleted(
       stripeEventId: event.id,
       occurredAt: new Date(event.created * 1000),
     })
-    console.log('[billing] activated lifetime', { userId })
+    console.log('[billing] activated lifetime', { userId, customerId })
     return
   }
 
