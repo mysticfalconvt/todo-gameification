@@ -23,6 +23,18 @@ function appUrl(): string {
   )
 }
 
+// Defensive: make sure the link in transactional email is absolute with a
+// scheme. Without `https://`, Gmail (and other webmail clients) treat the
+// href as relative to mail.google.com and rewrite it into a broken
+// redirector URL. Better Auth's `url` is normally absolute, but if
+// BETTER_AUTH_URL was set without a scheme, the URL falls through here
+// looking like `todo.example.com/api/auth/verify-email?…`.
+function ensureAbsoluteUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url
+  if (url.startsWith('/')) return `${appUrl()}${url}`
+  return `https://${url}`
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
@@ -46,11 +58,12 @@ export const auth = betterAuth({
       const pad = sleep(300 + Math.floor(Math.random() * 200))
       const ok = await recordAndCheck(user.email, 'password_reset')
       if (ok) {
+        const safeUrl = ensureAbsoluteUrl(url)
         await sendMail({
           to: user.email,
           subject: 'Reset your Todo XP password',
-          text: `Click the link to reset your password: ${url}`,
-          html: resetPasswordHtml(url),
+          text: `Click the link to reset your password: ${safeUrl}`,
+          html: resetPasswordHtml(safeUrl),
         })
       }
       await pad
@@ -65,11 +78,12 @@ export const auth = betterAuth({
       // unverified user's inbox via sendOnSignIn.
       const ok = await recordAndCheck(user.email, 'verification')
       if (!ok) return
+      const safeUrl = ensureAbsoluteUrl(url)
       await sendMail({
         to: user.email,
         subject: 'Verify your Todo XP email',
-        text: `Click the link to verify your email: ${url}`,
-        html: verifyEmailHtml(url),
+        text: `Click the link to verify your email: ${safeUrl}`,
+        html: verifyEmailHtml(safeUrl),
       })
     },
   },
