@@ -58,6 +58,7 @@ import {
   getMemberStatusFn,
   getPricingDisplayFn,
 } from '../../../server/functions/billing'
+import { deleteAccountFn } from '../../../server/functions/account'
 import {
   MembersOnlyUpsell,
   formatMoney,
@@ -87,6 +88,7 @@ function SettingsPage() {
       <GithubSection />
       <TokensSection />
       <SignOutSection />
+      <DangerZoneSection />
       <p className="pt-4 text-center text-xs text-[var(--sea-ink-soft)]">
         Have an idea for the app?{' '}
         <Link
@@ -813,6 +815,113 @@ function SignOutSection() {
       >
         {pending ? 'Signing out…' : 'Sign out'}
       </button>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Danger zone (delete account)
+// ---------------------------------------------------------------------------
+
+function DangerZoneSection() {
+  const router = useRouter()
+  const qc = useQueryClient()
+  const { data: session } = useSession()
+  const [open, setOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const expectedConfirm = 'delete my account'
+  const canSubmit =
+    confirmText.trim().toLowerCase() === expectedConfirm && !pending
+
+  async function onDelete() {
+    if (!canSubmit) return
+    setPending(true)
+    try {
+      await deleteAccountFn()
+      // Clear all client state before bouncing — same hygiene as sign-out
+      // so a subsequent sign-up on this device starts from zero.
+      try {
+        await signOut()
+      } catch {
+        // signOut may fail with 401 because the session is already gone;
+        // safe to ignore.
+      }
+      qc.removeQueries()
+      try {
+        localStorage.removeItem('todo-xp-query-cache-v1')
+      } catch {
+        // no-op if storage is blocked
+      }
+      toast.success('Account deleted. Sorry to see you go.')
+      await router.invalidate()
+      router.navigate({ to: '/' })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+      setPending(false)
+    }
+  }
+
+  return (
+    <section className="max-w-xl rounded-2xl border border-[rgba(230,90,90,0.3)] bg-[rgba(230,90,90,0.05)] p-6">
+      <h2 className="mb-2 text-lg font-bold text-red-700">Danger zone</h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Permanently delete your account, your tasks, your history, and any
+        active subscription. This cannot be undone.
+      </p>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-full border border-[rgba(230,90,90,0.4)] bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+        >
+          Delete my account
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--sea-ink)]">
+            This will erase everything tied to{' '}
+            <span className="font-semibold">{session?.user?.email ?? 'your account'}</span>:
+            tasks, completions, XP, streaks, garden, focus history, friends,
+            and membership. If you have an active annual subscription it will
+            be canceled in Stripe.
+          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Type <code className="rounded bg-[var(--option-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--sea-ink)]">{expectedConfirm}</code> below to confirm.
+          </p>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={expectedConfirm}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded border border-[var(--line)] bg-white px-2 py-1.5 text-sm text-[var(--sea-ink)]"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={!canSubmit}
+              className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+            >
+              {pending ? 'Deleting…' : 'Delete forever'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setConfirmText('')
+              }}
+              disabled={pending}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
