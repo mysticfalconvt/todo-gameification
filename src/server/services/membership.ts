@@ -145,7 +145,10 @@ function deserializeEvent(
       return {
         type: 'membership.activated',
         tier: p.tier as 'annual' | 'lifetime',
-        stripeCustomerId: String(p.stripeCustomerId ?? ''),
+        stripeCustomerId:
+          typeof p.stripeCustomerId === 'string' && p.stripeCustomerId
+            ? p.stripeCustomerId
+            : null,
         stripeSubscriptionId:
           typeof p.stripeSubscriptionId === 'string'
             ? p.stripeSubscriptionId

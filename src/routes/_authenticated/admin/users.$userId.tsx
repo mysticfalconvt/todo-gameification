@@ -8,6 +8,7 @@ import {
   grantLifetimeFn,
   grantTokensFn,
   revokeMembershipFn,
+  setEmailVerifiedFn,
 } from '../../../server/functions/admin'
 
 export const Route = createFileRoute('/_authenticated/admin/users/$userId')({
@@ -38,11 +39,16 @@ function AdminUserDetailPage() {
           {data ? data.user.name : 'User'}
         </h1>
         {data ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">
-            @{data.user.handle} · {data.user.email}
-            {data.user.isAdmin ? ' · admin' : ''}
-            {!data.user.emailVerified ? ' · unverified' : ''}
-          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--sea-ink-soft)]">
+            <span>
+              @{data.user.handle} · {data.user.email}
+              {data.user.isAdmin ? ' · admin' : ''}
+              {!data.user.emailVerified ? ' · unverified' : ''}
+            </span>
+            {!data.user.emailVerified ? (
+              <VerifyEmailButton userId={data.user.id} />
+            ) : null}
+          </div>
         ) : null}
       </header>
 
@@ -282,6 +288,30 @@ function GrantTokensForm({ data }: { data: UserDetail }) {
         <code>tokens.granted</code> events and survive progression rebuilds.
       </p>
     </section>
+  )
+}
+
+function VerifyEmailButton({ userId }: { userId: string }) {
+  const qc = useQueryClient()
+  const verify = useMutation({
+    mutationFn: () =>
+      setEmailVerifiedFn({ data: { userId, verified: true } }),
+    onSuccess: () => {
+      toast.success('Email marked verified')
+      qc.invalidateQueries({ queryKey: ['admin', 'user-detail', userId] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Verify failed'),
+  })
+  return (
+    <button
+      type="button"
+      onClick={() => verify.mutate()}
+      disabled={verify.isPending}
+      className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+    >
+      {verify.isPending ? 'Marking…' : 'Mark verified'}
+    </button>
   )
 }
 

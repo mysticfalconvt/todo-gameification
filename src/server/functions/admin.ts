@@ -14,6 +14,7 @@ import {
   loadLlmUsage,
   loadUserDetail,
   revokeMembership,
+  setEmailVerified,
 } from '../services/admin'
 import { loadLlmMetrics } from '../services/llmTracking'
 import { loadJobStats } from '../services/jobs'
@@ -99,6 +100,24 @@ export const getAdminLlmCallFn = createServerFn({ method: 'POST' })
     return { id: data.id }
   })
   .handler(async ({ data }) => getLlmCallDetail(data.id))
+
+export const setEmailVerifiedFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .inputValidator((data: { userId: string; verified: boolean }) => {
+    if (typeof data?.userId !== 'string' || !data.userId) {
+      throw new Error('userId required')
+    }
+    if (typeof data?.verified !== 'boolean') {
+      throw new Error('verified must be a boolean')
+    }
+    return { userId: data.userId, verified: data.verified }
+  })
+  .handler(({ data }) =>
+    setEmailVerified({
+      targetUserId: data.userId,
+      verified: data.verified,
+    }),
+  )
 
 export const grantLifetimeFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])

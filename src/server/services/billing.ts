@@ -90,6 +90,10 @@ async function createCheckout(
     cancel_url: `${input.origin}/pricing`,
     automatic_tax: { enabled: true },
     ...customerArgs,
+    // Subscriptions auto-create a Customer; one-time payments do not
+    // unless we ask. Without this, lifetime checkouts arrive at the
+    // webhook with `customer: null`.
+    ...(mode === 'payment' ? { customer_creation: 'always' as const } : {}),
     ...(mode === 'subscription'
       ? { subscription_data: { metadata: { userId: input.userId } } }
       : { payment_intent_data: { metadata: { userId: input.userId } } }),
@@ -343,16 +347,22 @@ async function handleCheckoutCompleted(
     metadataUserId,
     customerId,
   })
-  if (!userId || !customerId) {
-    console.warn('[billing] checkout.session.completed skipped — missing attribution', {
+  if (!userId) {
+    console.warn('[billing] checkout.session.completed skipped — no userId', {
       sessionId: session.id,
-      userId,
       customerId,
     })
     return
   }
 
   if (session.mode === 'subscription') {
+    // Subscriptions always have a customer; abort if not.
+    if (!customerId) {
+      console.warn('[billing] subscription session arrived without customer', {
+        sessionId: session.id,
+      })
+      return
+    }
     // Pull the subscription so we have current_period_end up front.
     const stripe = getStripe()
     const subscriptionId =
@@ -387,6 +397,10 @@ async function handleCheckoutCompleted(
   }
 
   if (session.mode === 'payment') {
+    // Lifetime is one-time — a customer is nice-to-have for refund
+    // attribution but not required to grant entitlement. Older sessions
+    // (before we added customer_creation: always) and any edge case
+    // arrive here with customerId = null and we still honor the payment.
     console.log('[billing] activating lifetime', { userId, customerId })
     await applyAndPersist(userId, {
       type: 'membership.activated',

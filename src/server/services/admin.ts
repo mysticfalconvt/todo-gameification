@@ -1002,6 +1002,26 @@ export async function getLlmCallDetail(
   }
 }
 
+// Admin override for the email-verified flag. Some users sit in the
+// unverified state forever (verification email lost, never clicked).
+// This is a direct column update — it's not part of the event log
+// because `emailVerified` is not a projection, just persistent state.
+export async function setEmailVerified(input: {
+  targetUserId: string
+  verified: boolean
+}): Promise<{ emailVerified: boolean }> {
+  const target = await db.query.user.findFirst({
+    where: eq(userTable.id, input.targetUserId),
+    columns: { id: true },
+  })
+  if (!target) throw new Error('target user not found')
+  await db
+    .update(userTable)
+    .set({ emailVerified: input.verified, updatedAt: new Date() })
+    .where(eq(userTable.id, input.targetUserId))
+  return { emailVerified: input.verified }
+}
+
 // Admin-issued lifetime grant. Writes a `membership.granted` event and
 // upserts the membership projection in one transaction. Idempotent on
 // repeated calls (each call writes a new event but the projection

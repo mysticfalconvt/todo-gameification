@@ -115,10 +115,11 @@ export type DomainEvent =
   | {
       // Stripe checkout completed (subscription OR one-time payment). For
       // annual: stripeSubscriptionId + currentPeriodEnd are set. For
-      // lifetime: both are null.
+      // lifetime: both are null. stripeCustomerId can be null when an
+      // older lifetime checkout completed without `customer_creation: 'always'`.
       type: 'membership.activated'
       tier: 'annual' | 'lifetime'
-      stripeCustomerId: string
+      stripeCustomerId: string | null
       stripeSubscriptionId: string | null
       currentPeriodEnd: Date | null
       stripeEventId: string
