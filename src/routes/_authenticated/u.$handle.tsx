@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { getPublicProfileFn } from '../../server/functions/profile'
 import { getCategoryHistogramFn } from '../../server/functions/categoryStats'
 import { CategoryHistogramView } from '../../components/CategoryHistogramView'
+import { MemberBadge } from '../../components/membership/MemberBadge'
 import type { CategoryScope } from '../../server/services/categoryStats'
 import {
   acceptFriendRequestFn,
@@ -111,9 +112,12 @@ function ProfilePage() {
       <header className="flex flex-wrap items-center gap-4">
         <Avatar name={p.name} />
         <div className="min-w-0 flex-1">
-          <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
-            {p.name}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
+              {p.name}
+            </h1>
+            <MemberBadge tier={p.membershipTier} size="large" />
+          </div>
           <p className="text-sm text-[var(--sea-ink-soft)]">@{p.handle}</p>
         </div>
         <ActionButtons

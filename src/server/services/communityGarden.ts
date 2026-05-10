@@ -13,6 +13,7 @@ import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   friendships,
+  memberships,
   progression,
   user as userTable,
 } from '../db/schema'
@@ -26,6 +27,7 @@ export interface CommunityGardenEntry {
   handle: string
   name: string
   plant: GardenPlant
+  membershipTier: 'free' | 'annual' | 'lifetime'
 }
 
 export interface CommunityGardenView {
@@ -126,6 +128,17 @@ export async function getCommunityGarden(
     .where(inArray(userTable.id, visibleIds))
   const metaById = new Map(userRows.map((u) => [u.id, u]))
 
+  // Batch-fetch membership tiers so we can render the founder pill on
+  // member cards. Free is the default for users without a row.
+  const memberRows = await db
+    .select({
+      userId: memberships.userId,
+      tier: memberships.tier,
+    })
+    .from(memberships)
+    .where(inArray(memberships.userId, visibleIds))
+  const tierByUserId = new Map(memberRows.map((m) => [m.userId, m.tier]))
+
   // Fan out per-user garden replays. N is small (≤ friend count, or
   // ≤ GLOBAL_SCOPE_USER_CAP for global), so a parallel fan-out is fine.
   const gardens = await Promise.all(
@@ -145,6 +158,7 @@ export async function getCommunityGarden(
         handle: meta.handle,
         name: meta.name,
         plant,
+        membershipTier: tierByUserId.get(id) ?? 'free',
       })
       ownerIds.add(id)
       totalWaterings += plant.waterings

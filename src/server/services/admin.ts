@@ -249,6 +249,8 @@ export interface AdminUserRow {
   activeTaskCount: number
   totalCompletions: number
   isAdmin: boolean
+  membershipTier: 'free' | 'annual' | 'lifetime'
+  membershipSource: 'stripe' | 'admin' | 'none'
 }
 
 export async function listAllUsers(): Promise<AdminUserRow[]> {
@@ -267,9 +269,12 @@ export async function listAllUsers(): Promise<AdminUserRow[]> {
       currentStreak: progression.currentStreak,
       longestStreak: progression.longestStreak,
       lastCompletionAt: progression.lastCompletionAt,
+      membershipTier: memberships.tier,
+      membershipSource: memberships.source,
     })
     .from(userTable)
     .leftJoin(progression, eq(progression.userId, userTable.id))
+    .leftJoin(memberships, eq(memberships.userId, userTable.id))
     .orderBy(desc(userTable.createdAt))
 
   const [taskCounts, completionCounts] = await Promise.all([
@@ -313,6 +318,8 @@ export async function listAllUsers(): Promise<AdminUserRow[]> {
     activeTaskCount: Number(taskByUser.get(r.id) ?? 0),
     totalCompletions: Number(completionsByUser.get(r.id) ?? 0),
     isAdmin: admins.has(r.email.toLowerCase()),
+    membershipTier: r.membershipTier ?? 'free',
+    membershipSource: r.membershipSource ?? 'none',
   }))
 }
 

@@ -20,7 +20,9 @@ import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
 import { listIncomingFn } from '../server/functions/social'
 import { getIsAdminFn } from '../server/functions/admin'
+import { getMemberStatusFn } from '../server/functions/billing'
 import { InstallPrompt } from '../components/InstallPrompt'
+import { MemberBadge } from '../components/membership/MemberBadge'
 import { OfflineIndicator } from '../components/OfflineIndicator'
 import '../styles.css'
 
@@ -345,6 +347,12 @@ function TabLink({
 
 function SessionNav() {
   const { data, isPending } = useSession()
+  const member = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+    enabled: Boolean(data?.user),
+    staleTime: 5 * 60_000,
+  })
 
   useEffect(() => {
     if (!data?.user) return
@@ -372,10 +380,11 @@ function SessionNav() {
   return (
     <Link
       to="/settings"
-      className="nav-link"
-      activeProps={{ className: 'nav-link is-active' }}
+      className="nav-link inline-flex items-center gap-1.5"
+      activeProps={{ className: 'nav-link is-active inline-flex items-center gap-1.5' }}
     >
-      {data.user.name}
+      <span>{data.user.name}</span>
+      <MemberBadge tier={member.data?.tier} />
     </Link>
   )
 }

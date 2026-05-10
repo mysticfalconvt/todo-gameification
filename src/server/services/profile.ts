@@ -7,6 +7,7 @@ import { db } from '../db/client'
 import {
   events,
   friendships,
+  memberships,
   progression,
   user as userTable,
 } from '../db/schema'
@@ -36,6 +37,9 @@ export interface PublicProfile {
     longestStreak: number
   } | null
   xpByDay: Array<{ date: string; xp: number }>
+  // Surfaced regardless of canView so the founder pill renders even on a
+  // gated/private profile — being a member isn't sensitive info.
+  membershipTier: 'free' | 'annual' | 'lifetime'
 }
 
 const WINDOW_DAYS = 30
@@ -54,6 +58,11 @@ export async function getPublicProfile(
 
   const relation = await resolveRelation(viewerId, target.id)
   const visible = await canView(viewerId, target.id)
+  const membershipRow = await db.query.memberships.findFirst({
+    where: eq(memberships.userId, target.id),
+    columns: { tier: true },
+  })
+  const membershipTier = membershipRow?.tier ?? 'free'
 
   if (!visible) {
     return {
@@ -65,6 +74,7 @@ export async function getPublicProfile(
       viewerRelation: relation,
       progression: null,
       xpByDay: [],
+      membershipTier,
     }
   }
 
@@ -82,6 +92,7 @@ export async function getPublicProfile(
     viewerRelation: relation,
     progression: prog,
     xpByDay,
+    membershipTier,
   }
 }
 

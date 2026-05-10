@@ -475,16 +475,25 @@ function CommunityPanel() {
 }
 
 function CommunityPlantCard({ entry }: { entry: CommunityGardenEntry }) {
-  const { plant: p, handle, name } = entry
+  const { plant: p, handle, name, membershipTier } = entry
   const species = pickSpecies(p.categorySlug)
   const emoji = SPECIES_EMOJI[species][p.stage]
+  // Tiny glyph next to the @handle on the small community card. The
+  // shared MemberBadge would crowd these tightly-packed cards, so we
+  // render a single character with a tooltip instead.
+  const memberGlyph =
+    membershipTier === 'lifetime'
+      ? { glyph: '✨', label: 'lifetime member' }
+      : membershipTier === 'annual'
+        ? { glyph: '⭐', label: 'member' }
+        : null
   return (
     <Link
       to="/u/$handle"
       params={{ handle }}
       className="island-shell relative block overflow-hidden rounded-xl p-2 no-underline transition hover:shadow-md"
       style={{ borderColor: p.color, borderTopWidth: 3 }}
-      aria-label={`${name} (@${handle}) · ${p.label} · ${MOOD_LABEL[p.mood]}`}
+      aria-label={`${name} (@${handle}) · ${p.label} · ${MOOD_LABEL[p.mood]}${memberGlyph ? ` · ${memberGlyph.label}` : ''}`}
       title={`${p.label} · ${SPECIES_LABEL[species]} · ${STAGE_LABEL[p.stage]} · ${MOOD_LABEL[p.mood]}`}
     >
       <span
@@ -493,8 +502,17 @@ function CommunityPlantCard({ entry }: { entry: CommunityGardenEntry }) {
       >
         {MOOD_ICON[p.mood]}
       </span>
-      <div className="mb-0.5 truncate pr-5 text-[11px] font-semibold text-[var(--sea-ink-soft)]">
-        @{handle}
+      <div className="mb-0.5 flex items-center gap-1 truncate pr-5 text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+        <span className="truncate">@{handle}</span>
+        {memberGlyph ? (
+          <span
+            aria-hidden
+            title={memberGlyph.label}
+            className="text-[var(--lagoon-deep)]"
+          >
+            {memberGlyph.glyph}
+          </span>
+        ) : null}
       </div>
       <div
         className={`relative flex min-h-[3.5rem] items-center justify-center text-4xl ${MOOD_VISUAL[p.mood]}`}

@@ -11,6 +11,7 @@ import {
   listAdminUsersFn,
 } from '../../../server/functions/admin'
 import type { LlmMetricsWindow } from '../../../server/services/llmTracking'
+import { MemberBadge } from '../../../components/membership/MemberBadge'
 
 export const Route = createFileRoute('/_authenticated/admin/')({
   beforeLoad: async () => {
@@ -490,6 +491,7 @@ function UsersTable() {
               <tr>
                 <th className="px-3 py-2">User</th>
                 <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Plan</th>
                 <th className="px-3 py-2">Joined</th>
                 <th className="px-3 py-2">Last active</th>
                 <th className="px-3 py-2">Lvl</th>
@@ -528,6 +530,18 @@ function UsersTable() {
                   </td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {u.email}
+                  </td>
+                  <td className="px-3 py-2">
+                    {u.membershipTier === 'free' ? (
+                      <span className="text-xs text-[var(--sea-ink-soft)]">Free</span>
+                    ) : (
+                      <MemberBadge tier={u.membershipTier} />
+                    )}
+                    {u.membershipSource === 'admin' ? (
+                      <span className="ml-1 text-[10px] text-[var(--sea-ink-soft)]">
+                        (granted)
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {formatDate(u.createdAt)}
