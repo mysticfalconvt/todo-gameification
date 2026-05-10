@@ -187,10 +187,13 @@ export async function processWebhookEvent(
     event = stripe.webhooks.constructEvent(rawBody, signature, secret)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'invalid signature'
+    console.error('[billing] webhook signature verification failed', { msg })
     throw new Response(`Webhook signature verification failed: ${msg}`, {
       status: 400,
     })
   }
+
+  console.log('[billing] webhook verified', { id: event.id, type: event.type })
 
   // Dedup: Stripe replays events on transient failures. Insert the id
   // first; an empty result means we already processed it.
@@ -200,10 +203,17 @@ export async function processWebhookEvent(
     .onConflictDoNothing()
     .returning({ id: stripeWebhookEvents.id })
   if (dedup.length === 0) {
+    console.log('[billing] webhook replay (already processed)', { id: event.id })
     return { status: 'replay' }
   }
 
-  await dispatch(event)
+  try {
+    await dispatch(event)
+  } catch (err) {
+    console.error('[billing] dispatch threw', { id: event.id, type: event.type, err })
+    throw err
+  }
+  console.log('[billing] webhook ok', { id: event.id, type: event.type })
   return { status: 'ok' }
 }
 
@@ -232,6 +242,10 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       // Many event types fire on a connected Stripe account that we don't
       // care about. Silently no-op so we still 200 and Stripe stops
       // retrying. Dedup row was already written above.
+      console.log('[billing] webhook ignored (no handler)', {
+        id: event.id,
+        type: event.type,
+      })
       return
   }
 }
@@ -299,11 +313,27 @@ async function handleCheckoutCompleted(
       ? session.customer
       : session.customer?.id ?? null
 
+  console.log('[billing] checkout.session.completed received', {
+    sessionId: session.id,
+    mode: session.mode,
+    customerId,
+    metadataUserId,
+    metadataKeys: session.metadata ? Object.keys(session.metadata) : [],
+    clientReferenceId: session.client_reference_id,
+  })
+
   const userId = await resolveUserIdForEvent(event, {
     metadataUserId,
     customerId,
   })
-  if (!userId || !customerId) return
+  if (!userId || !customerId) {
+    console.warn('[billing] checkout.session.completed skipped — missing attribution', {
+      sessionId: session.id,
+      userId,
+      customerId,
+    })
+    return
+  }
 
   if (session.mode === 'subscription') {
     // Pull the subscription so we have current_period_end up front.
@@ -312,9 +342,20 @@ async function handleCheckoutCompleted(
       typeof session.subscription === 'string'
         ? session.subscription
         : session.subscription?.id
-    if (!subscriptionId) return
+    if (!subscriptionId) {
+      console.warn('[billing] checkout subscription mode but no subscription id', {
+        sessionId: session.id,
+      })
+      return
+    }
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     const periodEnd = periodEndFromSubscription(subscription)
+    console.log('[billing] activating annual', {
+      userId,
+      customerId,
+      subscriptionId,
+      periodEnd: periodEnd?.toISOString() ?? null,
+    })
     await applyAndPersist(userId, {
       type: 'membership.activated',
       tier: 'annual',
@@ -324,10 +365,12 @@ async function handleCheckoutCompleted(
       stripeEventId: event.id,
       occurredAt: new Date(event.created * 1000),
     })
+    console.log('[billing] activated annual', { userId })
     return
   }
 
   if (session.mode === 'payment') {
+    console.log('[billing] activating lifetime', { userId, customerId })
     await applyAndPersist(userId, {
       type: 'membership.activated',
       tier: 'lifetime',
@@ -337,8 +380,14 @@ async function handleCheckoutCompleted(
       stripeEventId: event.id,
       occurredAt: new Date(event.created * 1000),
     })
+    console.log('[billing] activated lifetime', { userId })
     return
   }
+
+  console.warn('[billing] unknown checkout session mode', {
+    sessionId: session.id,
+    mode: session.mode,
+  })
 }
 
 async function handleInvoicePaid(

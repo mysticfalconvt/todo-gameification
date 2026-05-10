@@ -15,16 +15,27 @@ export const Route = createFileRoute('/api/stripe-webhook')({
       POST: async ({ request }) => {
         const rawBody = await request.text()
         const signature = request.headers.get('stripe-signature')
+        console.log('[stripe-webhook] received', {
+          bytes: rawBody.length,
+          hasSignature: Boolean(signature),
+        })
         try {
           const result = await processWebhookEvent(rawBody, signature)
+          console.log('[stripe-webhook] processed', result)
           return new Response(JSON.stringify(result), {
             status: 200,
             headers: { 'content-type': 'application/json' },
           })
         } catch (err) {
-          if (err instanceof Response) return err
+          if (err instanceof Response) {
+            console.warn('[stripe-webhook] rejected', {
+              status: err.status,
+              statusText: err.statusText,
+            })
+            return err
+          }
           const message = err instanceof Error ? err.message : 'webhook failed'
-          console.error('[stripe-webhook]', err)
+          console.error('[stripe-webhook] handler threw', err)
           return new Response(message, { status: 500 })
         }
       },
