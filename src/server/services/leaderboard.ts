@@ -5,6 +5,7 @@ import { db } from '../db/client'
 import {
   events,
   friendships,
+  memberships,
   user as userTable,
   userPrefs,
 } from '../db/schema'
@@ -20,6 +21,7 @@ export interface LeaderboardRow {
   name: string
   value: number
   isMe: boolean
+  membershipTier: 'free' | 'annual' | 'lifetime'
 }
 
 interface CandidateUser {
@@ -131,6 +133,18 @@ export async function getLeaderboard(
 
   const valueByUser = computeMetric(metric, candidates, rows)
 
+  // Batch-fetch membership tiers so the leaderboard shows the founder
+  // pill next to lifetime/annual members. Free is the default for
+  // anyone without a row.
+  const memberRows = await db
+    .select({
+      userId: memberships.userId,
+      tier: memberships.tier,
+    })
+    .from(memberships)
+    .where(inArray(memberships.userId, candidateIds))
+  const tierByUserId = new Map(memberRows.map((m) => [m.userId, m.tier]))
+
   // Keep every candidate so the viewer sees themselves at 0 when relevant.
   const ranked: LeaderboardRow[] = candidates
     .map((c) => ({
@@ -140,6 +154,7 @@ export async function getLeaderboard(
       value: valueByUser.get(c.id) ?? 0,
       isMe: c.id === viewerId,
       rank: 0,
+      membershipTier: tierByUserId.get(c.id) ?? 'free',
     }))
     .sort((a, b) => b.value - a.value || a.handle.localeCompare(b.handle))
 

@@ -10,6 +10,7 @@ import {
 } from '../../server/functions/activity'
 import { getFriendsCategoryHistogramsFn } from '../../server/functions/categoryStats'
 import { CategoryHistogramView } from '../../components/CategoryHistogramView'
+import { MemberBadge } from '../../components/membership/MemberBadge'
 import type {
   LeaderboardMetric,
   LeaderboardScope,
@@ -313,10 +314,11 @@ function LeaderboardTab() {
                   </span>
                   <Initials name={r.name} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
-                      {r.name}
+                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-[var(--sea-ink)]">
+                      <span className="truncate">{r.name}</span>
+                      <MemberBadge tier={r.membershipTier} />
                       {r.isMe ? (
-                        <span className="ml-2 text-xs font-normal text-[var(--sea-ink-soft)]">
+                        <span className="text-xs font-normal text-[var(--sea-ink-soft)]">
                           (you)
                         </span>
                       ) : null}
