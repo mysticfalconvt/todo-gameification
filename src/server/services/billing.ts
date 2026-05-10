@@ -210,7 +210,24 @@ export async function processWebhookEvent(
   try {
     await dispatch(event)
   } catch (err) {
-    console.error('[billing] dispatch threw', { id: event.id, type: event.type, err })
+    // Roll back the dedup row so Stripe's retry can attempt this event
+    // again. Without this, any failure inside dispatch (DB, network,
+    // bad data) permanently poisons the dedup row and every subsequent
+    // retry returns "replay" without doing the actual work.
+    await db
+      .delete(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.id, event.id))
+      .catch((delErr) => {
+        console.error('[billing] failed to roll back dedup row', {
+          id: event.id,
+          err: delErr,
+        })
+      })
+    console.error('[billing] dispatch threw — dedup row rolled back', {
+      id: event.id,
+      type: event.type,
+      err,
+    })
     throw err
   }
   console.log('[billing] webhook ok', { id: event.id, type: event.type })
