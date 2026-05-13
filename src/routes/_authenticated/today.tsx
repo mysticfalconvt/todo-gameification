@@ -459,6 +459,14 @@ function TodayPage() {
   )
 }
 
+// Four-state banner, in priority order:
+//   1. trial-active (gentle, daysLeft >= 4): countdown, calm copy
+//   2. trial-active (urgent,  daysLeft <= 3): countdown, "lock it in" copy
+//   3. trial-expired-recent (<= 2 days since expiry): "trial ended, upgrade"
+//   4. generic: existing free-user upsell (also covers users who never
+//      had a trial — i.e. anyone who signed up before this feature)
+// Paying members see nothing. The same MembersOnlyUpsell modal opens in
+// every state with the matching variant.
 function MembershipUpsellCard() {
   const memberQuery = useQuery({
     queryKey: ['member-status'],
@@ -466,21 +474,102 @@ function MembershipUpsellCard() {
   })
   const [open, setOpen] = useState(false)
 
-  // Hide entirely for members and while loading — no point in a flicker.
-  if (!memberQuery.data || memberQuery.data.isMember) return null
+  const status = memberQuery.data
+  if (!status) return null
+  // Paying members (annual / lifetime) get nothing. Active trial users
+  // *are* `isMember`, but we still want to show them the countdown, so
+  // fall through unless they're also not a trial.
+  if (status.isMember && !status.isTrial) return null
+
+  // Server function serializes Date as an ISO string; coerce defensively
+  // so the same code path works in tests (real Date) and in the browser
+  // (string after JSON round-trip).
+  const trialEndsMs = status.trialEndsAt
+    ? new Date(status.trialEndsAt).getTime()
+    : null
+  const now = Date.now()
+  const daysLeft =
+    trialEndsMs != null && status.isMember
+      ? Math.max(1, Math.ceil((trialEndsMs - now) / 86400000))
+      : null
+  const daysSinceExpiry =
+    trialEndsMs != null && !status.isMember
+      ? Math.floor((now - trialEndsMs) / 86400000)
+      : null
+
+  let mode: 'trial-gentle' | 'trial-urgent' | 'trial-expired' | 'generic'
+  if (status.isMember && status.isTrial && daysLeft != null) {
+    mode = daysLeft >= 4 ? 'trial-gentle' : 'trial-urgent'
+  } else if (
+    status.isTrial &&
+    !status.isMember &&
+    daysSinceExpiry != null &&
+    daysSinceExpiry <= 2
+  ) {
+    mode = 'trial-expired'
+  } else {
+    mode = 'generic'
+  }
+
+  const copy = (() => {
+    switch (mode) {
+      case 'trial-gentle':
+        return {
+          kicker: 'Free trial',
+          headline: `You have ${daysLeft} days of free access — explore everything.`,
+          sub: 'Garden, full arcade, and all five coach voices are unlocked while your trial is active.',
+          cta: 'Upgrade',
+          variant: 'trial-active' as const,
+          accent: false,
+        }
+      case 'trial-urgent':
+        return {
+          kicker: 'Trial ending soon',
+          headline:
+            daysLeft === 1
+              ? 'Your free trial ends today — lock it in.'
+              : `Your free trial ends in ${daysLeft} days — lock it in.`,
+          sub: "Don't lose the Garden, the full arcade, or your coach voices.",
+          cta: 'Upgrade now',
+          variant: 'trial-active' as const,
+          accent: true,
+        }
+      case 'trial-expired':
+        return {
+          kicker: 'Trial ended',
+          headline:
+            'Your free trial ended. Upgrade to keep the Garden, full arcade, and all five coach voices.',
+          sub: 'Memory Flip and Sliding Puzzle stay free either way.',
+          cta: 'Upgrade',
+          variant: 'trial-expired' as const,
+          accent: true,
+        }
+      case 'generic':
+        return {
+          kicker: 'Members',
+          headline:
+            'Unlock the Garden, the full arcade, and all five coach voices.',
+          sub: 'Annual or lifetime — Memory Flip and Sliding Puzzle stay free either way.',
+          cta: 'Upgrade',
+          variant: 'cold' as const,
+          accent: false,
+        }
+    }
+  })()
+
+  const sectionClass = copy.accent
+    ? 'mt-10 rounded-2xl border border-[rgba(224,122,95,0.35)] bg-[rgba(224,122,95,0.08)] p-4'
+    : 'mt-10 rounded-2xl border border-[rgba(50,143,151,0.25)] bg-[rgba(79,184,178,0.08)] p-4'
 
   return (
-    <section className="mt-10 rounded-2xl border border-[rgba(50,143,151,0.25)] bg-[rgba(79,184,178,0.08)] p-4">
+    <section className={sectionClass}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="island-kicker mb-1">Members</p>
+          <p className="island-kicker mb-1">{copy.kicker}</p>
           <p className="text-sm font-semibold text-[var(--sea-ink)]">
-            Unlock the Garden, the full arcade, and all five coach voices.
+            {copy.headline}
           </p>
-          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-            Annual or lifetime — Memory Flip and Sliding Puzzle stay free either
-            way.
-          </p>
+          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{copy.sub}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -488,7 +577,7 @@ function MembershipUpsellCard() {
             onClick={() => setOpen(true)}
             className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--btn-primary-fg)]"
           >
-            Upgrade
+            {copy.cta}
           </button>
           <Link
             to="/pricing"
@@ -501,8 +590,7 @@ function MembershipUpsellCard() {
       <MembersOnlyUpsell
         open={open}
         onClose={() => setOpen(false)}
-        headline="Unlock the full app"
-        subline="Memory Flip and Sliding Puzzle stay free. Members get the rest of the arcade, the AI Coach personalities + detailed mode, and the Garden."
+        variant={copy.variant}
       />
     </section>
   )

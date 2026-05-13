@@ -21,7 +21,7 @@ export interface LeaderboardRow {
   name: string
   value: number
   isMe: boolean
-  membershipTier: 'free' | 'annual' | 'lifetime'
+  membershipTier: 'free' | 'trial' | 'annual' | 'lifetime'
 }
 
 interface CandidateUser {

@@ -6,19 +6,28 @@
 // When adding a new arcade game, also add a task spec below so new users
 // discover it on signup (and ship a migration for existing users — see
 // CLAUDE.md "Arcade games: onboarding migration").
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import {
+  INITIAL_MEMBERSHIP,
+  applyMembershipEvent,
+  type MembershipState,
+} from '../../domain/membership'
 import { db } from '../db/client'
 import {
   events,
+  memberships,
   progression,
   taskInstances,
   tasks,
   userCategories,
 } from '../db/schema'
+import { upsertProjection } from './membership'
 
 const ONBOARDING_REASON = 'onboarding:arcade-welcome'
 const TOKEN_GRANT = 2
 const ONBOARDING_CATEGORY = 'other'
+const TRIAL_DAYS = 10
+const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000
 
 interface OnboardingTaskSpec {
   externalRef: string
@@ -152,8 +161,67 @@ async function createOnboardingTaskIfMissing(
   }
 }
 
+// Idempotent grant of the 10-day free trial. Short-circuits if the user
+// already has any membership-lifecycle event (trial, admin grant, or paid
+// activation) so retries — and users who somehow paid before bootstrap
+// completed — never get a stale trial event written on top.
+async function startTrialIfMissing(userId: string): Promise<void> {
+  const prior = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(
+      and(
+        eq(events.userId, userId),
+        inArray(events.type, [
+          'membership.trial_started',
+          'membership.granted',
+          'membership.activated',
+        ]),
+      ),
+    )
+    .limit(1)
+  if (prior.length > 0) return
+
+  const now = new Date()
+  const trialEndsAt = new Date(now.getTime() + TRIAL_DURATION_MS)
+
+  await db.transaction(async (tx) => {
+    const current = await tx.query.memberships.findFirst({
+      where: eq(memberships.userId, userId),
+    })
+    const prev: MembershipState = current
+      ? {
+          tier: current.tier,
+          status: current.status,
+          source: current.source,
+          stripeCustomerId: current.stripeCustomerId,
+          stripeSubscriptionId: current.stripeSubscriptionId,
+          currentPeriodEnd: current.currentPeriodEnd,
+          cancelAtPeriodEnd: current.cancelAtPeriodEnd,
+          grantedBy: current.grantedBy,
+          grantedAt: current.grantedAt,
+        }
+      : INITIAL_MEMBERSHIP
+    const next = applyMembershipEvent(prev, {
+      type: 'membership.trial_started',
+      trialEndsAt,
+      occurredAt: now,
+    })
+
+    await tx.insert(events).values({
+      userId,
+      type: 'membership.trial_started',
+      payload: { trialEndsAt: trialEndsAt.toISOString() },
+      occurredAt: now,
+    })
+
+    await upsertProjection(userId, next, tx as unknown as typeof db)
+  })
+}
+
 export async function bootstrapNewUser(userId: string): Promise<void> {
   await seedCategoriesIfEmpty(userId)
+  await startTrialIfMissing(userId)
   await grantWelcomeTokensIfMissing(userId)
   for (const spec of ONBOARDING_TASKS) {
     await createOnboardingTaskIfMissing(userId, spec)

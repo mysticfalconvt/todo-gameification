@@ -249,8 +249,8 @@ export interface AdminUserRow {
   activeTaskCount: number
   totalCompletions: number
   isAdmin: boolean
-  membershipTier: 'free' | 'annual' | 'lifetime'
-  membershipSource: 'stripe' | 'admin' | 'none'
+  membershipTier: 'free' | 'trial' | 'annual' | 'lifetime'
+  membershipSource: 'stripe' | 'admin' | 'system' | 'none'
 }
 
 export async function listAllUsers(): Promise<AdminUserRow[]> {
@@ -473,9 +473,9 @@ export interface AdminUserDetail {
   }>
   motivation: FocusGameStats
   membership: {
-    tier: 'free' | 'annual' | 'lifetime'
+    tier: 'free' | 'trial' | 'annual' | 'lifetime'
     status: 'active' | 'canceled' | 'past_due' | 'lapsed' | 'none'
-    source: 'stripe' | 'admin' | 'none'
+    source: 'stripe' | 'admin' | 'system' | 'none'
     currentPeriodEnd: string | null
     cancelAtPeriodEnd: boolean
     grantedBy: string | null

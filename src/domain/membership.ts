@@ -4,14 +4,14 @@
 // fold the next event into the current state and upsert the row.
 import type { DomainEvent } from './events'
 
-export type MembershipTier = 'free' | 'annual' | 'lifetime'
+export type MembershipTier = 'free' | 'trial' | 'annual' | 'lifetime'
 export type MembershipStatus =
   | 'active'
   | 'canceled'
   | 'past_due'
   | 'lapsed'
   | 'none'
-export type MembershipSource = 'stripe' | 'admin' | 'none'
+export type MembershipSource = 'stripe' | 'admin' | 'system' | 'none'
 
 export interface MembershipState {
   tier: MembershipTier
@@ -39,11 +39,18 @@ export const INITIAL_MEMBERSHIP: MembershipState = {
 
 // Returns true when the user currently has any non-free entitlement —
 // includes annual that's active OR scheduled-to-cancel-but-not-yet-lapsed,
-// and any lifetime row.
+// and any lifetime row. Trials are members until currentPeriodEnd passes;
+// expiry is computed lazily so no cron is needed to flip the projection.
 export function isMember(state: MembershipState): boolean {
   if (state.tier === 'lifetime') return true
   if (state.tier === 'annual')
     return state.status === 'active' || state.status === 'canceled'
+  if (state.tier === 'trial')
+    return (
+      state.status === 'active' &&
+      state.currentPeriodEnd != null &&
+      state.currentPeriodEnd.getTime() > Date.now()
+    )
   return false
 }
 
@@ -64,6 +71,19 @@ export function applyMembershipEvent(
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
         grantedBy: event.grantedBy,
+        grantedAt: event.occurredAt,
+      }
+
+    case 'membership.trial_started':
+      return {
+        ...state,
+        tier: 'trial',
+        status: 'active',
+        source: 'system',
+        stripeSubscriptionId: null,
+        currentPeriodEnd: event.trialEndsAt,
+        cancelAtPeriodEnd: false,
+        grantedBy: 'system',
         grantedAt: event.occurredAt,
       }
 

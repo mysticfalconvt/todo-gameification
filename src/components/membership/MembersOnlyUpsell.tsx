@@ -31,13 +31,39 @@ export function formatMoney(
   }
 }
 
+// Default copy keyed by variant. Callers can still pass an explicit
+// headline/subline to override (e.g. arcade game tiles say "Wordle is a
+// members game"). When a variant is given without overrides, the modal
+// renders these strings.
+const VARIANT_COPY = {
+  cold: {
+    headline: 'Unlock the full app',
+    subline:
+      'Members get the rest of the arcade, the AI Coach personalities and detailed mode, and the Garden.',
+  },
+  'trial-active': {
+    headline: 'Lock in your free-trial access',
+    subline:
+      "You're enjoying everything right now. Upgrade before your trial ends and the Garden, arcade, and coach voices stay yours.",
+  },
+  'trial-expired': {
+    headline: 'Your free trial ended',
+    subline:
+      'Upgrade to keep the Garden, full arcade, and all five coach voices. Memory Flip and Sliding Puzzle stay free either way.',
+  },
+} as const
+
+export type UpsellVariant = keyof typeof VARIANT_COPY
+
 interface UpsellProps {
   open: boolean
   onClose: () => void
   // Short headline shown above the two checkout buttons. Tells the user
-  // *why* they hit the modal (e.g. "Wordle is a members game").
-  headline: string
+  // *why* they hit the modal (e.g. "Wordle is a members game"). When
+  // omitted, copy is chosen from `variant` (defaults to 'cold').
+  headline?: string
   subline?: string
+  variant?: UpsellVariant
 }
 
 export function MembersOnlyUpsell({
@@ -45,7 +71,11 @@ export function MembersOnlyUpsell({
   onClose,
   headline,
   subline,
+  variant = 'cold',
 }: UpsellProps) {
+  const defaults = VARIANT_COPY[variant]
+  const resolvedHeadline = headline ?? defaults.headline
+  const resolvedSubline = subline ?? defaults.subline
   const pricing = useQuery({
     queryKey: ['pricing-display'],
     queryFn: () => getPricingDisplayFn(),
@@ -105,16 +135,11 @@ export function MembersOnlyUpsell({
       >
         <p className="island-kicker mb-1">Members</p>
         <h2 className="display-title mb-1 text-xl font-bold text-[var(--sea-ink)]">
-          {headline}
+          {resolvedHeadline}
         </h2>
-        {subline ? (
-          <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">{subline}</p>
-        ) : (
-          <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-            Membership unlocks the full arcade, the AI Coach personalities and
-            detailed mode, and the Garden.
-          </p>
-        )}
+        <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+          {resolvedSubline}
+        </p>
         <div className="flex flex-col gap-2">
           <button
             type="button"

@@ -113,6 +113,15 @@ export type DomainEvent =
       occurredAt: Date
     }
   | {
+      // Automatic 10-day full-access trial granted at signup. Entitlement
+      // is lazy — `isMember()` returns true while currentPeriodEnd > now,
+      // false after. No `trial_expired` event is needed for gating; the
+      // projection row stays as the historical record of the trial.
+      type: 'membership.trial_started'
+      trialEndsAt: Date
+      occurredAt: Date
+    }
+  | {
       // Stripe checkout completed (subscription OR one-time payment). For
       // annual: stripeSubscriptionId + currentPeriodEnd are set. For
       // lifetime: both are null. stripeCustomerId can be null when an

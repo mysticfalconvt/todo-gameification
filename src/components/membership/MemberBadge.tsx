@@ -9,7 +9,7 @@
 //   - 'large': beefier, used on profile / settings headers.
 
 interface Props {
-  tier: 'free' | 'annual' | 'lifetime' | null | undefined
+  tier: 'free' | 'trial' | 'annual' | 'lifetime' | null | undefined
   size?: 'inline' | 'large'
   className?: string
 }

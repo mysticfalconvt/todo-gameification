@@ -25,6 +25,7 @@ import { events, memberships } from '../db/schema'
 // event into the projection by accident.
 const MEMBERSHIP_EVENT_TYPES = [
   'membership.granted',
+  'membership.trial_started',
   'membership.activated',
   'membership.renewed',
   'membership.cancel_scheduled',
@@ -38,6 +39,13 @@ export interface MemberStatus {
   status: MembershipStatus
   source: MembershipSource
   isMember: boolean
+  // True iff tier is 'trial' regardless of expiry — UI uses this with
+  // `isMember` to distinguish active trial (both true) from expired
+  // trial (isTrial true, isMember false).
+  isTrial: boolean
+  // Trial expiry timestamp when tier is 'trial', null otherwise. Reused
+  // from currentPeriodEnd on the projection row.
+  trialEndsAt: Date | null
   currentPeriodEnd: Date | null
   cancelAtPeriodEnd: boolean
   stripeCustomerId: string | null
@@ -76,6 +84,8 @@ function rowToStatus(
     status: state.status,
     source: state.source,
     isMember: isMemberState(state),
+    isTrial: state.tier === 'trial',
+    trialEndsAt: state.tier === 'trial' ? state.currentPeriodEnd : null,
     currentPeriodEnd: state.currentPeriodEnd,
     cancelAtPeriodEnd: state.cancelAtPeriodEnd,
     stripeCustomerId: state.stripeCustomerId,
@@ -118,7 +128,10 @@ async function loadMembershipEventsForUser(
         inArray(events.type, [...MEMBERSHIP_EVENT_TYPES]),
       ),
     )
-    .orderBy(asc(events.occurredAt))
+    // Tiebreaker on event id: defends against same-millisecond writes
+    // (e.g. trial_started + a near-instant manual grant) so replay is
+    // deterministic.
+    .orderBy(asc(events.occurredAt), asc(events.id))
 
   return rows.map((r) => deserializeEvent(r.type, r.payload, r.occurredAt))
 }
@@ -139,6 +152,12 @@ function deserializeEvent(
         tier: p.tier as 'lifetime' | 'annual',
         grantedBy: String(p.grantedBy ?? ''),
         reason: typeof p.reason === 'string' ? p.reason : null,
+        occurredAt,
+      }
+    case 'membership.trial_started':
+      return {
+        type: 'membership.trial_started',
+        trialEndsAt: new Date(String(p.trialEndsAt)),
         occurredAt,
       }
     case 'membership.activated':

@@ -396,7 +396,7 @@ export const memberships = pgTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => user.id, { onDelete: 'cascade' }),
-    tier: text('tier', { enum: ['free', 'annual', 'lifetime'] })
+    tier: text('tier', { enum: ['free', 'trial', 'annual', 'lifetime'] })
       .notNull()
       .default('free'),
     status: text('status', {
@@ -404,7 +404,7 @@ export const memberships = pgTable(
     })
       .notNull()
       .default('none'),
-    source: text('source', { enum: ['stripe', 'admin', 'none'] })
+    source: text('source', { enum: ['stripe', 'admin', 'system', 'none'] })
       .notNull()
       .default('none'),
     stripeCustomerId: text('stripe_customer_id'),

@@ -27,7 +27,7 @@ export interface CommunityGardenEntry {
   handle: string
   name: string
   plant: GardenPlant
-  membershipTier: 'free' | 'annual' | 'lifetime'
+  membershipTier: 'free' | 'trial' | 'annual' | 'lifetime'
 }
 
 export interface CommunityGardenView {

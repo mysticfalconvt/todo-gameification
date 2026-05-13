@@ -39,7 +39,7 @@ export interface PublicProfile {
   xpByDay: Array<{ date: string; xp: number }>
   // Surfaced regardless of canView so the founder pill renders even on a
   // gated/private profile — being a member isn't sensitive info.
-  membershipTier: 'free' | 'annual' | 'lifetime'
+  membershipTier: 'free' | 'trial' | 'annual' | 'lifetime'
 }
 
 const WINDOW_DAYS = 30
