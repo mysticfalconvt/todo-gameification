@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFocusSession } from '../../lib/useFocusSession'
+import { focusDurationMs } from '../../domain/events'
 
 // If the user lands here but doesn't click Start within this many seconds,
 // fire it automatically. Covers the "I walked off and forgot to hit Start"
@@ -35,7 +36,7 @@ export function FocusTimer({
     onComplete()
   }, [onComplete])
 
-  const plannedMs = plannedMsOverride ?? durationMin * 60_000
+  const plannedMs = plannedMsOverride ?? focusDurationMs(durationMin)
   const session = useFocusSession(plannedMs, handleComplete)
   const { status, remainingMs, accumulatedMs, wasInterrupted } = session
 

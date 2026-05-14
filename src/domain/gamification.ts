@@ -202,6 +202,9 @@ export function applyEvent(
     case 'focus.started':
       return state
 
+    case 'focus.cancelled':
+      return state
+
     case 'focus.completed': {
       const xp = state.xp + event.xpEarned
       return {

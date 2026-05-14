@@ -14,14 +14,29 @@ interface WakeLockSentinelLike {
   release: () => Promise<void>
 }
 
+interface UseFocusSessionOptions {
+  // When provided, time progress is anchored to this wall-clock start so
+  // reloading mid-session restores correctly. Without it, the timer
+  // measures forward from the user's first call to start().
+  anchorStart?: Date | null
+  // Auto-start without requiring a user gesture. Used when restoring an
+  // active session after a reload.
+  autoStart?: boolean
+}
+
 const TICK_MS = 200
 
 export function useFocusSession(
   plannedMs: number,
   onComplete: () => void,
+  opts: UseFocusSessionOptions = {},
 ) {
+  const { anchorStart = null, autoStart = false } = opts
+
   const [status, setStatus] = useState<FocusStatus>('idle')
-  const [accumulatedMs, setAccumulatedMs] = useState(0)
+  const [accumulatedMs, setAccumulatedMs] = useState(
+    anchorStart ? Math.min(plannedMs, Date.now() - anchorStart.getTime()) : 0,
+  )
   const [wasInterrupted, setWasInterrupted] = useState(false)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -107,6 +122,14 @@ export function useFocusSession(
     void releaseWakeLock()
     setStatus('cancelled')
   }, [releaseWakeLock, stopInterval])
+
+  // Auto-start once on mount when restoring an active session.
+  useEffect(() => {
+    if (autoStart && status === 'idle') {
+      start()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Visibility / focus listeners — pause on hide, resume on show.
   useEffect(() => {

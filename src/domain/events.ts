@@ -45,18 +45,39 @@ export type DomainEvent =
     }
   | {
       // Purely informational: doesn't affect progression. Lets admin analytics
-      // see how many sessions get abandoned vs completed.
+      // see how many sessions get abandoned vs completed. `mode` distinguishes
+      // visible (screen-on enforcement) from pocket (server-tracked + push).
+      // Old events omit `mode` and default to 'visible' on read.
       type: 'focus.started'
       durationMin: 5 | 10 | 15 | 25 | 50
       taskInstanceId: string | null
+      mode?: FocusMode
+      // Pocket-mode bookkeeping: expected end time (so reopening the app
+      // can show remaining time) and the pg-boss job ID for cancellation.
+      expectedEndAt?: Date | null
+      scheduledJobId?: string | null
       occurredAt: Date
     }
   | {
+      // Early termination of an in-flight pocket session. Lets the
+      // active-session lookup ignore the parent focus.started cleanly,
+      // and lets the scheduled push handler short-circuit on fire.
+      type: 'focus.cancelled'
+      startEventId: string
+      occurredAt: Date
+    }
+  | {
+      // `mode` lets applyEvent route to the right reward table at write time
+      // (tokensEarned/xpEarned are stored in the payload, so replay is
+      // unaffected). `startEventId` links back to the originating
+      // focus.started, enabling de-dup against duplicate completion attempts.
       type: 'focus.completed'
       durationMin: 5 | 10 | 15 | 25 | 50
       taskInstanceId: string | null
       tokensEarned: number
       xpEarned: number
+      mode?: FocusMode
+      startEventId?: string | null
       occurredAt: Date
     }
   | {
@@ -173,10 +194,49 @@ export type DomainEvent =
 
 export type DomainEventType = DomainEvent['type']
 
-export const FOCUS_REWARDS: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> = {
+export type FocusMode = 'visible' | 'pocket'
+
+// Pocket-mode rewards = the original FOCUS_REWARDS values. The screen
+// stays usable for the duration, so we can't verify the user didn't
+// switch to a game; rewards are baseline.
+export const FOCUS_REWARDS_POCKET: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> = {
   5: { tokens: 1, xp: 5 },
   10: { tokens: 1, xp: 11 },
   15: { tokens: 1, xp: 18 },
   25: { tokens: 2, xp: 35 },
   50: { tokens: 4, xp: 80 },
+}
+
+// Visible mode commits the screen to the focus app for the whole
+// session (any backgrounding pauses the timer), so the longer tiers
+// earn an extra token over Pocket.
+export const FOCUS_REWARDS_VISIBLE: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> = {
+  5: { tokens: 1, xp: 5 },
+  10: { tokens: 1, xp: 11 },
+  15: { tokens: 2, xp: 18 },
+  25: { tokens: 3, xp: 35 },
+  50: { tokens: 5, xp: 80 },
+}
+
+export function focusRewardsFor(mode: FocusMode) {
+  return mode === 'pocket' ? FOCUS_REWARDS_POCKET : FOCUS_REWARDS_VISIBLE
+}
+
+// TESTING ONLY — when > 0, every focus session (visible or pocket)
+// runs for this many seconds regardless of the user-chosen duration.
+// Lets you exercise the whole pocket-mode push flow in seconds rather
+// than minutes. Set to 0 before shipping.
+export const FOCUS_TEST_OVERRIDE_SECONDS = 0
+
+export function focusDurationMs(durationMin: FocusDurationMin): number {
+  return FOCUS_TEST_OVERRIDE_SECONDS > 0
+    ? FOCUS_TEST_OVERRIDE_SECONDS * 1000
+    : durationMin * 60_000
+}
+
+// Validation: do we recognize this duration tier at all?
+export const FOCUS_DURATIONS = [5, 10, 15, 25, 50] as const
+export type FocusDurationMin = (typeof FOCUS_DURATIONS)[number]
+export function isFocusDuration(n: number): n is FocusDurationMin {
+  return (FOCUS_DURATIONS as readonly number[]).includes(n)
 }

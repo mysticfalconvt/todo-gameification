@@ -8,6 +8,15 @@ import {
 import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
 import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
 import { githubPollHandler } from './jobs/githubPoll'
+import {
+  focusSessionEndHandler,
+  focusSessionExpireHandler,
+  type FocusSessionEndJobData,
+  type FocusSessionExpireJobData,
+} from './jobs/focusSessionEnd'
+
+const FOCUS_END_QUEUE = 'focus-session-end'
+const FOCUS_EXPIRE_QUEUE = 'focus-session-expire'
 
 let instance: PgBoss | null = null
 let booting: Promise<PgBoss> | null = null
@@ -22,10 +31,14 @@ async function boot(): Promise<PgBoss> {
   await boss.createQueue('cleanup-stale-subs')
   await boss.createQueue('check-plant-risk')
   await boss.createQueue('poll-github')
+  await boss.createQueue(FOCUS_END_QUEUE)
+  await boss.createQueue(FOCUS_EXPIRE_QUEUE)
   await boss.work('send-reminder', sendReminderHandler)
   await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
   await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
   await boss.work('poll-github', async () => githubPollHandler())
+  await boss.work(FOCUS_END_QUEUE, focusSessionEndHandler)
+  await boss.work(FOCUS_EXPIRE_QUEUE, focusSessionExpireHandler)
   await boss.schedule('cleanup-stale-subs', '0 3 * * *')
   // Runs at :00 every hour, UTC. The handler filters to users whose
   // local hour is 18 and only sends to those with at-risk plants.
@@ -68,6 +81,46 @@ export async function scheduleReminder(
     },
     fireAt,
   )
+}
+
+// Returns the job id so the caller can persist it on the originating
+// focus.started event (used for early-cancel via boss.cancel).
+export async function scheduleFocusSessionEnd(
+  data: FocusSessionEndJobData,
+  fireAt: Date,
+): Promise<string | null> {
+  const boss = await getBoss()
+  return await boss.sendAfter(
+    FOCUS_END_QUEUE,
+    data,
+    {
+      singletonKey: `focus-end-${data.startEventId}`,
+      retryLimit: 2,
+      retryBackoff: true,
+    },
+    fireAt,
+  )
+}
+
+export async function scheduleFocusSessionExpire(
+  data: FocusSessionExpireJobData,
+  fireAt: Date,
+): Promise<string | null> {
+  const boss = await getBoss()
+  return await boss.sendAfter(
+    FOCUS_EXPIRE_QUEUE,
+    data,
+    {
+      singletonKey: `focus-expire-${data.startEventId}`,
+      retryLimit: 1,
+    },
+    fireAt,
+  )
+}
+
+export async function cancelFocusSessionEndJob(jobId: string): Promise<void> {
+  const boss = await getBoss()
+  await boss.cancel(FOCUS_END_QUEUE, jobId)
 }
 
 export { ESCALATION_INTERVAL_MS, MAX_REMINDER_ATTEMPTS }
