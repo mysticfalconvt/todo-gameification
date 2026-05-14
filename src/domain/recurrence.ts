@@ -139,6 +139,30 @@ export interface ComputeNextDueInput {
 }
 
 export function computeNextDue(input: ComputeNextDueInput): Date {
+  // `computeNextDueOnce` advances strictly one cycle from previousDueAt.
+  // If the user missed several cycles, one step can still land in the
+  // past — for a daily 7pm task last completed last week, the first
+  // step lands on yesterday, then the new instance reappears in today's
+  // list with no snooze. Walk forward until the result is after
+  // completedAt so a single click really does mean "done for now."
+  //
+  // after_completion is anchored on completedAt, so its first result is
+  // already in the future (assuming amount > 0); skip the loop.
+  let next = computeNextDueOnce(input)
+  if (input.recurrence.type === 'after_completion') return next
+
+  // Cap iterations so a malformed row (e.g. 0-day interval) can't spin
+  // forever. 4096 covers >10 years of daily catch-up.
+  let cursor = next
+  for (let i = 0; i < 4096 && next <= input.completedAt; i++) {
+    next = computeNextDueOnce({ ...input, previousDueAt: cursor })
+    if (next <= cursor) break // defensive: never go backwards
+    cursor = next
+  }
+  return next
+}
+
+function computeNextDueOnce(input: ComputeNextDueInput): Date {
   const { recurrence, previousDueAt, completedAt, timeOfDay, timeZone } = input
   const hasLocalPin = Boolean(timeOfDay && timeZone)
 

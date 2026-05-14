@@ -54,13 +54,24 @@ describe('computeNextDue', () => {
   })
 
   describe('interval', () => {
-    it('advances strictly by N days from the previous due date', () => {
+    it('advances by N days from the previous due date when on time', () => {
       const next = computeNextDue({
         recurrence: { type: 'interval', days: 3 },
         previousDueAt: at('2026-04-18T09:00:00Z'),
-        completedAt: at('2026-04-22T10:00:00Z'), // late completion should not matter
+        completedAt: at('2026-04-18T10:00:00Z'),
       })
       expect(next.toISOString()).toBe('2026-04-21T09:00:00.000Z')
+    })
+
+    it('walks forward in N-day steps when the user completes late', () => {
+      // previous + 3 days = Apr 21, but completedAt is Apr 22 — the
+      // next due must land after the completion, so step to Apr 24.
+      const next = computeNextDue({
+        recurrence: { type: 'interval', days: 3 },
+        previousDueAt: at('2026-04-18T09:00:00Z'),
+        completedAt: at('2026-04-22T10:00:00Z'),
+      })
+      expect(next.toISOString()).toBe('2026-04-24T09:00:00.000Z')
     })
   })
 
@@ -153,6 +164,72 @@ describe('computeNextDue', () => {
         timeZone: 'America/New_York',
       })
       expect(formatLocal(next, 'America/New_York')).toBe('2026-06-01 09:00')
+    })
+  })
+
+  describe('catch-up: nextDue is always after completedAt', () => {
+    it('daily: previousDueAt 7 days stale → walks forward to next future 19:00', () => {
+      // Real prod scenario: user has a daily 19:00 task. previous instance
+      // dueAt was a week ago; they finally check it off today after 19:00.
+      // One step (the old behavior) would land on yesterday and the new
+      // instance would reappear in today's list with no snooze. Catch-up
+      // must walk forward until the result is after completedAt.
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-05-06T23:00:00Z'), // 19:00 EDT
+        completedAt: at('2026-05-13T23:27:00Z'), // 19:27 EDT
+        timeOfDay: '19:00',
+        timeZone: 'America/New_York',
+      })
+      expect(formatLocal(next, 'America/New_York')).toBe('2026-05-14 19:00')
+    })
+
+    it('daily without timeOfDay: stale previousDueAt also catches up', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-05-06T09:00:00Z'),
+        completedAt: at('2026-05-13T09:30:00Z'),
+      })
+      expect(next > at('2026-05-13T09:30:00Z')).toBe(true)
+      expect(next.toISOString()).toBe('2026-05-14T09:00:00.000Z')
+    })
+
+    it('interval days: stale previous catches up by N-day steps', () => {
+      // 3-day interval, last due 30 days ago — should land on the first
+      // 3-day boundary after completedAt.
+      const next = computeNextDue({
+        recurrence: { type: 'interval', amount: 3, unit: 'days' },
+        previousDueAt: at('2026-04-01T09:00:00Z'),
+        completedAt: at('2026-05-13T09:30:00Z'),
+      })
+      expect(next > at('2026-05-13T09:30:00Z')).toBe(true)
+      // 2026-04-01 + 3*15 = 2026-05-16
+      expect(next.toISOString()).toBe('2026-05-16T09:00:00.000Z')
+    })
+
+    it('weekly: stale previous catches up to next matching weekday', () => {
+      // Mondays-only, last due 3 weeks ago.
+      const next = computeNextDue({
+        recurrence: { type: 'weekly', daysOfWeek: [1] },
+        previousDueAt: at('2026-04-20T09:00:00Z'), // a Monday
+        completedAt: at('2026-05-13T09:30:00Z'), // a Wednesday
+        timeOfDay: '09:00',
+        timeZone: 'UTC',
+      })
+      expect(next > at('2026-05-13T09:30:00Z')).toBe(true)
+      // Next Monday after May 13 = May 18
+      expect(formatLocal(next, 'UTC')).toBe('2026-05-18 09:00')
+    })
+
+    it('after_completion stays anchored on completedAt even if "stale"', () => {
+      // after_completion is already anchored on completedAt; catch-up
+      // shouldn't shift it forward.
+      const next = computeNextDue({
+        recurrence: { type: 'after_completion', amount: 7, unit: 'days' },
+        previousDueAt: at('2026-01-01T09:00:00Z'),
+        completedAt: at('2026-05-13T09:30:00Z'),
+      })
+      expect(next.toISOString()).toBe('2026-05-20T09:30:00.000Z')
     })
   })
 
