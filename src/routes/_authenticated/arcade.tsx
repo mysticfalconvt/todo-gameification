@@ -40,6 +40,28 @@ interface WordleDetails {
   longestWinStreak: number
 }
 
+interface SudokuDifficultyStats {
+  played: number
+  won: number
+  bestScore: number | null
+  bestAt: string | null
+  averageSecondsOnWin: number | null
+  currentWinStreak: number
+  longestWinStreak: number
+}
+
+interface SudokuDetails {
+  easy: SudokuDifficultyStats
+  hard: SudokuDifficultyStats
+  totalSolved: number
+}
+
+function formatSeconds(total: number): string {
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function formatScore(gameId: string, score: number): string {
   switch (gameId) {
     case 'wordle':
@@ -167,6 +189,21 @@ function ArcadePage() {
             g.id === 'wordle'
               ? (statsQuery.data?.wordle as WordleDetails | null | undefined)
               : null
+          const sudoku =
+            g.id === 'sudoku'
+              ? (statsQuery.data?.sudoku as SudokuDetails | null | undefined)
+              : null
+          const sudokuFriendBests =
+            g.id === 'sudoku'
+              ? {
+                  easy: statsQuery.data?.friendBests.find(
+                    (f) => f.gameId === 'sudoku:easy',
+                  ) as FriendBest | undefined,
+                  hard: statsQuery.data?.friendBests.find(
+                    (f) => f.gameId === 'sudoku:hard',
+                  ) as FriendBest | undefined,
+                }
+              : null
           return (
             <li
               key={g.id}
@@ -211,6 +248,12 @@ function ArcadePage() {
                 gameId={g.id}
               />
               {wordle && !locked ? <WordlePanel details={wordle} /> : null}
+              {sudoku && !locked ? (
+                <SudokuPanel
+                  details={sudoku}
+                  friendBests={sudokuFriendBests}
+                />
+              ) : null}
             </li>
           )
         })}
@@ -226,7 +269,7 @@ function ArcadePage() {
         open={upsellOpen}
         onClose={() => setUpsellOpen(false)}
         headline="Unlock the full arcade"
-        subline="Memory Flip and Sliding Puzzle stay free. Members also get Wordle, 2048, and Word Search — plus the AI Coach personalities and the Garden."
+        subline="Memory Flip and Sliding Puzzle stay free. Members also get Wordle, 2048, Word Search, and Sudoku — plus the AI Coach personalities and the Garden."
       />
     </main>
   )
@@ -312,6 +355,86 @@ function WordlePanel({ details }: { details: WordleDetails }) {
         <Stat label="Best streak" value={`${details.longestWinStreak}`} />
       </dl>
     </details>
+  )
+}
+
+function SudokuPanel({
+  details,
+  friendBests,
+}: {
+  details: SudokuDetails
+  friendBests: { easy: FriendBest | undefined; hard: FriendBest | undefined } | null
+}) {
+  if (details.easy.played === 0 && details.hard.played === 0) return null
+  return (
+    <details className="mt-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] p-3 text-xs">
+      <summary className="cursor-pointer font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        Sudoku stats · {details.totalSolved} solved
+      </summary>
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SudokuDifficultyColumn
+          label="Easy"
+          stats={details.easy}
+          friendBest={friendBests?.easy}
+        />
+        <SudokuDifficultyColumn
+          label="Hard"
+          stats={details.hard}
+          friendBest={friendBests?.hard}
+        />
+      </div>
+    </details>
+  )
+}
+
+function SudokuDifficultyColumn({
+  label,
+  stats,
+  friendBest,
+}: {
+  label: string
+  stats: SudokuDifficultyStats
+  friendBest: FriendBest | undefined
+}) {
+  return (
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--lagoon-deep)]">
+        {label}
+      </p>
+      {stats.played === 0 ? (
+        <p className="text-[var(--sea-ink-soft)]">No plays yet.</p>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-[var(--sea-ink)]">
+          <Stat label="Win rate" value={formatWinRate(stats.played, stats.won)} />
+          <Stat
+            label="Best"
+            value={
+              stats.bestScore !== null ? formatSeconds(stats.bestScore) : '—'
+            }
+          />
+          <Stat
+            label="Avg time"
+            value={
+              stats.averageSecondsOnWin !== null
+                ? formatSeconds(stats.averageSecondsOnWin)
+                : '—'
+            }
+          />
+          <Stat label="Solved" value={`${stats.won}`} />
+          <Stat label="Streak" value={`${stats.currentWinStreak}`} />
+          <Stat label="Best streak" value={`${stats.longestWinStreak}`} />
+        </dl>
+      )}
+      {friendBest ? (
+        <p className="mt-3 border-t border-[var(--line)] pt-2 text-[var(--sea-ink-soft)]">
+          <span aria-hidden>👥 </span>
+          Friends' best: {formatSeconds(friendBest.bestScore)} —{' '}
+          <span className="font-semibold text-[var(--sea-ink)]">
+            @{friendBest.handle}
+          </span>
+        </p>
+      ) : null}
+    </div>
   )
 }
 

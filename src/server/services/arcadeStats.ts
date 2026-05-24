@@ -23,11 +23,18 @@ import { GAMES } from '../../games/registry'
 // games: bigger tile, bigger score wins. Drives MIN/MAX direction in
 // aggregation. Unknown game IDs default to higher-is-better — safest if
 // we add a new game without updating this map.
+//
+// Sudoku has two leaderboards (easy/hard), exposed via synthetic gameIds
+// `sudoku:easy` / `sudoku:hard` in friend-best output. The base `sudoku`
+// id is registered so `isBetter` works if anything ever calls it.
 const SCORE_DIRECTION: Record<string, 'lower' | 'higher'> = {
   wordle: 'lower',
   'sliding-puzzle': 'lower',
   'memory-flip': 'lower',
   '2048': 'higher',
+  sudoku: 'lower',
+  'sudoku:easy': 'lower',
+  'sudoku:hard': 'lower',
 }
 
 // Most games only have a meaningful score on a win — losing Wordle by
@@ -41,6 +48,9 @@ const SCORE_NEEDS_WIN: Record<string, boolean> = {
   'sliding-puzzle': true,
   'memory-flip': true,
   '2048': false,
+  sudoku: true,
+  'sudoku:easy': true,
+  'sudoku:hard': true,
 }
 
 function scoreCounts(gameId: string, won: boolean): boolean {
@@ -81,10 +91,27 @@ export interface WordleDetails {
   longestWinStreak: number
 }
 
+export interface SudokuDifficultyStats {
+  played: number
+  won: number
+  bestScore: number | null
+  bestAt: string | null
+  averageSecondsOnWin: number | null
+  currentWinStreak: number
+  longestWinStreak: number
+}
+
+export interface SudokuDetails {
+  easy: SudokuDifficultyStats
+  hard: SudokuDifficultyStats
+  totalSolved: number
+}
+
 export interface ArcadeStats {
   personal: PersonalGameStats[]
   friendBests: FriendBest[]
   wordle: WordleDetails | null
+  sudoku: SudokuDetails | null
 }
 
 interface GameEventRow {
@@ -105,6 +132,9 @@ function readPlay(row: GameEventRow): {
   won: boolean
   score: number | null
   word: string | null
+  difficulty: 'easy' | 'hard' | null
+  seconds: number | null
+  mistakes: number | null
   occurredAt: Date
 } | null {
   if (!row.occurredAt) return null
@@ -116,7 +146,24 @@ function readPlay(row: GameEventRow): {
   const rawScore = result['score']
   const score = typeof rawScore === 'number' ? (rawScore as number) : null
   const word = typeof p['word'] === 'string' ? (p['word'] as string) : null
-  return { gameId, won, score, word, occurredAt: row.occurredAt }
+  const rawDifficulty = p['difficulty']
+  const difficulty =
+    rawDifficulty === 'easy' || rawDifficulty === 'hard'
+      ? rawDifficulty
+      : null
+  const seconds = typeof p['seconds'] === 'number' ? (p['seconds'] as number) : null
+  const mistakes =
+    typeof p['mistakes'] === 'number' ? (p['mistakes'] as number) : null
+  return {
+    gameId,
+    won,
+    score,
+    word,
+    difficulty,
+    seconds,
+    mistakes,
+    occurredAt: row.occurredAt,
+  }
 }
 
 async function friendIdsFor(userId: string): Promise<string[]> {
@@ -190,8 +237,14 @@ function aggregatePersonal(
     if (p.won) existing.won += 1
     // Best score is counted on wins, plus on losses for games where the
     // raw score is still meaningful (e.g. 2048's highest-tile-reached).
-    // See SCORE_NEEDS_WIN.
-    if (typeof p.score === 'number' && scoreCounts(p.gameId, p.won)) {
+    // See SCORE_NEEDS_WIN. Sudoku has per-difficulty leaderboards instead
+    // — a combined "overall best" would mix easy + hard times — so we
+    // omit the top-line best here and let SudokuDetails carry the splits.
+    if (
+      p.gameId !== 'sudoku' &&
+      typeof p.score === 'number' &&
+      scoreCounts(p.gameId, p.won)
+    ) {
       if (
         existing.bestScore === null ||
         isBetter(p.gameId, p.score, existing.bestScore)
@@ -266,6 +319,75 @@ function aggregateFriendBests(
     })
   }
   return out
+}
+
+function emptyDifficultyStats(): SudokuDifficultyStats {
+  return {
+    played: 0,
+    won: 0,
+    bestScore: null,
+    bestAt: null,
+    averageSecondsOnWin: null,
+    currentWinStreak: 0,
+    longestWinStreak: 0,
+  }
+}
+
+function buildSudokuDetails(
+  plays: ReturnType<typeof readPlay>[],
+): SudokuDetails | null {
+  const sudokus = plays.filter(
+    (p): p is NonNullable<ReturnType<typeof readPlay>> =>
+      p !== null && p.gameId === 'sudoku',
+  )
+  if (sudokus.length === 0) return null
+
+  // Per-difficulty ladder. Streaks are tracked separately per difficulty —
+  // losing an easy run doesn't reset the hard streak and vice versa.
+  sudokus.sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())
+
+  const stats: Record<'easy' | 'hard', SudokuDifficultyStats> = {
+    easy: emptyDifficultyStats(),
+    hard: emptyDifficultyStats(),
+  }
+  const secondsSum: Record<'easy' | 'hard', number> = { easy: 0, hard: 0 }
+  const secondsCount: Record<'easy' | 'hard', number> = { easy: 0, hard: 0 }
+  const running: Record<'easy' | 'hard', number> = { easy: 0, hard: 0 }
+  let totalSolved = 0
+
+  for (const p of sudokus) {
+    const d = p.difficulty
+    if (d !== 'easy' && d !== 'hard') continue
+    const s = stats[d]
+    s.played += 1
+    if (p.won) {
+      s.won += 1
+      totalSolved += 1
+      running[d] += 1
+      if (running[d] > s.longestWinStreak) s.longestWinStreak = running[d]
+      s.currentWinStreak = running[d]
+      if (typeof p.score === 'number') {
+        if (s.bestScore === null || p.score < s.bestScore) {
+          s.bestScore = p.score
+          s.bestAt = p.occurredAt.toISOString()
+        }
+      }
+      if (typeof p.seconds === 'number') {
+        secondsSum[d] += p.seconds
+        secondsCount[d] += 1
+      }
+    } else {
+      running[d] = 0
+      s.currentWinStreak = 0
+    }
+  }
+  for (const d of ['easy', 'hard'] as const) {
+    if (secondsCount[d] > 0) {
+      stats[d].averageSecondsOnWin = Math.round(secondsSum[d] / secondsCount[d])
+    }
+  }
+
+  return { easy: stats.easy, hard: stats.hard, totalSolved }
 }
 
 function buildWordleDetails(
@@ -357,13 +479,21 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
     ) {
       // Friend "best" mirrors the personal rule: wins always count, losses
       // count only for games where the score is meaningful regardless
-      // (e.g. 2048's highest tile).
-      friendPlays.push({
-        userId: r.userId,
-        gameId: play.gameId,
-        score: play.score,
-        occurredAt: play.occurredAt,
-      })
+      // (e.g. 2048's highest tile). Sudoku is keyed per-difficulty so the
+      // two ladders don't get conflated — SudokuPanel looks them up via
+      // `sudoku:easy` / `sudoku:hard`.
+      const aggregateGameId =
+        play.gameId === 'sudoku' && play.difficulty
+          ? `sudoku:${play.difficulty}`
+          : play.gameId
+      if (play.gameId !== 'sudoku' || play.difficulty) {
+        friendPlays.push({
+          userId: r.userId,
+          gameId: aggregateGameId,
+          score: play.score,
+          occurredAt: play.occurredAt,
+        })
+      }
     }
   }
 
@@ -371,5 +501,6 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
     personal: aggregatePersonal(myPlays),
     friendBests: aggregateFriendBests(friends, friendPlays),
     wordle: buildWordleDetails(myPlays),
+    sudoku: buildSudokuDetails(myPlays),
   }
 }

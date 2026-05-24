@@ -111,6 +111,18 @@ export async function finishGame(
     if (typeof theme === 'string') basePayload.theme = theme
     const size = event.meta?.size
     if (size === 'small' || size === 'large') basePayload.size = size
+    // Sudoku promotes difficulty so per-difficulty leaderboards are a flat
+    // payload lookup; seconds + mistakes feed the detail panel.
+    const difficulty = event.meta?.difficulty
+    if (difficulty === 'easy' || difficulty === 'hard') {
+      basePayload.difficulty = difficulty
+    }
+    const seconds = event.meta?.seconds
+    if (typeof seconds === 'number') basePayload.seconds = seconds
+    const mistakes = event.meta?.mistakes
+    if (typeof mistakes === 'number') basePayload.mistakes = mistakes
+    const hints = event.meta?.hints
+    if (typeof hints === 'number') basePayload.hints = hints
 
     await tx.insert(events).values({
       userId: input.userId,
