@@ -179,14 +179,19 @@ export async function fetchGithubUser(
 }
 
 export interface FetchReviewRequestedResult {
+  // Deduped union of both flows — one entry per PR.
   prs: GithubReviewPr[]
+  // PR ids that matched `assignee:@me` in this fetch.
+  assigneeIds: Set<number>
+  // PR ids that matched `review-requested:@me` in this fetch.
+  reviewRequestedIds: Set<number>
   tokenExpiresAt: Date | null
 }
 
 async function searchPrs(
   token: string,
   qualifier: string,
-): Promise<FetchReviewRequestedResult> {
+): Promise<{ prs: GithubReviewPr[]; tokenExpiresAt: Date | null }> {
   const q = encodeURIComponent(`is:pr is:open ${qualifier} archived:false`)
   const { data, tokenExpiresAt } = await githubFetch<SearchIssuesResponse>(
     token,
@@ -209,18 +214,24 @@ export async function fetchReviewRequestedPrs(
 ): Promise<FetchReviewRequestedResult> {
   // Two separate searches — OR across qualifiers in GitHub's issue-search
   // isn't reliable. Dedupe by prId so a PR that's both assigned-to-you
-  // and review-requested-from-you only becomes one task.
+  // and review-requested-from-you only becomes one task, but keep the
+  // per-flow id sets so the sync can tell which flow surfaced each PR.
+  // Re-instancing a completed task is gated on the assignee flow
+  // transitioning false → true; review-requested transitions never
+  // re-instance.
   const [review, assigned] = await Promise.all([
     searchPrs(token, 'review-requested:@me'),
     searchPrs(token, 'assignee:@me'),
   ])
+  const reviewRequestedIds = new Set(review.prs.map((p) => p.prId))
+  const assigneeIds = new Set(assigned.prs.map((p) => p.prId))
   const byId = new Map<number, GithubReviewPr>()
   for (const pr of [...review.prs, ...assigned.prs]) {
     byId.set(pr.prId, pr)
   }
   const prs = [...byId.values()]
   const tokenExpiresAt = review.tokenExpiresAt ?? assigned.tokenExpiresAt
-  return { prs, tokenExpiresAt }
+  return { prs, assigneeIds, reviewRequestedIds, tokenExpiresAt }
 }
 
 export async function getGithubIntegration(
@@ -373,10 +384,18 @@ export async function syncReviewTasksForUser(
   }
 
   let prs: GithubReviewPr[]
+  let assigneeRefs = new Set<string>()
+  let reviewRequestedRefs = new Set<string>()
   let tokenExpiresAt: Date | null = integration.tokenExpiresAt ?? null
   try {
     const result = await fetchReviewRequestedPrs(integration.token)
     prs = result.prs
+    assigneeRefs = new Set(
+      [...result.assigneeIds].map((id) => `github-pr-${id}`),
+    )
+    reviewRequestedRefs = new Set(
+      [...result.reviewRequestedIds].map((id) => `github-pr-${id}`),
+    )
     tokenExpiresAt = result.tokenExpiresAt ?? tokenExpiresAt
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -412,6 +431,8 @@ export async function syncReviewTasksForUser(
       id: tasks.id,
       externalRef: tasks.externalRef,
       active: tasks.active,
+      assigneePresent: tasks.assigneePresent,
+      reviewRequestedPresent: tasks.reviewRequestedPresent,
     })
     .from(tasks)
     .where(
@@ -430,12 +451,47 @@ export async function syncReviewTasksForUser(
   let created = 0
   let completed = 0
 
-  // Create tasks for new PRs. If a task for this PR already exists but
-  // its latest instance was completed/skipped (we auto-completed it when
-  // the PR dropped off the list, or the user ticked it manually), insert
-  // a fresh instance so the re-request/re-assign shows up again.
+  // Updates the per-flow presence flags on a task if they've drifted from
+  // the current poll's observation. Mutates the in-memory row so later
+  // logic in this same sync sees the new values.
+  const updateFlagsIfChanged = async (
+    task: {
+      id: string
+      assigneePresent: boolean | null
+      reviewRequestedPresent: boolean | null
+    },
+    nextAssignee: boolean,
+    nextReviewRequested: boolean,
+  ) => {
+    if (
+      task.assigneePresent === nextAssignee &&
+      task.reviewRequestedPresent === nextReviewRequested
+    ) {
+      return
+    }
+    await db
+      .update(tasks)
+      .set({
+        assigneePresent: nextAssignee,
+        reviewRequestedPresent: nextReviewRequested,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, task.id))
+    task.assigneePresent = nextAssignee
+    task.reviewRequestedPresent = nextReviewRequested
+  }
+
+  // Create tasks for new PRs. For PRs we already track, re-instance ONLY
+  // on the assignee absent → present transition (the user was removed as
+  // the PR's assignee and then re-added). A re-requested review does NOT
+  // re-instance — that's deliberate: review-requested only ever adds the
+  // task once in its lifetime. The transition requires an explicit prior
+  // `false`, so `null` (pre-migration / never observed) doesn't count and
+  // can't trigger a spurious re-instance on the first poll.
   for (const pr of prs) {
     const ref = `github-pr-${pr.prId}`
+    const isAssignee = assigneeRefs.has(ref)
+    const isReviewRequested = reviewRequestedRefs.has(ref)
     const existingTask = existingByRef.get(ref)
     if (existingTask) {
       if (!existingTask.active) continue
@@ -446,24 +502,28 @@ export async function syncReviewTasksForUser(
         ),
         orderBy: (t, { desc }) => [desc(t.createdAt)],
       })
-      if (
-        latestInstance &&
+      const hasOpenInstance =
+        !!latestInstance &&
         !latestInstance.completedAt &&
         !latestInstance.skippedAt
-      ) {
-        continue
+      if (!hasOpenInstance) {
+        const shouldReinstance =
+          isAssignee && existingTask.assigneePresent === false
+        if (shouldReinstance) {
+          try {
+            await db.insert(taskInstances).values({
+              taskId: existingTask.id,
+              userId,
+              dueAt: new Date(),
+            })
+            created += 1
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            errors.push(`reinstance ${ref}: ${message}`)
+          }
+        }
       }
-      try {
-        await db.insert(taskInstances).values({
-          taskId: existingTask.id,
-          userId,
-          dueAt: new Date(),
-        })
-        created += 1
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        errors.push(`reinstance ${ref}: ${message}`)
-      }
+      await updateFlagsIfChanged(existingTask, isAssignee, isReviewRequested)
       continue
     }
     try {
@@ -478,6 +538,8 @@ export async function syncReviewTasksForUser(
             categorySlug: prCategory,
             externalRef: ref,
             visibility: 'private',
+            assigneePresent: isAssignee,
+            reviewRequestedPresent: isReviewRequested,
           })
           .returning({ id: tasks.id })
         await tx.insert(taskInstances).values({
@@ -497,11 +559,14 @@ export async function syncReviewTasksForUser(
     }
   }
 
-  // Auto-complete tasks whose PR is no longer review-requested.
+  // Auto-complete tasks whose PR fell out of both flows. We also mark
+  // both presence flags false here, even if the latest instance is
+  // already closed — that's what enables the next assignee re-add to be
+  // detected as a transition.
   for (const [ref, task] of existingByRef) {
     if (incomingRefs.has(ref)) continue
     if (!task.active) continue
-    // Find the open instance for this task (should be at most one).
+    await updateFlagsIfChanged(task, false, false)
     const openInstance = await db.query.taskInstances.findFirst({
       where: and(
         eq(taskInstances.taskId, task.id),

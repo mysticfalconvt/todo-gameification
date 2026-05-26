@@ -124,6 +124,13 @@ export const tasks = pgTable('tasks', {
   // `github-pr-<prId>`). Null for user-created tasks. Unique per user
   // when set — enforced via a partial unique index.
   externalRef: text('external_ref'),
+  // Per-flow presence tracking for the GitHub integration. Null for
+  // non-integration tasks and before the first poll. The github sync
+  // re-instances a completed task only when `assigneePresent` transitions
+  // from an explicit `false` back to `true` — i.e., the user was removed
+  // as the PR's assignee and then re-added.
+  assigneePresent: boolean('assignee_present'),
+  reviewRequestedPresent: boolean('review_requested_present'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
