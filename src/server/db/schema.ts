@@ -321,6 +321,24 @@ export const userPrefs = pgTable('user_prefs', {
   bio: text('bio').notNull().default(''),
 })
 
+// Per-user cache for the coach blurb. One row per user; upserted by
+// generateCoachSummary on cache miss. Signature mirrors the client-side
+// invalidation key (sorted today + someday instance IDs) so any add /
+// complete / skip / snooze / recurring rollover flips it. Attitude and
+// detailed are tracked too so a prefs change forces regeneration.
+export const coachSummaries = pgTable('coach_summaries', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull(),
+  signature: text('signature').notNull(),
+  attitude: text('attitude').notNull(),
+  detailed: boolean('detailed').notNull(),
+  generatedAt: timestamp('generated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const pushSubscriptions = pgTable('push_subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id').notNull(),

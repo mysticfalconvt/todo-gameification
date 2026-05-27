@@ -24,6 +24,7 @@ import {
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
+  coachSummaries,
   events,
   progression,
   taskInstances,
@@ -509,6 +510,45 @@ export async function deleteTask(
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
   return { id: result[0].id }
+}
+
+// Wipe the user's current todo list while preserving history.
+// Hard-deletes pending instances, then soft-deletes active tasks (active=false
+// also stops recurring tasks from materializing new instances in
+// completeInstance). Events / progression / tokens / categories untouched.
+export async function resetTasks(
+  userId: string,
+): Promise<{ deletedInstances: number; deactivatedTasks: number }> {
+  return db.transaction(async (tx) => {
+    const deletedInstances = await tx
+      .delete(taskInstances)
+      .where(
+        and(
+          eq(taskInstances.userId, userId),
+          isNull(taskInstances.completedAt),
+          isNull(taskInstances.skippedAt),
+        ),
+      )
+      .returning({ id: taskInstances.id })
+
+    const deactivatedTasks = await tx
+      .update(tasks)
+      .set({ active: false, updatedAt: new Date() })
+      .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
+      .returning({ id: tasks.id })
+
+    // Drop the cached coach blurb — its signature is for tasks that no
+    // longer exist, and we don't want the next coach load to reference
+    // them. The next read will regenerate against the empty list.
+    await tx
+      .delete(coachSummaries)
+      .where(eq(coachSummaries.userId, userId))
+
+    return {
+      deletedInstances: deletedInstances.length,
+      deactivatedTasks: deactivatedTasks.length,
+    }
+  })
 }
 
 // Narrow patch for the bulk-select UI. Avoids round-tripping a full

@@ -6,7 +6,7 @@
 // sentences the user actually wants to read.
 import { and, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { events, tasks, userPrefs } from '../db/schema'
+import { coachSummaries, events, tasks, userPrefs } from '../db/schema'
 import { callLlmChat } from '../llm/client'
 import { getMemberStatus } from './membership'
 import * as taskService from './tasks'
@@ -454,6 +454,27 @@ function buildUserPrompt(input: {
   return parts.join('\n\n')
 }
 
+// How long a cached coach blurb stays valid even when the task signature
+// hasn't changed. Picked to match the old client-side `refetchInterval`
+// (2h) so the visible behavior — same blurb on idle days, refresh after a
+// couple of hours — is unchanged.
+const COACH_CACHE_TTL_MS = 2 * 60 * 60 * 1000
+
+function buildCoachSignature(
+  today: { instanceId: string }[],
+  someday: { instanceId: string }[],
+): string {
+  const t = today
+    .map((i) => i.instanceId)
+    .sort()
+    .join(',')
+  const s = someday
+    .map((i) => i.instanceId)
+    .sort()
+    .join(',')
+  return `${t}:${s}`
+}
+
 export async function generateCoachSummary(
   userId: string,
 ): Promise<CoachSummary | null> {
@@ -468,17 +489,40 @@ export async function generateCoachSummary(
   const attitude: CoachAttitude = member.isMember ? prefs.attitude : 'warm'
   const detailed = member.isMember ? prefs.detailed : false
   const { bio } = prefs
+
+  // Cheapest possible cache check: we need today + someday anyway to
+  // build the prompt, so loading them up front costs nothing extra. If
+  // the stored row matches signature + attitude + detailed and is
+  // younger than the TTL, return it without touching the LLM.
+  const [today, someday, cached] = await Promise.all([
+    taskService.listTodayInstances(userId),
+    taskService.listSomedayInstances(userId),
+    db.query.coachSummaries.findFirst({
+      where: eq(coachSummaries.userId, userId),
+    }),
+  ])
+  const signature = buildCoachSignature(today, someday)
+  if (
+    cached &&
+    cached.signature === signature &&
+    cached.attitude === attitude &&
+    cached.detailed === detailed &&
+    Date.now() - cached.generatedAt.getTime() < COACH_CACHE_TTL_MS
+  ) {
+    return {
+      summary: cached.summary,
+      generatedAt: cached.generatedAt.toISOString(),
+    }
+  }
+
   const since = new Date(Date.now() - 24 * 3_600_000)
   const cadenceWindow = detailed ? 14 : 7
-  const [today, someday, progression, activityDays, recentEvents, cadence] =
-    await Promise.all([
-      taskService.listTodayInstances(userId),
-      taskService.listSomedayInstances(userId),
-      taskService.getProgression(userId),
-      taskService.listRecentActivity(userId),
-      loadRecentEvents(userId, since),
-      loadCompletionCadence(userId, timeZone, cadenceWindow),
-    ])
+  const [progression, activityDays, recentEvents, cadence] = await Promise.all([
+    taskService.getProgression(userId),
+    taskService.listRecentActivity(userId),
+    loadRecentEvents(userId, since),
+    loadCompletionCadence(userId, timeZone, cadenceWindow),
+  ])
 
   const userPrompt = buildUserPrompt({
     attitude,
@@ -522,7 +566,33 @@ export async function generateCoachSummary(
 
   const cleaned = sanitizeCoachOutput(raw)
   if (!cleaned) return null
-  return { summary: cleaned, generatedAt: new Date().toISOString() }
+  const generatedAt = new Date()
+  // Upsert the cache row so the next read (here or on another device)
+  // skips the LLM until the signature flips or the TTL expires. We only
+  // cache successful outputs — a null/garbage LLM response leaves the
+  // previous row alone so the next call retries instead of being pinned
+  // to a bad result for 2h.
+  await db
+    .insert(coachSummaries)
+    .values({
+      userId,
+      summary: cleaned,
+      signature,
+      attitude,
+      detailed,
+      generatedAt,
+    })
+    .onConflictDoUpdate({
+      target: coachSummaries.userId,
+      set: {
+        summary: cleaned,
+        signature,
+        attitude,
+        detailed,
+        generatedAt,
+      },
+    })
+  return { summary: cleaned, generatedAt: generatedAt.toISOString() }
 }
 
 /**

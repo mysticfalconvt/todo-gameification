@@ -85,6 +85,10 @@ export const deleteTask = createServerFn({ method: 'POST' })
     service.deleteTask(context.userId, data.taskId),
   )
 
+export const resetTasks = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .handler(({ context }) => service.resetTasks(context.userId))
+
 export const setTaskCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string; slug: string | null }) => data)

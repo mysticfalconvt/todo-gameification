@@ -59,6 +59,7 @@ import {
   getPricingDisplayFn,
 } from '../../../server/functions/billing'
 import { deleteAccountFn } from '../../../server/functions/account'
+import { resetTasks } from '../../../server/functions/tasks'
 import {
   MembersOnlyUpsell,
   formatMoney,
@@ -88,6 +89,7 @@ function SettingsPage() {
       <GithubSection />
       <TokensSection />
       <SignOutSection />
+      <ResetSection />
       <DangerZoneSection />
       <p className="pt-4 text-center text-xs text-[var(--sea-ink-soft)]">
         Have an idea for the app?{' '}
@@ -815,6 +817,113 @@ function SignOutSection() {
       >
         {pending ? 'Signing out…' : 'Sign out'}
       </button>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reset tasks (clear current todos, keep history)
+// ---------------------------------------------------------------------------
+
+function ResetSection() {
+  const router = useRouter()
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const expectedConfirm = 'reset my tasks'
+  const canSubmit =
+    confirmText.trim().toLowerCase() === expectedConfirm && !pending
+
+  async function onReset() {
+    if (!canSubmit) return
+    setPending(true)
+    try {
+      const result = await resetTasks()
+      qc.invalidateQueries()
+      await router.invalidate()
+      toast.success(
+        `Cleared ${result.deactivatedTasks} task${result.deactivatedTasks === 1 ? '' : 's'} and ${result.deletedInstances} pending item${result.deletedInstances === 1 ? '' : 's'}.`,
+      )
+      setOpen(false)
+      setConfirmText('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <section className="max-w-xl rounded-2xl border border-[rgba(230,160,60,0.35)] bg-[rgba(230,160,60,0.05)] p-6">
+      <h2 className="mb-2 text-lg font-bold text-amber-700">Reset tasks</h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Start over with an empty todo list while keeping every completion in
+        your history, XP, streaks, and progression intact.
+      </p>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-full border border-[rgba(230,160,60,0.5)] bg-white px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
+        >
+          Reset my tasks
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <div className="text-sm text-[var(--sea-ink)]">
+            <p className="mb-2 font-semibold">This will:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Delete every pending item from today, someday, and upcoming</li>
+              <li>Deactivate all current tasks so recurring ones stop generating</li>
+            </ul>
+            <p className="mt-3 mb-2 font-semibold">This keeps:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Every completion in your history and stats</li>
+              <li>Your XP, level, streak, and arcade tokens</li>
+              <li>Categories, friends, and all other settings</li>
+            </ul>
+          </div>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Type{' '}
+            <code className="rounded bg-[var(--option-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--sea-ink)]">
+              {expectedConfirm}
+            </code>{' '}
+            below to confirm.
+          </p>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={expectedConfirm}
+            autoComplete="off"
+            spellCheck={false}
+            className="field-input"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onReset}
+              disabled={!canSubmit}
+              className="rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-40"
+            >
+              {pending ? 'Resetting…' : 'Reset everything current'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setConfirmText('')
+              }}
+              disabled={pending}
+              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

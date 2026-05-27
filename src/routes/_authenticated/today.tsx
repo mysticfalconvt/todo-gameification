@@ -282,7 +282,10 @@ function TodayPage() {
               ? `${instances.length} to knock out`
               : 'All clear'}
           </h1>
-          <CoachBlurb instances={instances} />
+          <CoachBlurb
+            instances={instances}
+            somedayInstances={somedayInstances}
+          />
         </div>
         <div
           className={
@@ -751,15 +754,13 @@ function PushBanner() {
 
 const PUSH_DISMISS_KEY = 'todo-xp-push-prompt-dismissed'
 
-function CoachBlurb({ instances }: { instances: TodayInstance[] }) {
-  // A signature derived from the state the coach cares about. When it
-  // changes, the React Query key changes, so Query auto-fetches fresh copy.
-  //
-  // Included in the sig:
-  //  - open instance IDs (sorted) → completes / skips / snoozes / adds all flip this
-  //  - xp → any completion bumps this
-  //  - current streak → day rollovers flip this
-  //  - hour bucket (every 2h) → covers idle users via refetchInterval too
+function CoachBlurb({
+  instances,
+  somedayInstances,
+}: {
+  instances: TodayInstance[]
+  somedayInstances: SomedayInstance[]
+}) {
   // Defer rendering until the client has mounted. The coach summary is
   // purely a loaded blurb; SSR would always show the skeleton <div> while
   // the persisted client cache often returns the final <p> on hydration,
@@ -767,28 +768,26 @@ function CoachBlurb({ instances }: { instances: TodayInstance[] }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  // Signature = just the set of open instance IDs. Every real-world
-  // trigger we care about (add / complete / skip / snooze / day rollover
-  // pulling in new instances) flips this set. Earlier versions also
-  // included xp + currentStreak + hourBucket, but those double-fire
-  // against a single completion: `today` and `progression` invalidate
-  // separately, so the signature would flip twice and the coach would
-  // run twice. The refetchInterval below handles the idle case; no need
-  // to rotate the key on a clock.
+  // Signature = sorted open today instance IDs + sorted someday instance
+  // IDs. Mirrors `buildCoachSignature` on the server so the two caches
+  // agree on what counts as "the same coach state". Any add / complete /
+  // skip / snooze / recurring rollover flips one of the sets. The server
+  // owns staleness now (it expires the persisted row after 2h), so we
+  // no longer rotate the key on a clock.
   const signature = useMemo(
-    () => instances.map((i) => i.instanceId).sort().join(','),
-    [instances],
+    () =>
+      instances.map((i) => i.instanceId).sort().join(',') +
+      ':' +
+      somedayInstances.map((i) => i.instanceId).sort().join(','),
+    [instances, somedayInstances],
   )
 
   const query = useQuery({
     queryKey: ['coach', signature],
     queryFn: () => getCoachSummary(),
     enabled: mounted,
-    // Key already encodes freshness; don't re-run on remount. Let
-    // refetchInterval cover the idle-user case.
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 4,
-    refetchInterval: 1000 * 60 * 60 * 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
