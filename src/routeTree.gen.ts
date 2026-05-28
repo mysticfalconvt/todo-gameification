@@ -27,6 +27,7 @@ import { Route as AuthenticatedArcadeRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedHouseholdIndexRouteImport } from './routes/_authenticated/household/index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
 import { Route as ApiV1ProgressionRouteImport } from './routes/api/v1/progression'
@@ -40,16 +41,22 @@ import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
 import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
 import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
+import { Route as AuthenticatedHouseholdMemberIdRouteImport } from './routes/_authenticated/household/$memberId'
 import { Route as AuthenticatedAdminWordleRouteImport } from './routes/_authenticated/admin/wordle'
 import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
+import { Route as ApiV1HouseholdIndexRouteImport } from './routes/api/v1/household/index'
 import { Route as AuthenticatedAdminLlmIndexRouteImport } from './routes/_authenticated/admin/llm/index'
 import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
+import { Route as ApiV1HouseholdStatsRouteImport } from './routes/api/v1/household/stats'
+import { Route as ApiV1HouseholdActivityRouteImport } from './routes/api/v1/household/activity'
 import { Route as AuthenticatedStatsTaskTaskIdRouteImport } from './routes/_authenticated/stats/task.$taskId'
 import { Route as AuthenticatedAdminUsersUserIdRouteImport } from './routes/_authenticated/admin/users.$userId'
 import { Route as AuthenticatedAdminLlmCallIdRouteImport } from './routes/_authenticated/admin/llm/$callId'
+import { Route as ApiV1HouseholdChoresIndexRouteImport } from './routes/api/v1/household/chores/index'
 import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api/v1/instances/$instanceId/snooze'
 import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
 import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
+import { Route as ApiV1HouseholdChoresWeekRouteImport } from './routes/api/v1/household/chores/week'
 
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
@@ -141,6 +148,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedHouseholdIndexRoute =
+  AuthenticatedHouseholdIndexRouteImport.update({
+    id: '/household/',
+    path: '/household/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -210,6 +223,12 @@ const AuthenticatedSettingsApiDocsRoute =
     path: '/settings/api-docs',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedHouseholdMemberIdRoute =
+  AuthenticatedHouseholdMemberIdRouteImport.update({
+    id: '/household/$memberId',
+    path: '/household/$memberId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminWordleRoute =
   AuthenticatedAdminWordleRouteImport.update({
     id: '/admin/wordle',
@@ -221,6 +240,11 @@ const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
   path: '/api/v1/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1HouseholdIndexRoute = ApiV1HouseholdIndexRouteImport.update({
+  id: '/api/v1/household/',
+  path: '/api/v1/household/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminLlmIndexRoute =
   AuthenticatedAdminLlmIndexRouteImport.update({
     id: '/admin/llm/',
@@ -230,6 +254,16 @@ const AuthenticatedAdminLlmIndexRoute =
 const ApiV1TasksTaskIdRoute = ApiV1TasksTaskIdRouteImport.update({
   id: '/api/v1/tasks/$taskId',
   path: '/api/v1/tasks/$taskId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HouseholdStatsRoute = ApiV1HouseholdStatsRouteImport.update({
+  id: '/api/v1/household/stats',
+  path: '/api/v1/household/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HouseholdActivityRoute = ApiV1HouseholdActivityRouteImport.update({
+  id: '/api/v1/household/activity',
+  path: '/api/v1/household/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedStatsTaskTaskIdRoute =
@@ -250,6 +284,12 @@ const AuthenticatedAdminLlmCallIdRoute =
     path: '/admin/llm/$callId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiV1HouseholdChoresIndexRoute =
+  ApiV1HouseholdChoresIndexRouteImport.update({
+    id: '/api/v1/household/chores/',
+    path: '/api/v1/household/chores/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiV1InstancesInstanceIdSnoozeRoute =
   ApiV1InstancesInstanceIdSnoozeRouteImport.update({
     id: '/api/v1/instances/$instanceId/snooze',
@@ -266,6 +306,12 @@ const ApiV1InstancesInstanceIdCompleteRoute =
   ApiV1InstancesInstanceIdCompleteRouteImport.update({
     id: '/api/v1/instances/$instanceId/complete',
     path: '/api/v1/instances/$instanceId/complete',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1HouseholdChoresWeekRoute =
+  ApiV1HouseholdChoresWeekRouteImport.update({
+    id: '/api/v1/household/chores/week',
+    path: '/api/v1/household/chores/week',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -285,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/admin/wordle': typeof AuthenticatedAdminWordleRoute
+  '/household/$memberId': typeof AuthenticatedHouseholdMemberIdRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -298,18 +345,24 @@ export interface FileRoutesByFullPath {
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/household/': typeof AuthenticatedHouseholdIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/stats/': typeof AuthenticatedStatsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
   '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
+  '/api/v1/household/activity': typeof ApiV1HouseholdActivityRoute
+  '/api/v1/household/stats': typeof ApiV1HouseholdStatsRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
   '/admin/llm/': typeof AuthenticatedAdminLlmIndexRoute
+  '/api/v1/household/': typeof ApiV1HouseholdIndexRoute
   '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
+  '/api/v1/household/chores/week': typeof ApiV1HouseholdChoresWeekRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
   '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
+  '/api/v1/household/chores/': typeof ApiV1HouseholdChoresIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -327,6 +380,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/admin/wordle': typeof AuthenticatedAdminWordleRoute
+  '/household/$memberId': typeof AuthenticatedHouseholdMemberIdRoute
   '/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -340,18 +394,24 @@ export interface FileRoutesByTo {
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/household': typeof AuthenticatedHouseholdIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/stats': typeof AuthenticatedStatsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
+  '/api/v1/household/activity': typeof ApiV1HouseholdActivityRoute
+  '/api/v1/household/stats': typeof ApiV1HouseholdStatsRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
   '/admin/llm': typeof AuthenticatedAdminLlmIndexRoute
+  '/api/v1/household': typeof ApiV1HouseholdIndexRoute
   '/api/v1/tasks': typeof ApiV1TasksIndexRoute
+  '/api/v1/household/chores/week': typeof ApiV1HouseholdChoresWeekRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
   '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
+  '/api/v1/household/chores': typeof ApiV1HouseholdChoresIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -371,6 +431,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/signup': typeof AuthSignupRoute
   '/_authenticated/admin/wordle': typeof AuthenticatedAdminWordleRoute
+  '/_authenticated/household/$memberId': typeof AuthenticatedHouseholdMemberIdRoute
   '/_authenticated/settings/api-docs': typeof AuthenticatedSettingsApiDocsRoute
   '/_authenticated/settings/home-assistant': typeof AuthenticatedSettingsHomeAssistantRoute
   '/_authenticated/settings/mcp': typeof AuthenticatedSettingsMcpRoute
@@ -384,18 +445,24 @@ export interface FileRoutesById {
   '/api/v1/progression': typeof ApiV1ProgressionRoute
   '/api/v1/today': typeof ApiV1TodayRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/household/': typeof AuthenticatedHouseholdIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/stats/': typeof AuthenticatedStatsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/_authenticated/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/_authenticated/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
+  '/api/v1/household/activity': typeof ApiV1HouseholdActivityRoute
+  '/api/v1/household/stats': typeof ApiV1HouseholdStatsRoute
   '/api/v1/tasks/$taskId': typeof ApiV1TasksTaskIdRoute
   '/_authenticated/admin/llm/': typeof AuthenticatedAdminLlmIndexRoute
+  '/api/v1/household/': typeof ApiV1HouseholdIndexRoute
   '/api/v1/tasks/': typeof ApiV1TasksIndexRoute
+  '/api/v1/household/chores/week': typeof ApiV1HouseholdChoresWeekRoute
   '/api/v1/instances/$instanceId/complete': typeof ApiV1InstancesInstanceIdCompleteRoute
   '/api/v1/instances/$instanceId/skip': typeof ApiV1InstancesInstanceIdSkipRoute
   '/api/v1/instances/$instanceId/snooze': typeof ApiV1InstancesInstanceIdSnoozeRoute
+  '/api/v1/household/chores/': typeof ApiV1HouseholdChoresIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -415,6 +482,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/admin/wordle'
+    | '/household/$memberId'
     | '/settings/api-docs'
     | '/settings/home-assistant'
     | '/settings/mcp'
@@ -428,18 +496,24 @@ export interface FileRouteTypes {
     | '/api/v1/progression'
     | '/api/v1/today'
     | '/admin/'
+    | '/household/'
     | '/settings/'
     | '/stats/'
     | '/tasks/'
     | '/admin/llm/$callId'
     | '/admin/users/$userId'
     | '/stats/task/$taskId'
+    | '/api/v1/household/activity'
+    | '/api/v1/household/stats'
     | '/api/v1/tasks/$taskId'
     | '/admin/llm/'
+    | '/api/v1/household/'
     | '/api/v1/tasks/'
+    | '/api/v1/household/chores/week'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
     | '/api/v1/instances/$instanceId/snooze'
+    | '/api/v1/household/chores/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -457,6 +531,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/admin/wordle'
+    | '/household/$memberId'
     | '/settings/api-docs'
     | '/settings/home-assistant'
     | '/settings/mcp'
@@ -470,18 +545,24 @@ export interface FileRouteTypes {
     | '/api/v1/progression'
     | '/api/v1/today'
     | '/admin'
+    | '/household'
     | '/settings'
     | '/stats'
     | '/tasks'
     | '/admin/llm/$callId'
     | '/admin/users/$userId'
     | '/stats/task/$taskId'
+    | '/api/v1/household/activity'
+    | '/api/v1/household/stats'
     | '/api/v1/tasks/$taskId'
     | '/admin/llm'
+    | '/api/v1/household'
     | '/api/v1/tasks'
+    | '/api/v1/household/chores/week'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
     | '/api/v1/instances/$instanceId/snooze'
+    | '/api/v1/household/chores'
   id:
     | '__root__'
     | '/'
@@ -500,6 +581,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/signup'
     | '/_authenticated/admin/wordle'
+    | '/_authenticated/household/$memberId'
     | '/_authenticated/settings/api-docs'
     | '/_authenticated/settings/home-assistant'
     | '/_authenticated/settings/mcp'
@@ -513,18 +595,24 @@ export interface FileRouteTypes {
     | '/api/v1/progression'
     | '/api/v1/today'
     | '/_authenticated/admin/'
+    | '/_authenticated/household/'
     | '/_authenticated/settings/'
     | '/_authenticated/stats/'
     | '/_authenticated/tasks/'
     | '/_authenticated/admin/llm/$callId'
     | '/_authenticated/admin/users/$userId'
     | '/_authenticated/stats/task/$taskId'
+    | '/api/v1/household/activity'
+    | '/api/v1/household/stats'
     | '/api/v1/tasks/$taskId'
     | '/_authenticated/admin/llm/'
+    | '/api/v1/household/'
     | '/api/v1/tasks/'
+    | '/api/v1/household/chores/week'
     | '/api/v1/instances/$instanceId/complete'
     | '/api/v1/instances/$instanceId/skip'
     | '/api/v1/instances/$instanceId/snooze'
+    | '/api/v1/household/chores/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -543,11 +631,16 @@ export interface RootRouteChildren {
   ApiV1EventsRoute: typeof ApiV1EventsRoute
   ApiV1ProgressionRoute: typeof ApiV1ProgressionRoute
   ApiV1TodayRoute: typeof ApiV1TodayRoute
+  ApiV1HouseholdActivityRoute: typeof ApiV1HouseholdActivityRoute
+  ApiV1HouseholdStatsRoute: typeof ApiV1HouseholdStatsRoute
   ApiV1TasksTaskIdRoute: typeof ApiV1TasksTaskIdRoute
+  ApiV1HouseholdIndexRoute: typeof ApiV1HouseholdIndexRoute
   ApiV1TasksIndexRoute: typeof ApiV1TasksIndexRoute
+  ApiV1HouseholdChoresWeekRoute: typeof ApiV1HouseholdChoresWeekRoute
   ApiV1InstancesInstanceIdCompleteRoute: typeof ApiV1InstancesInstanceIdCompleteRoute
   ApiV1InstancesInstanceIdSkipRoute: typeof ApiV1InstancesInstanceIdSkipRoute
   ApiV1InstancesInstanceIdSnoozeRoute: typeof ApiV1InstancesInstanceIdSnoozeRoute
+  ApiV1HouseholdChoresIndexRoute: typeof ApiV1HouseholdChoresIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -678,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/household/': {
+      id: '/_authenticated/household/'
+      path: '/household'
+      fullPath: '/household/'
+      preLoaderRoute: typeof AuthenticatedHouseholdIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/admin'
@@ -769,6 +869,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsApiDocsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/household/$memberId': {
+      id: '/_authenticated/household/$memberId'
+      path: '/household/$memberId'
+      fullPath: '/household/$memberId'
+      preLoaderRoute: typeof AuthenticatedHouseholdMemberIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/wordle': {
       id: '/_authenticated/admin/wordle'
       path: '/admin/wordle'
@@ -783,6 +890,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/household/': {
+      id: '/api/v1/household/'
+      path: '/api/v1/household'
+      fullPath: '/api/v1/household/'
+      preLoaderRoute: typeof ApiV1HouseholdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/llm/': {
       id: '/_authenticated/admin/llm/'
       path: '/admin/llm'
@@ -795,6 +909,20 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/tasks/$taskId'
       fullPath: '/api/v1/tasks/$taskId'
       preLoaderRoute: typeof ApiV1TasksTaskIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/household/stats': {
+      id: '/api/v1/household/stats'
+      path: '/api/v1/household/stats'
+      fullPath: '/api/v1/household/stats'
+      preLoaderRoute: typeof ApiV1HouseholdStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/household/activity': {
+      id: '/api/v1/household/activity'
+      path: '/api/v1/household/activity'
+      fullPath: '/api/v1/household/activity'
+      preLoaderRoute: typeof ApiV1HouseholdActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/stats/task/$taskId': {
@@ -818,6 +946,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLlmCallIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/v1/household/chores/': {
+      id: '/api/v1/household/chores/'
+      path: '/api/v1/household/chores'
+      fullPath: '/api/v1/household/chores/'
+      preLoaderRoute: typeof ApiV1HouseholdChoresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/instances/$instanceId/snooze': {
       id: '/api/v1/instances/$instanceId/snooze'
       path: '/api/v1/instances/$instanceId/snooze'
@@ -839,6 +974,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1InstancesInstanceIdCompleteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/household/chores/week': {
+      id: '/api/v1/household/chores/week'
+      path: '/api/v1/household/chores/week'
+      fullPath: '/api/v1/household/chores/week'
+      preLoaderRoute: typeof ApiV1HouseholdChoresWeekRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -850,6 +992,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGardenRoute: typeof AuthenticatedGardenRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
   AuthenticatedAdminWordleRoute: typeof AuthenticatedAdminWordleRoute
+  AuthenticatedHouseholdMemberIdRoute: typeof AuthenticatedHouseholdMemberIdRoute
   AuthenticatedSettingsApiDocsRoute: typeof AuthenticatedSettingsApiDocsRoute
   AuthenticatedSettingsHomeAssistantRoute: typeof AuthenticatedSettingsHomeAssistantRoute
   AuthenticatedSettingsMcpRoute: typeof AuthenticatedSettingsMcpRoute
@@ -857,6 +1000,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksNewRoute: typeof AuthenticatedTasksNewRoute
   AuthenticatedUHandleRoute: typeof AuthenticatedUHandleRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedHouseholdIndexRoute: typeof AuthenticatedHouseholdIndexRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedStatsIndexRoute: typeof AuthenticatedStatsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
@@ -874,6 +1018,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGardenRoute: AuthenticatedGardenRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
   AuthenticatedAdminWordleRoute: AuthenticatedAdminWordleRoute,
+  AuthenticatedHouseholdMemberIdRoute: AuthenticatedHouseholdMemberIdRoute,
   AuthenticatedSettingsApiDocsRoute: AuthenticatedSettingsApiDocsRoute,
   AuthenticatedSettingsHomeAssistantRoute:
     AuthenticatedSettingsHomeAssistantRoute,
@@ -882,6 +1027,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksNewRoute: AuthenticatedTasksNewRoute,
   AuthenticatedUHandleRoute: AuthenticatedUHandleRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedHouseholdIndexRoute: AuthenticatedHouseholdIndexRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedStatsIndexRoute: AuthenticatedStatsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
@@ -911,11 +1057,16 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1EventsRoute: ApiV1EventsRoute,
   ApiV1ProgressionRoute: ApiV1ProgressionRoute,
   ApiV1TodayRoute: ApiV1TodayRoute,
+  ApiV1HouseholdActivityRoute: ApiV1HouseholdActivityRoute,
+  ApiV1HouseholdStatsRoute: ApiV1HouseholdStatsRoute,
   ApiV1TasksTaskIdRoute: ApiV1TasksTaskIdRoute,
+  ApiV1HouseholdIndexRoute: ApiV1HouseholdIndexRoute,
   ApiV1TasksIndexRoute: ApiV1TasksIndexRoute,
+  ApiV1HouseholdChoresWeekRoute: ApiV1HouseholdChoresWeekRoute,
   ApiV1InstancesInstanceIdCompleteRoute: ApiV1InstancesInstanceIdCompleteRoute,
   ApiV1InstancesInstanceIdSkipRoute: ApiV1InstancesInstanceIdSkipRoute,
   ApiV1InstancesInstanceIdSnoozeRoute: ApiV1InstancesInstanceIdSnoozeRoute,
+  ApiV1HouseholdChoresIndexRoute: ApiV1HouseholdChoresIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

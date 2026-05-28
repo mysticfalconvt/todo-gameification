@@ -1,16 +1,17 @@
 // Leaderboard service. Ranks viewer + eligible users by three metrics over a
 // rolling window. Respects profileVisibility + user_prefs.shareProgression.
-import { and, eq, gte, inArray, isNotNull, or } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
   friendships,
+  householdMembers,
   memberships,
   user as userTable,
   userPrefs,
 } from '../db/schema'
 
-export type LeaderboardScope = 'friends' | 'global'
+export type LeaderboardScope = 'friends' | 'global' | 'household'
 export type LeaderboardMetric = 'xp' | 'streak' | 'showed-up'
 export type LeaderboardWindow = 7 | 30 | 90 | 'all'
 
@@ -53,17 +54,42 @@ async function friendIdsFor(userId: string): Promise<string[]> {
 }
 
 // Resolve the viewer + the users eligible to appear in their leaderboard.
-// Friends scope: me + accepted friends. Global scope: me + everyone with
-// profileVisibility=public.
-// Either way we drop users whose shareProgression pref is false, unless that
-// user is the viewer (they always see themselves).
+//   friends   — me + accepted friends.
+//   global    — me + everyone with profileVisibility=public.
+//   household — me + every member of my household. Household opts you in
+//               to a tighter shared view, so the shareProgression toggle
+//               (which gates the friends/global feeds) doesn't apply
+//               here — household members always see each other.
 async function loadCandidates(
   viewerId: string,
   scope: LeaderboardScope,
 ): Promise<CandidateUser[]> {
   let ids: string[]
+  let respectShareProgression = true
   if (scope === 'friends') {
     ids = [viewerId, ...(await friendIdsFor(viewerId))]
+  } else if (scope === 'household') {
+    const my = await db
+      .select({ householdId: householdMembers.householdId })
+      .from(householdMembers)
+      .where(eq(householdMembers.userId, viewerId))
+      .limit(1)
+    const householdId = my[0]?.householdId
+    if (!householdId) return []
+    // Exclude kiosk accounts — they're shared devices, not people,
+    // and they accumulate no XP themselves (every kiosk completion
+    // credits a real family member).
+    const rows = await db
+      .select({ userId: householdMembers.userId })
+      .from(householdMembers)
+      .where(
+        and(
+          eq(householdMembers.householdId, householdId),
+          sql`${householdMembers.role} <> 'kiosk'`,
+        ),
+      )
+    ids = rows.map((r) => r.userId)
+    respectShareProgression = false
   } else {
     const publicUsers = await db
       .select({ id: userTable.id })
@@ -87,7 +113,10 @@ async function loadCandidates(
 
   return rows
     .filter(
-      (r) => r.id === viewerId || (r.shareProgression ?? true) === true,
+      (r) =>
+        !respectShareProgression ||
+        r.id === viewerId ||
+        (r.shareProgression ?? true) === true,
     )
     .map((r) => ({
       id: r.id,

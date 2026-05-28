@@ -1,5 +1,9 @@
 import { createServerFn } from '@tanstack/react-start'
+import { sql } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth'
+import { db } from '../db/client'
+import { user as userTable } from '../db/schema'
+import { normalizeHandle } from '../services/handles'
 import {
   acceptFriendRequest,
   blockUser,
@@ -13,6 +17,24 @@ import {
   sendFriendRequest,
   unblockUser,
 } from '../services/social'
+
+// Public — no auth — so the login form can swap a handle for an email
+// before calling signIn.email. Handles are already discoverable via
+// friend search (resolveUserByHandle), so this doesn't expose new
+// info. Returns null when no match; sign-in surface should fail
+// generically rather than echo "no such handle."
+export const resolveHandleToEmailFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: { handle: string }) => data)
+  .handler(async ({ data }) => {
+    const handle = normalizeHandle(data.handle)
+    if (!handle) return { email: null }
+    const row = await db
+      .select({ email: userTable.email })
+      .from(userTable)
+      .where(sql`lower(${userTable.handle}) = lower(${handle})`)
+      .limit(1)
+    return { email: row[0]?.email ?? null }
+  })
 
 export const listFriendsFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])

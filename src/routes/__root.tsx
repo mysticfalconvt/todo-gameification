@@ -10,7 +10,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Toaster } from 'sonner'
 
 import { useQuery } from '@tanstack/react-query'
@@ -19,6 +19,10 @@ import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
 import { listIncomingFn } from '../server/functions/social'
+import {
+  getMyHouseholdFn,
+  listMyInvitesFn,
+} from '../server/functions/households'
 import { getIsAdminFn } from '../server/functions/admin'
 import { getMemberStatusFn } from '../server/functions/billing'
 import { InstallPrompt } from '../components/InstallPrompt'
@@ -149,6 +153,27 @@ function RootShell({ children }: { children: ReactNode }) {
 function AppNav() {
   const { data: session, isPending } = useSession()
   const loggedIn = Boolean(session?.user)
+  // Kiosk accounts get a stripped nav — the iPad is just here to run
+  // the household chore list, so personal surfaces (Today, Tasks,
+  // Garden, Arcade, Stats, Friends) are hidden. The brand logo also
+  // routes them back to /household instead of /today.
+  //
+  // Mount gate is load-bearing: AppNav renders during SSR (it's at
+  // the root, outside the auth shell), and TanStack Start's server-
+  // function dispatcher crashes with "Cannot read properties of
+  // undefined (reading 'method')" when a server function is invoked
+  // from within another server context. The mount flag delays the
+  // useQuery until we're on the client.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+    enabled: mounted && loggedIn,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+  const isKiosk = householdQuery.data?.role === 'kiosk'
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
@@ -160,29 +185,42 @@ function AppNav() {
                 the full row inline so desktop users don't lose one-hop
                 navigation. */}
             <Link
-              to="/today"
+              to={isKiosk ? '/household' : '/today'}
               className="text-[var(--sea-ink)] no-underline md:hidden"
             >
               Todo&nbsp;XP
             </Link>
             <div className="hidden items-center gap-4 md:flex">
-              <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                Today
-              </Link>
-              <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                Tasks
-              </Link>
-              <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                Stats
-              </Link>
-              <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                Garden
-              </Link>
-              <Link to="/arcade" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
-                Arcade
-              </Link>
-              <FriendsNavLink />
-              <AdminNavLink />
+              {isKiosk ? (
+                <Link
+                  to="/household"
+                  className="nav-link"
+                  activeProps={{ className: 'nav-link is-active' }}
+                >
+                  Family chores
+                </Link>
+              ) : (
+                <>
+                  <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Today
+                  </Link>
+                  <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Tasks
+                  </Link>
+                  <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Stats
+                  </Link>
+                  <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Garden
+                  </Link>
+                  <Link to="/arcade" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Arcade
+                  </Link>
+                  <FriendsNavLink />
+                  <HouseholdNavLink />
+                  <AdminNavLink />
+                </>
+              )}
             </div>
           </>
         ) : (
@@ -249,6 +287,44 @@ function FriendsNavLink() {
   )
 }
 
+function HouseholdNavLink() {
+  // Hide entirely unless the user is in a household OR has pending
+  // invites — keeps the nav tidy for solo users while still letting
+  // invitees find the accept screen.
+  const household = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+  const invites = useQuery({
+    queryKey: ['my-household-invites'],
+    queryFn: () => listMyInvitesFn(),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  })
+  const count = invites.data?.length ?? 0
+  if (!household.data && count === 0) return null
+  return (
+    <Link
+      to="/household"
+      className="nav-link relative"
+      activeProps={{ className: 'nav-link is-active relative' }}
+    >
+      <span>Household</span>
+      {count > 0 ? (
+        <span
+          aria-label={`${count} pending household ${count === 1 ? 'invite' : 'invites'}`}
+          className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
+        >
+          {count > 9 ? '9+' : count}
+        </span>
+      ) : null}
+    </Link>
+  )
+}
+
 function AdminNavLink() {
   const admin = useQuery({
     queryKey: ['is-admin'],
@@ -286,9 +362,44 @@ function MobileTabBar() {
     refetchInterval: 60_000,
     staleTime: 30_000,
   })
+  // Same gating as the desktop nav: only surface Household if the
+  // user is in one OR has a pending invite. Keeps the bar tight for
+  // solo users while letting invitees reach the accept screen.
+  const household = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+    enabled: loggedIn,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+  const householdInvites = useQuery({
+    queryKey: ['my-household-invites'],
+    queryFn: () => listMyInvitesFn(),
+    enabled: loggedIn,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
   if (isPending || !loggedIn) return null
   const friendCount = pending.data?.length ?? 0
+  const householdInviteCount = householdInvites.data?.length ?? 0
+  const showHousehold = Boolean(household.data) || householdInviteCount > 0
   const isAdmin = admin.data?.isAdmin === true
+  const isKiosk = household.data?.role === 'kiosk'
+
+  // Kiosk gets a single-tab bar — Family is the whole app for them.
+  if (isKiosk) {
+    return (
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--line)] bg-[var(--header-bg)] backdrop-blur-lg md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        aria-label="Primary"
+      >
+        <div className="flex items-stretch">
+          <TabLink to="/household" icon="🏠" label="Family" />
+        </div>
+      </nav>
+    )
+  }
 
   return (
     <nav
@@ -303,6 +414,14 @@ function MobileTabBar() {
         <TabLink to="/arcade" icon="🕹️" label="Arcade" />
         <TabLink to="/stats" icon="📊" label="Stats" />
         <TabLink to="/friends" icon="👥" label="Friends" badge={friendCount} />
+        {showHousehold ? (
+          <TabLink
+            to="/household"
+            icon="🏠"
+            label="Family"
+            badge={householdInviteCount}
+          />
+        ) : null}
         {isAdmin ? <TabLink to="/admin" icon="🛠" label="Admin" /> : null}
       </div>
     </nav>

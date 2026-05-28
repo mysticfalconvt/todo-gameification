@@ -239,6 +239,41 @@
       "when": 1777070000000,
       "tag": "0033_coach_summaries",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1777080000000,
+      "tag": "0034_households",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1777090000000,
+      "tag": "0035_household_member_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1777100000000,
+      "tag": "0036_task_instance_pending_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1777110000000,
+      "tag": "0037_kiosk_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1777120000000,
+      "tag": "0038_task_rotation",
+      "breakpoints": true
     }
   ]
 }

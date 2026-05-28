@@ -8,6 +8,18 @@ import {
   getFriendActivityFn,
   getReceivedCheersFn,
 } from '../../server/functions/activity'
+import {
+  acceptFriendRequestFn,
+  cancelFriendRequestFn,
+  declineFriendRequestFn,
+  listBlockedFn,
+  listFriendsFn,
+  listIncomingFn,
+  listOutgoingFn,
+  removeFriendFn,
+  sendFriendRequestFn,
+  unblockUserFn,
+} from '../../server/functions/social'
 import { getFriendsCategoryHistogramsFn } from '../../server/functions/categoryStats'
 import { CategoryHistogramView } from '../../components/CategoryHistogramView'
 import { MemberBadge } from '../../components/membership/MemberBadge'
@@ -23,7 +35,14 @@ export const Route = createFileRoute('/_authenticated/friends')({
   component: FriendsPage,
 })
 
-type Tab = 'leaderboard' | 'activity' | 'categories'
+type Tab = 'leaderboard' | 'activity' | 'categories' | 'manage'
+
+const TAB_HEADING: Record<Tab, string> = {
+  leaderboard: 'Leaderboard',
+  activity: 'Activity',
+  categories: 'Categories',
+  manage: 'Manage friends',
+}
 
 const METRIC_LABEL: Record<LeaderboardMetric, string> = {
   xp: 'XP earned',
@@ -45,43 +64,317 @@ function FriendsPage() {
       <header>
         <p className="island-kicker mb-1">Friends</p>
         <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          {tab === 'leaderboard'
-            ? 'Leaderboard'
-            : tab === 'activity'
-              ? 'Activity'
-              : 'Categories'}
+          {TAB_HEADING[tab]}
         </h1>
       </header>
       <div
-        className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+        className="flex flex-wrap gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
         role="tablist"
         aria-label="Friends tabs"
       >
-        {(['leaderboard', 'activity', 'categories'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
-              tab === t
-                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
-                : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+        {(['leaderboard', 'activity', 'categories', 'manage'] as Tab[]).map(
+          (t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
+                tab === t
+                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+                  : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+              }`}
+            >
+              {t}
+            </button>
+          ),
+        )}
       </div>
       {tab === 'leaderboard' ? (
         <LeaderboardTab />
       ) : tab === 'activity' ? (
         <ActivityTab />
-      ) : (
+      ) : tab === 'categories' ? (
         <CategoriesTab />
+      ) : (
+        <ManageTab />
       )}
     </main>
+  )
+}
+
+function ManageTab() {
+  const qc = useQueryClient()
+  const friendsQuery = useQuery({
+    queryKey: ['friends'],
+    queryFn: () => listFriendsFn(),
+  })
+  const incomingQuery = useQuery({
+    queryKey: ['friends', 'incoming'],
+    queryFn: () => listIncomingFn(),
+  })
+  const outgoingQuery = useQuery({
+    queryKey: ['friends', 'outgoing'],
+    queryFn: () => listOutgoingFn(),
+  })
+  const blockedQuery = useQuery({
+    queryKey: ['friends', 'blocked'],
+    queryFn: () => listBlockedFn(),
+  })
+
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ['friends'] })
+  }
+
+  const [handleInput, setHandleInput] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+
+  const send = useMutation({
+    mutationFn: (handle: string) =>
+      sendFriendRequestFn({ data: { handle } }),
+    onSuccess: (res) => {
+      setHandleInput('')
+      setAddError(null)
+      invalidateAll()
+      if (res.status === 'sent') toast.success('Friend request sent.')
+      else if (res.status === 'accepted')
+        toast.success('You’re now friends — they had already sent a request.')
+      else if (res.status === 'already_pending')
+        toast.message('Request already pending.')
+      else if (res.status === 'already_friends')
+        toast.message('Already friends.')
+    },
+    onError: (err) => {
+      setAddError(err instanceof Error ? err.message : 'Failed to send request.')
+    },
+  })
+
+  const accept = useMutation({
+    mutationFn: (requesterId: string) =>
+      acceptFriendRequestFn({ data: { requesterId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Accept failed'),
+  })
+  const decline = useMutation({
+    mutationFn: (requesterId: string) =>
+      declineFriendRequestFn({ data: { requesterId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Decline failed'),
+  })
+  const cancel = useMutation({
+    mutationFn: (addresseeId: string) =>
+      cancelFriendRequestFn({ data: { addresseeId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Cancel failed'),
+  })
+  const remove = useMutation({
+    mutationFn: (otherUserId: string) =>
+      removeFriendFn({ data: { otherUserId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Remove failed'),
+  })
+  const unblock = useMutation({
+    mutationFn: (targetUserId: string) =>
+      unblockUserFn({ data: { targetUserId } }),
+    onSuccess: invalidateAll,
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Unblock failed'),
+  })
+
+  const friends = Array.isArray(friendsQuery.data) ? friendsQuery.data : []
+  const incoming = Array.isArray(incomingQuery.data) ? incomingQuery.data : []
+  const outgoing = Array.isArray(outgoingQuery.data) ? outgoingQuery.data : []
+  const blocked = Array.isArray(blockedQuery.data) ? blockedQuery.data : []
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const h = handleInput.trim().replace(/^@/, '')
+    if (!h) return
+    send.mutate(h)
+  }
+
+  return (
+    <section className="island-shell rounded-2xl p-6">
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Find people by their handle to add them.
+      </p>
+
+      <form onSubmit={onSubmit} className="mb-5 flex gap-2">
+        <div className="flex flex-1 items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3">
+          <span className="text-[var(--sea-ink-soft)]">@</span>
+          <input
+            type="text"
+            value={handleInput}
+            onChange={(e) => setHandleInput(e.target.value.toLowerCase())}
+            placeholder="friend_handle"
+            className="w-full bg-transparent py-2 text-sm outline-none"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={send.isPending || !handleInput.trim()}
+          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+        >
+          {send.isPending ? 'Sending…' : 'Send request'}
+        </button>
+      </form>
+      {addError ? (
+        <p className="-mt-3 mb-4 text-sm text-red-600" role="alert">
+          {addError}
+        </p>
+      ) : null}
+
+      {incoming.length > 0 ? (
+        <FriendList
+          title={`Incoming requests (${incoming.length})`}
+          rows={incoming.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => accept.mutate(r.userId)}
+                  disabled={accept.isPending}
+                  className="rounded-full bg-[var(--btn-primary-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-60"
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decline.mutate(r.userId)}
+                  disabled={decline.isPending}
+                  className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+                >
+                  Decline
+                </button>
+              </div>
+            ),
+          }))}
+        />
+      ) : null}
+
+      {outgoing.length > 0 ? (
+        <FriendList
+          title={`Sent (${outgoing.length})`}
+          rows={outgoing.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <button
+                type="button"
+                onClick={() => cancel.mutate(r.userId)}
+                disabled={cancel.isPending}
+                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            ),
+          }))}
+        />
+      ) : null}
+
+      <FriendList
+        title={`Friends (${friends.length})`}
+        empty="No friends yet. Send a request above."
+        rows={friends.map((r) => ({
+          userId: r.userId,
+          handle: r.handle,
+          name: r.name,
+          trailing: (
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirm(`Remove @${r.handle} from friends?`)) return
+                remove.mutate(r.userId)
+              }}
+              disabled={remove.isPending}
+              className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+            >
+              Remove
+            </button>
+          ),
+        }))}
+      />
+
+      {blocked.length > 0 ? (
+        <FriendList
+          title={`Blocked (${blocked.length})`}
+          rows={blocked.map((r) => ({
+            userId: r.userId,
+            handle: r.handle,
+            name: r.name,
+            trailing: (
+              <button
+                type="button"
+                onClick={() => unblock.mutate(r.userId)}
+                disabled={unblock.isPending}
+                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+              >
+                Unblock
+              </button>
+            ),
+          }))}
+        />
+      ) : null}
+    </section>
+  )
+}
+
+function FriendList({
+  title,
+  empty,
+  rows,
+}: {
+  title: string
+  empty?: string
+  rows: Array<{
+    userId: string
+    handle: string
+    name: string
+    trailing: React.ReactNode
+  }>
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        {title}
+      </h3>
+      {rows.length === 0 ? (
+        empty ? (
+          <p className="text-sm text-[var(--sea-ink-soft)]">{empty}</p>
+        ) : null
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li
+              key={r.userId}
+              className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
+            >
+              <Initials name={r.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
+                  {r.name}
+                </p>
+                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+                  @{r.handle}
+                </p>
+              </div>
+              {r.trailing}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

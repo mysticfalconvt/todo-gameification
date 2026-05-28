@@ -621,6 +621,17 @@ function StepsBadge({
   )
 }
 
+function HouseholdBadge({ freeForAll }: { freeForAll: boolean }) {
+  return (
+    <span
+      className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--lagoon-deep)]"
+      title={freeForAll ? 'Free-for-all household chore' : 'Household chore'}
+    >
+      {freeForAll ? '🏠 anyone' : '🏠 household'}
+    </span>
+  )
+}
+
 function ParentCompleteConfirm({
   pending,
   onCancel,
@@ -1013,6 +1024,9 @@ function BucketList({
                   completed={inst.stepsCompleted}
                   total={inst.stepsTotal}
                 />
+              ) : null}
+              {inst.householdId ? (
+                <HouseholdBadge freeForAll={inst.assignedToUserId === null} />
               ) : null}
             </p>
             <p className="text-xs text-[var(--sea-ink-soft)]">

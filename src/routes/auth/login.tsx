@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { signIn } from '../../lib/auth-client'
 import { getCurrentSession } from '../../server/session'
+import { resolveHandleToEmailFn } from '../../server/functions/social'
 
 export const Route = createFileRoute('/auth/login')({
   beforeLoad: async () => {
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/auth/login')({
 
 function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -26,6 +27,30 @@ function LoginPage() {
     setError(null)
     setNeedsVerify(false)
     setSubmitting(true)
+
+    // Identifier is either an email or a handle. Detect by '@' — if
+    // there's no '@', resolve the handle to its email server-side so
+    // better-auth's signIn.email call stays a single shape. Kids and
+    // kiosks typically log in by handle since their email is the
+    // synthetic <handle>@managed.local address.
+    let email = identifier.trim()
+    if (!email.includes('@')) {
+      try {
+        const res = await resolveHandleToEmailFn({
+          data: { handle: email },
+        })
+        if (!res.email) {
+          setSubmitting(false)
+          setError('No account with that handle.')
+          return
+        }
+        email = res.email
+      } catch {
+        setSubmitting(false)
+        setError('Sign in failed')
+        return
+      }
+    }
     const { error: signInError } = await signIn.email({ email, password })
     setSubmitting(false)
     if (signInError) {
@@ -46,14 +71,15 @@ function LoginPage() {
           Log in
         </h1>
         <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="Email">
+          <Field label="Email or handle">
             <input
-              type="email"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="field-input"
+              placeholder="you@example.com or @yourhandle"
             />
           </Field>
           <Field label="Password">
@@ -77,8 +103,7 @@ function LoginPage() {
               role="status"
             >
               Your email isn't verified yet. We just sent a fresh verification
-              link to <strong>{email}</strong> — click it and you'll be signed
-              in automatically.
+              link — click it and you'll be signed in automatically.
             </p>
           ) : null}
           <button

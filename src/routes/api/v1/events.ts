@@ -4,9 +4,11 @@ import { authedRoute, jsonOk } from '../../../server/api/rest'
 import { db } from '../../../server/db/client'
 import { events } from '../../../server/db/schema'
 
-// GET /api/v1/events?since=<ISO>&limit=<1..200>
+// GET /api/v1/events?since=<ISO>&type=<eventType>&limit=<1..200>
 // Paginated feed of events for the authenticated user. Useful for LLM context
 // or building custom dashboards. Descending by occurredAt.
+// `type` filters to a single event type (e.g. `task.completed`) — handy
+// for keeping payloads small when you only care about completions.
 export const Route = createFileRoute('/api/v1/events')({
   server: {
     handlers: {
@@ -14,6 +16,7 @@ export const Route = createFileRoute('/api/v1/events')({
         const url = new URL(request.url)
         const rawSince = url.searchParams.get('since')
         const rawLimit = url.searchParams.get('limit')
+        const rawType = url.searchParams.get('type')
 
         let since: Date | null = null
         if (rawSince) {
@@ -29,6 +32,10 @@ export const Route = createFileRoute('/api/v1/events')({
           200,
         )
 
+        const conditions = [eq(events.userId, userId)]
+        if (since) conditions.push(gt(events.occurredAt, since))
+        if (rawType) conditions.push(eq(events.type, rawType))
+
         const rows = await db
           .select({
             id: events.id,
@@ -37,11 +44,7 @@ export const Route = createFileRoute('/api/v1/events')({
             occurredAt: events.occurredAt,
           })
           .from(events)
-          .where(
-            since
-              ? and(eq(events.userId, userId), gt(events.occurredAt, since))
-              : eq(events.userId, userId),
-          )
+          .where(and(...conditions))
           .orderBy(desc(events.occurredAt))
           .limit(limit)
 

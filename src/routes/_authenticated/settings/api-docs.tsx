@@ -152,8 +152,10 @@ function ApiDocsPage() {
 
       <Section
         title="POST /api/v1/instances/:instanceId/complete"
-        purpose="Mark an instance done. Writes a task.completed event, applies streak + punctuality multipliers, materializes the next instance if the task recurs. Returns the updated progression."
+        purpose="Mark an instance done. Writes a task.completed event, applies streak + punctuality multipliers, materializes the next instance if the task recurs. Returns the updated progression. For household chores, an optional `creditUserId` body redirects XP to another household member (admins → any member; members → self or assignee; kids → self only)."
         request={`curl -X POST -H 'Authorization: Bearer tgx_xxxx' \\
+     -H 'Content-Type: application/json' \\
+     -d '{ "creditUserId": "kid-user-id" }' \\
   ${BASE}/api/v1/instances/<instanceId>/complete`}
         response={`{
   "data": {
@@ -199,10 +201,10 @@ function ApiDocsPage() {
       />
 
       <Section
-        title="GET /api/v1/events?since=ISO&limit=1..200"
-        purpose="Paginated event log, descending by occurredAt. Useful for LLM context or custom dashboards. Default limit 50."
+        title="GET /api/v1/events?since=ISO&type=<eventType>&limit=1..200"
+        purpose="Paginated event log, descending by occurredAt. Useful for LLM context or custom dashboards. `type` filters to a single event type (e.g. task.completed). Default limit 50."
         request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
-  '${BASE}/api/v1/events?since=2026-04-18T00:00:00Z&limit=100'`}
+  '${BASE}/api/v1/events?type=task.completed&limit=100'`}
         response={`{
   "data": [
     {
@@ -214,9 +216,170 @@ function ApiDocsPage() {
         "difficulty": "small",
         "xpOverride": 10,
         "dueAt": "2026-04-18T13:00:00.000Z",
-        "timeOfDay": "08:00"
+        "timeOfDay": "08:00",
+        "householdId": "uuid",
+        "assignedToUserId": "user-id",
+        "completedAs": "assigned"
       },
       "occurredAt": "2026-04-18T13:04:12.319Z"
+    }
+  ]
+}`}
+      />
+
+      <section className="island-shell max-w-3xl rounded-2xl border border-[var(--line)] bg-[var(--option-bg)] p-5">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          Household endpoints
+        </h2>
+        <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+          Every household endpoint resolves the viewer&rsquo;s household
+          from their membership automatically — no household id in the
+          path. Returns 404 if the caller isn&rsquo;t in a household.
+        </p>
+      </section>
+
+      <Section
+        title="GET /api/v1/household"
+        purpose="The viewer's household with members (id, name, role, color). Foundational — everything else keys off these ids."
+        request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
+  ${BASE}/api/v1/household`}
+        response={`{
+  "data": {
+    "household": {
+      "id": "uuid",
+      "name": "The Smiths",
+      "createdByUserId": "user-id",
+      "createdAt": "2026-05-01T12:00:00.000Z"
+    },
+    "role": "admin",
+    "members": [
+      {
+        "userId": "user-id",
+        "name": "Alice",
+        "handle": "alice",
+        "role": "admin",
+        "joinedAt": "2026-05-01T12:00:00.000Z",
+        "color": "#4fb8b2"
+      }
+    ]
+  }
+}`}
+      />
+
+      <Section
+        title="GET /api/v1/household/chores"
+        purpose="Open household chores (not completed, not skipped). Each row carries assignee (null = free-for-all), due time, difficulty, and a recurring flag."
+        request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
+  ${BASE}/api/v1/household/chores`}
+        response={`{
+  "data": [
+    {
+      "instanceId": "uuid",
+      "taskId": "uuid",
+      "title": "Take out trash",
+      "difficulty": "small",
+      "xpOverride": 10,
+      "dueAt": "2026-05-28T20:00:00.000Z",
+      "dueKind": "hard",
+      "assignedToUserId": "kid-user-id",
+      "assignedToHandle": "junior",
+      "assignedToName": "Junior",
+      "createdByUserId": "admin-user-id",
+      "categorySlug": "home",
+      "recurring": true
+    }
+  ]
+}`}
+      />
+
+      <Section
+        title="GET /api/v1/household/chores/week?startDate=yyyy-MM-dd"
+        purpose="7-day grid of chores, including projected future occurrences for recurring tasks (instanceId: null = not yet materialized — informational only). Defaults to the Sunday-anchored week containing today in the viewer's timezone."
+        request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
+  '${BASE}/api/v1/household/chores/week?startDate=2026-05-24'`}
+        response={`{
+  "data": {
+    "startDate": "2026-05-24",
+    "occurrences": [
+      {
+        "instanceId": "uuid-or-null",
+        "taskId": "uuid",
+        "title": "Take out trash",
+        "difficulty": "small",
+        "xpOverride": 10,
+        "dueAt": "2026-05-26T01:00:00.000Z",
+        "timeOfDay": "20:00",
+        "localDay": "2026-05-25",
+        "assignedToUserId": "kid-user-id",
+        "assignedToHandle": "junior",
+        "assignedToName": "Junior",
+        "recurring": true,
+        "completedAt": null,
+        "completedByUserId": null,
+        "skippedAt": null
+      }
+    ]
+  }
+}`}
+      />
+
+      <Section
+        title="GET /api/v1/household/stats?days=30"
+        purpose="Per-member daily XP + completion counts in a rolling window, joined with member colors. Drives the household dashboard charts."
+        request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
+  '${BASE}/api/v1/household/stats?days=30'`}
+        response={`{
+  "data": {
+    "dateKeys": ["2026-04-29", "2026-04-30", "...", "2026-05-28"],
+    "totalCompletions": 42,
+    "members": [
+      {
+        "userId": "user-id",
+        "name": "Alice",
+        "handle": "alice",
+        "color": "#4fb8b2",
+        "totalXp": 320,
+        "totalCount": 18,
+        "daily": [0, 25, 0, "..."],
+        "dailyCount": [0, 1, 0, "..."]
+      }
+    ]
+  }
+}`}
+      />
+
+      <Section
+        title="GET /api/v1/household/activity?days=30&limit=50"
+        purpose="Merged feed of chore completions + member join/leave events for the household. Newest first."
+        request={`curl -H 'Authorization: Bearer tgx_xxxx' \\
+  '${BASE}/api/v1/household/activity?days=14&limit=25'`}
+        response={`{
+  "data": [
+    {
+      "eventId": "uuid",
+      "type": "task.completed",
+      "userId": "user-id",
+      "name": "Alice",
+      "handle": "alice",
+      "occurredAt": "2026-05-28T13:04:12.319Z",
+      "taskId": "uuid",
+      "taskTitle": "Dishes",
+      "xp": 25,
+      "completedAs": "free_for_all",
+      "role": null
+    },
+    {
+      "eventId": "uuid",
+      "type": "household.member.joined",
+      "userId": "kid-user-id",
+      "name": "Junior",
+      "handle": "junior",
+      "occurredAt": "2026-05-15T00:00:00.000Z",
+      "taskId": null,
+      "taskTitle": null,
+      "xp": null,
+      "completedAs": null,
+      "role": "kid"
     }
   ]
 }`}

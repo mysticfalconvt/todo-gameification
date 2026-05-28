@@ -24,11 +24,16 @@ export const listSomedayInstances = createServerFn({ method: 'GET' })
 export const completeInstance = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator(
-    (data: { instanceId: string; force?: boolean }) => data,
+    (data: {
+      instanceId: string
+      force?: boolean
+      creditUserId?: string
+    }) => data,
   )
   .handler(({ data, context }) =>
     service.completeInstance(context.userId, data.instanceId, {
       force: data.force,
+      creditUserId: data.creditUserId,
     }),
   )
 

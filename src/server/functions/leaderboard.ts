@@ -7,7 +7,7 @@ import {
   type LeaderboardWindow,
 } from '../services/leaderboard'
 
-const SCOPES: LeaderboardScope[] = ['friends', 'global']
+const SCOPES: LeaderboardScope[] = ['friends', 'global', 'household']
 const METRICS: LeaderboardMetric[] = ['xp', 'streak', 'showed-up']
 const WINDOWS: LeaderboardWindow[] = [7, 30, 90, 'all']
 

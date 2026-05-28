@@ -129,9 +129,15 @@ export async function createPortalSession(input: CheckoutInput): Promise<Checkou
 // Reads both prices from Stripe so the pricing UI never hardcodes
 // dollars. Returns null for either side if the price isn't configured —
 // the UI shows a "billing not configured" state instead of crashing.
+//
+// Short-circuits before touching `getStripe()` when STRIPE_SECRET_KEY
+// is absent. Without this, local-dev (no Stripe env) bubbles a 500
+// up to /settings just because the MembershipSection mounted.
 export async function getPricingDisplay(): Promise<PricingDisplay> {
-  const stripe = getStripe()
   const result: PricingDisplay = { annual: null, lifetime: null }
+  if (!process.env.STRIPE_SECRET_KEY) return result
+
+  const stripe = getStripe()
 
   const annualId = process.env.STRIPE_PRICE_ANNUAL
   if (annualId) {

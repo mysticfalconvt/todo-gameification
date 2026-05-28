@@ -74,6 +74,7 @@ export const getProfile = createServerFn({ method: 'GET' })
       bio: prefsRow?.bio ?? '',
       quietHoursStart: userRow?.quietHoursStart ?? null,
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
+      mergeHouseholdIntoToday: prefsRow?.mergeHouseholdIntoToday ?? true,
     }
   })
 
@@ -183,6 +184,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       coachAttitude?: string
       coachDetailed?: boolean
       bio?: string
+      mergeHouseholdIntoToday?: boolean
     }) => {
       let coachAttitude: CoachAttitude | undefined
       if (typeof data.coachAttitude === 'string') {
@@ -218,6 +220,10 @@ export const updatePrefs = createServerFn({ method: 'POST' })
             ? data.coachDetailed
             : undefined,
         bio,
+        mergeHouseholdIntoToday:
+          typeof data.mergeHouseholdIntoToday === 'boolean'
+            ? data.mergeHouseholdIntoToday
+            : undefined,
       }
     },
   )
@@ -236,6 +242,10 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       coachDetailed:
         data.coachDetailed ?? existing?.coachDetailed ?? false,
       bio: data.bio ?? existing?.bio ?? '',
+      mergeHouseholdIntoToday:
+        data.mergeHouseholdIntoToday ??
+        existing?.mergeHouseholdIntoToday ??
+        true,
     }
     if (existing) {
       await db

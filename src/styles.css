@@ -32,6 +32,10 @@
 }
 
 :root[data-theme="dark"] {
+  /* Tell the browser the page is in dark mode so native <select>
+   * dropdown panels, scrollbars, and form-control accents render
+   * dark instead of falling back to the OS light defaults. */
+  color-scheme: dark;
   --sea-ink: #e8f4f1;
   --sea-ink-soft: #c5dcd8;
   --lagoon: #60d7cf;
@@ -55,8 +59,13 @@
   --btn-primary-fg: #0a1418;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --sea-ink: #e8f4f1;
     --sea-ink-soft: #c5dcd8;
     --lagoon: #60d7cf;

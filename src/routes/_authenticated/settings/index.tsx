@@ -40,17 +40,10 @@ import {
   updateQuietHours,
 } from '../../../server/functions/user'
 import {
-  acceptFriendRequestFn,
-  cancelFriendRequestFn,
-  declineFriendRequestFn,
-  listBlockedFn,
-  listFriendsFn,
-  listIncomingFn,
-  listOutgoingFn,
-  removeFriendFn,
-  sendFriendRequestFn,
-  unblockUserFn,
-} from '../../../server/functions/social'
+  createHouseholdFn,
+  deleteHouseholdFn,
+  getMyHouseholdFn,
+} from '../../../server/functions/households'
 import {
   createAnnualCheckoutFn,
   createLifetimeCheckoutFn,
@@ -69,8 +62,49 @@ export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
 })
 
+function ManagedAccountSettingsLockout({
+  role,
+}: {
+  role: 'kid' | 'kiosk'
+}) {
+  return (
+    <main className="page-wrap px-4 py-12">
+      <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
+        <p className="island-kicker mb-1">Settings</p>
+        <h1 className="display-title mb-3 text-3xl font-bold text-[var(--sea-ink)]">
+          {role === 'kiosk' ? 'Kiosk accounts' : 'Kid accounts'}{' '}
+          can&rsquo;t change settings
+        </h1>
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          Ask a grown-up in your household to update preferences for you
+          from their settings page.
+        </p>
+        <Link
+          to="/today"
+          className="mt-5 inline-block rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+        >
+          ← Back to Today
+        </Link>
+      </section>
+    </main>
+  )
+}
+
 function SettingsPage() {
   const { data: session } = useSession()
+  // Kid + kiosk accounts get a stripped-down "ask a grown-up" view
+  // here. Settings has too many destructive surfaces (delete account,
+  // reset tasks, household delete, GitHub token, API tokens) to leave
+  // open to managed accounts. They keep access to the rest of the
+  // app — this is the one route we lock down.
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const myRole = householdQuery.data?.role ?? null
+  if (myRole === 'kid' || myRole === 'kiosk') {
+    return <ManagedAccountSettingsLockout role={myRole} />
+  }
 
   return (
     <main className="page-wrap space-y-8 px-4 py-8">
@@ -80,7 +114,7 @@ function SettingsPage() {
       <ProfileSection user={session?.user} />
       <MembershipSection />
       <PrivacySection />
-      <FriendsSection />
+      <HouseholdSection />
       <AppearanceSection />
       <CoachAttitudeSection />
       <CategoriesSection />
@@ -1538,8 +1572,12 @@ function PrivacySection() {
       shareProgression?: boolean
       shareActivity?: boolean
       shareTaskTitles?: boolean
+      mergeHouseholdIntoToday?: boolean
     }) => updatePrefs({ data: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
+    },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
@@ -1633,7 +1671,7 @@ function PrivacySection() {
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="mb-5">
         <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
           Friend sharing
         </legend>
@@ -1655,6 +1693,20 @@ function PrivacySection() {
             hint="Otherwise activity just says “completed a task.”"
             checked={p?.shareTaskTitles ?? false}
             onChange={(v) => setPref.mutate({ shareTaskTitles: v })}
+          />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+          Household
+        </legend>
+        <div className="space-y-2">
+          <PrefToggle
+            label="Show household chores in Today"
+            hint="When on, chores assigned to you and free-for-all household chores appear in your Today view. When off, they live only in the Household tab."
+            checked={p?.mergeHouseholdIntoToday ?? true}
+            onChange={(v) => setPref.mutate({ mergeHouseholdIntoToday: v })}
           />
         </div>
       </fieldset>
@@ -1692,298 +1744,160 @@ function PrefToggle({
 }
 
 // ---------------------------------------------------------------------------
-// Friends
+// Household
 // ---------------------------------------------------------------------------
 
-function FriendsSection() {
+function HouseholdSection() {
   const qc = useQueryClient()
-  const friendsQuery = useQuery({
-    queryKey: ['friends'],
-    queryFn: () => listFriendsFn(),
+  // refetchOnMount: 'always' to bypass any stale persisted value for this
+  // query — otherwise a cached `null` would show the create form for a
+  // user who is actually in a household.
+  const myQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+    refetchOnMount: 'always',
   })
-  const incomingQuery = useQuery({
-    queryKey: ['friends', 'incoming'],
-    queryFn: () => listIncomingFn(),
+  // Household creation is paywalled to the admin — joining is free.
+  // Show an upsell instead of the create form when the viewer isn't
+  // already in a household and isn't a paid member.
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
   })
-  const outgoingQuery = useQuery({
-    queryKey: ['friends', 'outgoing'],
-    queryFn: () => listOutgoingFn(),
-  })
-  const blockedQuery = useQuery({
-    queryKey: ['friends', 'blocked'],
-    queryFn: () => listBlockedFn(),
-  })
-
-  function invalidateAll() {
-    qc.invalidateQueries({ queryKey: ['friends'] })
-  }
-
-  const [handleInput, setHandleInput] = useState('')
-  const [addError, setAddError] = useState<string | null>(null)
-
-  const send = useMutation({
-    mutationFn: (handle: string) =>
-      sendFriendRequestFn({ data: { handle } }),
-    onSuccess: (res) => {
-      setHandleInput('')
-      setAddError(null)
-      invalidateAll()
-      if (res.status === 'sent') toast.success('Friend request sent.')
-      else if (res.status === 'accepted')
-        toast.success('You’re now friends — they had already sent a request.')
-      else if (res.status === 'already_pending')
-        toast.message('Request already pending.')
-      else if (res.status === 'already_friends')
-        toast.message('Already friends.')
+  const isMember = memberQuery.data?.isMember === true
+  const [name, setName] = useState('')
+  const create = useMutation({
+    mutationFn: (n: string) => createHouseholdFn({ data: { name: n } }),
+    onSuccess: () => {
+      toast.success('Household created.')
+      setName('')
+      qc.invalidateQueries({ queryKey: ['my-household'] })
     },
-    onError: (err) => {
-      setAddError(err instanceof Error ? err.message : 'Failed to send request.')
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to create.'),
+  })
+  const [confirmName, setConfirmName] = useState('')
+  const deleteHousehold = useMutation({
+    mutationFn: (householdId: string) =>
+      deleteHouseholdFn({ data: { householdId } }),
+    onSuccess: () => {
+      toast.success('Household deleted.')
+      setConfirmName('')
+      qc.invalidateQueries({ queryKey: ['my-household'] })
+      qc.invalidateQueries({ queryKey: ['household-chores'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
     },
-  })
-
-  const accept = useMutation({
-    mutationFn: (requesterId: string) =>
-      acceptFriendRequestFn({ data: { requesterId } }),
-    onSuccess: invalidateAll,
     onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Accept failed'),
+      toast.error(err instanceof Error ? err.message : 'Failed to delete.'),
   })
-  const decline = useMutation({
-    mutationFn: (requesterId: string) =>
-      declineFriendRequestFn({ data: { requesterId } }),
-    onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Decline failed'),
-  })
-  const cancel = useMutation({
-    mutationFn: (addresseeId: string) =>
-      cancelFriendRequestFn({ data: { addresseeId } }),
-    onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Cancel failed'),
-  })
-  const remove = useMutation({
-    mutationFn: (otherUserId: string) =>
-      removeFriendFn({ data: { otherUserId } }),
-    onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Remove failed'),
-  })
-  const unblock = useMutation({
-    mutationFn: (targetUserId: string) =>
-      unblockUserFn({ data: { targetUserId } }),
-    onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Unblock failed'),
-  })
-
-  const friends = Array.isArray(friendsQuery.data) ? friendsQuery.data : []
-  const incoming = Array.isArray(incomingQuery.data) ? incomingQuery.data : []
-  const outgoing = Array.isArray(outgoingQuery.data) ? outgoingQuery.data : []
-  const blocked = Array.isArray(blockedQuery.data) ? blockedQuery.data : []
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const h = handleInput.trim().replace(/^@/, '')
-    if (!h) return
-    send.mutate(h)
-  }
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">Friends</h2>
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">
+        Household
+      </h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Find people by their handle to add them.
+        Share chores with family or roommates. XP for a household chore goes
+        to whoever completes it.
       </p>
 
-      <form onSubmit={onSubmit} className="mb-5 flex gap-2">
-        <div className="flex flex-1 items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3">
-          <span className="text-[var(--sea-ink-soft)]">@</span>
+      {myQuery.isLoading ? (
+        <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : myQuery.data?.household ? (
+        (() => {
+          const hh = myQuery.data.household
+          const role = myQuery.data.role
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-[var(--sea-ink)]">
+                You&rsquo;re in <strong>{hh.name}</strong> as{' '}
+                <span className="font-semibold">{role}</span>.
+              </p>
+              <Link
+                to="/household"
+                className="inline-block rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+              >
+                Open household
+              </Link>
+              {role === 'admin' && (
+                <div className="rounded-xl border border-red-300/60 bg-red-50/40 p-4 dark:border-red-500/40 dark:bg-red-900/10">
+                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">
+                    Delete household
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+                    Removes all members and household chores (members&rsquo;
+                    personal tasks are unaffected). To confirm, type the
+                    household name below:{' '}
+                    <strong className="text-[var(--sea-ink)]">{hh.name}</strong>
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="text"
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      placeholder="Type the household name"
+                      className="field-input flex-1"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        deleteHousehold.isPending ||
+                        confirmName.trim() !== hh.name
+                      }
+                      onClick={() => deleteHousehold.mutate(hh.id)}
+                      className="rounded-full border border-[rgba(230,90,90,0.4)] bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:bg-transparent dark:hover:bg-red-900/20"
+                    >
+                      {deleteHousehold.isPending ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()
+      ) : isMember ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!name.trim()) return
+            create.mutate(name.trim())
+          }}
+          className="flex flex-col gap-3 sm:flex-row"
+        >
           <input
             type="text"
-            value={handleInput}
-            onChange={(e) => setHandleInput(e.target.value.toLowerCase())}
-            placeholder="friend_handle"
-            className="w-full bg-transparent py-2 text-sm outline-none"
-            autoComplete="off"
-            spellCheck={false}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. The Smiths"
+            maxLength={80}
+            className="field-input flex-1"
           />
-        </div>
-        <button
-          type="submit"
-          disabled={send.isPending || !handleInput.trim()}
-          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
-        >
-          {send.isPending ? 'Sending…' : 'Send request'}
-        </button>
-      </form>
-      {addError ? (
-        <p className="-mt-3 mb-4 text-sm text-red-600" role="alert">
-          {addError}
-        </p>
-      ) : null}
-
-      {incoming.length > 0 ? (
-        <FriendList
-          title={`Incoming requests (${incoming.length})`}
-          rows={incoming.map((r) => ({
-            userId: r.userId,
-            handle: r.handle,
-            name: r.name,
-            trailing: (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => accept.mutate(r.userId)}
-                  disabled={accept.isPending}
-                  className="rounded-full bg-[var(--btn-primary-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-60"
-                >
-                  Accept
-                </button>
-                <button
-                  type="button"
-                  onClick={() => decline.mutate(r.userId)}
-                  disabled={decline.isPending}
-                  className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-                >
-                  Decline
-                </button>
-              </div>
-            ),
-          }))}
-        />
-      ) : null}
-
-      {outgoing.length > 0 ? (
-        <FriendList
-          title={`Sent (${outgoing.length})`}
-          rows={outgoing.map((r) => ({
-            userId: r.userId,
-            handle: r.handle,
-            name: r.name,
-            trailing: (
-              <button
-                type="button"
-                onClick={() => cancel.mutate(r.userId)}
-                disabled={cancel.isPending}
-                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-              >
-                Cancel
-              </button>
-            ),
-          }))}
-        />
-      ) : null}
-
-      <FriendList
-        title={`Friends (${friends.length})`}
-        empty="No friends yet. Send a request above."
-        rows={friends.map((r) => ({
-          userId: r.userId,
-          handle: r.handle,
-          name: r.name,
-          trailing: (
-            <button
-              type="button"
-              onClick={() => {
-                if (!confirm(`Remove @${r.handle} from friends?`)) return
-                remove.mutate(r.userId)
-              }}
-              disabled={remove.isPending}
-              className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-            >
-              Remove
-            </button>
-          ),
-        }))}
-      />
-
-      {blocked.length > 0 ? (
-        <FriendList
-          title={`Blocked (${blocked.length})`}
-          rows={blocked.map((r) => ({
-            userId: r.userId,
-            handle: r.handle,
-            name: r.name,
-            trailing: (
-              <button
-                type="button"
-                onClick={() => unblock.mutate(r.userId)}
-                disabled={unblock.isPending}
-                className="rounded-full border border-[var(--line)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
-              >
-                Unblock
-              </button>
-            ),
-          }))}
-        />
-      ) : null}
-    </section>
-  )
-}
-
-function FriendList({
-  title,
-  empty,
-  rows,
-}: {
-  title: string
-  empty?: string
-  rows: Array<{
-    userId: string
-    handle: string
-    name: string
-    trailing: React.ReactNode
-  }>
-}) {
-  return (
-    <div className="mb-4 last:mb-0">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-        {title}
-      </h3>
-      {rows.length === 0 ? (
-        empty ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">{empty}</p>
-        ) : null
+          <button
+            type="submit"
+            disabled={create.isPending || !name.trim()}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+          >
+            {create.isPending ? 'Creating…' : 'Create household'}
+          </button>
+        </form>
       ) : (
-        <ul className="space-y-2">
-          {rows.map((r) => (
-            <li
-              key={r.userId}
-              className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
-            >
-              <Initials name={r.name} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
-                  {r.name}
-                </p>
-                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
-                  @{r.handle}
-                </p>
-              </div>
-              {r.trailing}
-            </li>
-          ))}
-        </ul>
+        <div className="rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.08)] p-4">
+          <p className="text-sm font-semibold text-[var(--sea-ink)]">
+            Households are a membership feature.
+          </p>
+          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+            Sharing chores with family or roommates needs a Todo XP
+            membership. Only the household admin (that&rsquo;s you)
+            needs to subscribe — kids, members, and kiosk accounts you
+            add to the household join for free.
+          </p>
+          <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">
+            Scroll up to <strong>Membership</strong> to upgrade.
+          </p>
+        </div>
       )}
-    </div>
-  )
-}
-
-function Initials({ name }: { name: string }) {
-  const letters = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('')
-  return (
-    <span
-      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--btn-primary-bg)] text-xs font-bold text-[var(--btn-primary-fg)]"
-      aria-hidden
-    >
-      {letters || '?'}
-    </span>
+    </section>
   )
 }
 
@@ -2188,7 +2102,7 @@ function GithubSection() {
   }
 
   return (
-    <details className="island-shell max-w-2xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
+    <details className="island-shell max-w-xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-[var(--sea-ink)]">
@@ -2532,7 +2446,7 @@ function TokensSection() {
   const tokens = Array.isArray(tokensQuery.data) ? tokensQuery.data : []
 
   return (
-    <details className="island-shell max-w-2xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
+    <details className="island-shell max-w-xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-[var(--sea-ink)]">API access</h2>

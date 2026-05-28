@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createTask } from '../../../server/functions/tasks'
+import { getMyHouseholdFn } from '../../../server/functions/households'
 import { getLlmStatus } from '../../../server/functions/config'
 import type {
   DurationUnit,
@@ -13,9 +14,18 @@ import type { TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
 import { PositiveNumberInput } from '../../../components/NumberInput'
 
+interface NewTaskSearch {
+  // When set, the household-chore toggle is pre-checked. Linked from
+  // the household page's "New chore" button.
+  household?: 1
+}
+
 export const Route = createFileRoute('/_authenticated/tasks/new')({
   loader: () => getLlmStatus(),
   component: NewTaskPage,
+  validateSearch: (s: Record<string, unknown>): NewTaskSearch => ({
+    household: s.household === 1 || s.household === '1' ? 1 : undefined,
+  }),
 })
 
 type RecurrenceKind =
@@ -111,6 +121,7 @@ function NewTaskPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const llmStatus = Route.useLoaderData()
+  const search = Route.useSearch()
   const llmEnabled = llmStatus.enabled
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -141,7 +152,26 @@ function NewTaskPage() {
   const [weekTargetDow, setWeekTargetDow] = useState<number>(5)
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [steps, setSteps] = useState<string[]>([])
+  const [forHousehold, setForHousehold] = useState(search.household === 1)
+  // 'self' = assigned to me; 'ffa' = free-for-all; otherwise a member userId.
+  const [assignee, setAssignee] = useState<string>('self')
+  // Rotation: 'fixed' = task stays with the chosen assignee.
+  //           'round_robin' = cycle through `rotationPool` on each
+  //                            recurrence. Only meaningful for
+  //                            recurring household chores, and only
+  //                            available to admins.
+  const [rotationStrategy, setRotationStrategy] =
+    useState<'fixed' | 'round_robin'>('fixed')
+  const [rotationPool, setRotationPool] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const household = householdQuery.data
+  const isKid = household?.role === 'kid'
+  const isAdmin = household?.role === 'admin'
 
   const isSomeday = dueKind === 'someday'
   // Week-target tasks are one-off in v1 — disable recurrence when picked.
@@ -160,12 +190,23 @@ function NewTaskPage() {
       dueAtOverride?: string | null
       dueKind?: 'hard' | 'week_target'
       steps?: string[] | null
+      householdId?: string | null
+      assignedToUserId?: string | null
+      rotationStrategy?: 'fixed' | 'round_robin'
+      rotationPool?: string[] | null
     }) => createTask({ data: input }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['today'] })
       await qc.invalidateQueries({ queryKey: ['someday'] })
       await qc.invalidateQueries({ queryKey: ['tasks'] })
-      navigate({ to: '/today' })
+      // If the user landed here from the household page (?household=1),
+      // also refresh the household chores list and send them back there.
+      if (search.household === 1) {
+        await qc.invalidateQueries({ queryKey: ['household-chores'] })
+        navigate({ to: '/household' })
+      } else {
+        navigate({ to: '/today' })
+      }
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -216,6 +257,43 @@ function NewTaskPage() {
     const cleanedSteps = steps
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
+    let householdId: string | null = null
+    let assignedToUserId: string | null = null
+    let outgoingRotationStrategy: 'fixed' | 'round_robin' = 'fixed'
+    let outgoingRotationPool: string[] | null = null
+    if (forHousehold && household) {
+      householdId = household.household.id
+      // Round-robin overrides the assignee picker: the server uses
+      // rotationPool[0] as the initial assignee, then cycles per
+      // recurrence. Validate the basics up front so the server
+      // doesn't reject after a long round-trip.
+      if (isAdmin && rotationStrategy === 'round_robin') {
+        if (recurrenceLocked || recurrenceKind === 'none') {
+          setError('Round-robin needs a recurring chore.')
+          return
+        }
+        if (rotationPool.length < 2) {
+          setError('Pick at least two people for the rotation.')
+          return
+        }
+        outgoingRotationStrategy = 'round_robin'
+        outgoingRotationPool = rotationPool
+        assignedToUserId = null
+      } else if (assignee === 'ffa') {
+        assignedToUserId = null
+      } else if (assignee === 'self') {
+        // Server treats "no assignee" as free-for-all, so explicitly
+        // pin the creator id to make this an assigned chore for them.
+        assignedToUserId = null
+        // Note: for "self" we let it default to free-for-all. If the
+        // user wants it explicitly assigned to themselves, they can
+        // reassign post-create. For Phase 1 this is fine — self means
+        // "I'll do it" which behaves the same as free-for-all in a
+        // solo-member household.
+      } else {
+        assignedToUserId = assignee
+      }
+    }
     mutation.mutate({
       title,
       notes: notes.trim() ? notes : null,
@@ -241,7 +319,27 @@ function NewTaskPage() {
       dueAtOverride,
       dueKind: dueKind === 'week' ? 'week_target' : 'hard',
       steps: cleanedSteps.length > 0 ? cleanedSteps : null,
+      householdId,
+      assignedToUserId,
+      rotationStrategy: outgoingRotationStrategy,
+      rotationPool: outgoingRotationPool,
     })
+  }
+
+  if (isKid) {
+    return (
+      <main className="page-wrap px-4 py-8">
+        <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">
+          New task
+        </h1>
+        <div className="island-shell max-w-xl rounded-2xl p-6">
+          <p className="text-sm text-[var(--sea-ink)]">
+            Ask a grown-up in your household to add chores for you. You can
+            complete chores from the Today page.
+          </p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -522,6 +620,93 @@ function NewTaskPage() {
           </fieldset>
         ) : null}
 
+        {household && !isKid ? (
+          <fieldset className="block rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={forHousehold}
+                onChange={(e) => setForHousehold(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="flex-1">
+                <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+                  Household chore
+                </span>
+                <span className="block text-xs text-[var(--sea-ink-soft)]">
+                  Visible to the {household.household.name} household. XP goes
+                  to whoever completes it.
+                </span>
+              </span>
+            </label>
+            {forHousehold ? (
+              <div className="mt-3 space-y-3">
+                {/* Round-robin is admin-only and only meaningful for
+                    recurring chores. Otherwise fall back to the fixed
+                    assignee picker. */}
+                {isAdmin && !recurrenceLocked && recurrenceKind !== 'none' ? (
+                  <div
+                    className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-1"
+                    role="radiogroup"
+                    aria-label="Rotation"
+                  >
+                    {(['fixed', 'round_robin'] as const).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        role="radio"
+                        aria-checked={rotationStrategy === r}
+                        onClick={() => setRotationStrategy(r)}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          rotationStrategy === r
+                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+                            : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+                        }`}
+                      >
+                        {r === 'fixed' ? 'Fixed assignee' : 'Round-robin'}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {isAdmin && rotationStrategy === 'round_robin' ? (
+                  <RotationPoolPicker
+                    members={household.members.filter(
+                      (m) => m.role !== 'kiosk',
+                    )}
+                    pool={rotationPool}
+                    onChange={setRotationPool}
+                  />
+                ) : (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                      Assignee
+                    </span>
+                    <select
+                      value={assignee}
+                      onChange={(e) => setAssignee(e.target.value)}
+                      className="field-input"
+                    >
+                      <option value="ffa">Free for all — anyone can complete</option>
+                      {household.role === 'admin'
+                        ? household.members
+                            .filter((m) => m.role !== 'kiosk')
+                            .map((m) => (
+                              <option key={m.userId} value={m.userId}>
+                                Assign to {m.name} (@{m.handle})
+                              </option>
+                            ))
+                        : (
+                          <option value="self">Assign to me</option>
+                        )}
+                    </select>
+                  </label>
+                )}
+              </div>
+            ) : null}
+          </fieldset>
+        ) : null}
+
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Who can see this
@@ -554,6 +739,72 @@ function NewTaskPage() {
         </button>
       </form>
     </main>
+  )
+}
+
+function RotationPoolPicker({
+  members,
+  pool,
+  onChange,
+}: {
+  members: Array<{ userId: string; name: string; handle: string }>
+  pool: string[]
+  onChange: (next: string[]) => void
+}) {
+  const selected = new Set(pool)
+  function toggle(userId: string) {
+    if (selected.has(userId)) {
+      onChange(pool.filter((id) => id !== userId))
+    } else {
+      // Append to preserve the admin's chosen order — that's the
+      // order chores cycle through.
+      onChange([...pool, userId])
+    }
+  }
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        Who&rsquo;s in the rotation
+      </p>
+      <p className="mb-2 text-xs text-[var(--sea-ink-soft)]">
+        Each time this chore comes up, it cycles to the next person in
+        the list. Pick at least two.
+      </p>
+      <ul className="space-y-1.5">
+        {members.length === 0 ? (
+          <li className="text-xs text-[var(--sea-ink-soft)]">
+            No eligible household members. Add a kid or member first.
+          </li>
+        ) : (
+          members.map((m) => {
+            const checked = selected.has(m.userId)
+            return (
+              <li key={m.userId}>
+                <label
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${
+                    checked
+                      ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
+                      : 'border-[var(--line)] bg-[var(--surface-strong)]'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(m.userId)}
+                  />
+                  <span className="flex-1 text-[var(--sea-ink)]">
+                    {m.name}{' '}
+                    <span className="text-xs text-[var(--sea-ink-soft)]">
+                      @{m.handle}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            )
+          })
+        )}
+      </ul>
+    </div>
   )
 }
 

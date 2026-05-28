@@ -131,6 +131,26 @@ export const tasks = pgTable('tasks', {
   // as the PR's assignee and then re-added.
   assigneePresent: boolean('assignee_present'),
   reviewRequestedPresent: boolean('review_requested_present'),
+  // Household-scoped chores. `userId` remains the creator (back-compat).
+  // When `householdId` is set, `assignedToUserId` is the household member
+  // responsible; null means free-for-all (any member may complete).
+  householdId: uuid('household_id').references(() => households.id, {
+    onDelete: 'set null',
+  }),
+  assignedToUserId: text('assigned_to_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+  // Rotation for recurring chores. 'fixed' = stick to assignedToUserId
+  // across recurrences (default). 'round_robin' = cycle through
+  // rotationPool; the next materialization picks the user immediately
+  // after lastAssigneeCursor in the pool (wrapping).
+  rotationStrategy: text('rotation_strategy', {
+    enum: ['fixed', 'round_robin'],
+  })
+    .notNull()
+    .default('fixed'),
+  rotationPool: jsonb('rotation_pool').$type<string[]>(),
+  lastAssigneeCursor: text('last_assignee_cursor'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -156,6 +176,22 @@ export const taskInstances = pgTable(
     dueKind: text('due_kind', { enum: ['hard', 'week_target'] })
       .notNull()
       .default('hard'),
+    // Household chore metadata. Mirrors the parent task; carried on the
+    // instance so today/dashboard queries don't have to join. For
+    // free-for-all, assignedToUserId is null and completedByUserId is
+    // written in the same transaction as completedAt. completedByUserId
+    // is also the authoritative key for the reopen flow (which user's
+    // events to delete, which user's progression to rebuild).
+    householdId: uuid('household_id'),
+    assignedToUserId: text('assigned_to_user_id'),
+    completedByUserId: text('completed_by_user_id'),
+    // Pending-approval state. When a kid (or future kiosk user) marks
+    // a chore done, we stamp claimedAt + claimedByUserId instead of
+    // completedAt — no event, no XP — until an admin/member approves.
+    // Approving promotes the claim to a normal completion; rejecting
+    // clears these columns and the instance is open again.
+    claimedAt: timestamp('claimed_at'),
+    claimedByUserId: text('claimed_by_user_id'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('task_instances_user_due_idx').on(t.userId, t.dueAt)],
@@ -283,6 +319,72 @@ export const friendships = pgTable(
   ],
 )
 
+// Households: small shared groups layered on top of the friends graph.
+// A household owns chores that members can complete (assigned or free-
+// for-all); XP/streak go to the completer. One household per user is
+// enforced by the unique index on householdMembers.userId in migration
+// 0034 — service code can rely on this invariant.
+export const households = pgTable('households', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  createdByUserId: text('created_by_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const householdMembers = pgTable(
+  'household_members',
+  {
+    householdId: uuid('household_id')
+      .notNull()
+      .references(() => households.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // 'admin' — manages membership, creates/edits any chore, can assign
+    // to anyone. 'member' — creates self-assigned or free-for-all chores,
+    // can't manage membership. 'kid' — complete-only UI; no task creation,
+    // no friends/garden/arcade surfaces. 'kiosk' — shared family device
+    // login provisioned by an admin; same restrictions as kid (claims
+    // need approval) but typically used to mark a chore as done by
+    // someone else via the credit picker.
+    role: text('role', {
+      enum: ['admin', 'member', 'kid', 'kiosk'],
+    }).notNull(),
+    joinedAt: timestamp('joined_at').notNull().defaultNow(),
+    // Per-membership color (hex string, e.g. '#4fb8b2'). Used to tint
+    // chore rows and color the per-member series in household stats
+    // charts. Defaulted on insert from a palette in services/households.
+    color: text('color'),
+  },
+  (t) => [primaryKey({ columns: [t.householdId, t.userId] })],
+)
+
+export const householdInvites = pgTable('household_invites', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  householdId: uuid('household_id')
+    .notNull()
+    .references(() => households.id, { onDelete: 'cascade' }),
+  inviterUserId: text('inviter_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  inviteeUserId: text('invitee_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  // Admins can invite at 'member' or 'kid' tier; role can be changed
+  // post-acceptance.
+  proposedRole: text('proposed_role', { enum: ['member', 'kid'] }).notNull(),
+  status: text('status', {
+    enum: ['pending', 'accepted', 'declined', 'cancelled'],
+  })
+    .notNull()
+    .default('pending'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  respondedAt: timestamp('responded_at'),
+})
+
 // Per-email audit log for outbound transactional mail (verification +
 // password reset). Used purely for rate limiting: we count recent sends
 // to the same address before dispatching another one. Email is stored
@@ -319,6 +421,13 @@ export const userPrefs = pgTable('user_prefs', {
   // can reference (job, family situation, ADHD specifics, preferred
   // nudge style). Empty string when unset.
   bio: text('bio').notNull().default(''),
+  // When true and the user is in a household, household chores assigned
+  // to them (and unclaimed free-for-all chores) appear in their Today
+  // view alongside personal tasks. When false, household chores live
+  // exclusively in the Household tab.
+  mergeHouseholdIntoToday: boolean('merge_household_into_today')
+    .notNull()
+    .default(true),
 })
 
 // Per-user cache for the coach blurb. One row per user; upserted by

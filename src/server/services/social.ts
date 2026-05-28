@@ -6,6 +6,7 @@ import { db } from '../db/client'
 import {
   events,
   friendships,
+  householdMembers,
   progression,
   user as userTable,
   userPrefs,
@@ -164,6 +165,16 @@ export async function resolveUserByHandle(
   return row[0] ?? null
 }
 
+// Two users are friends iff there's an accepted friendship row between
+// them in either direction. Used by household-invite checks; kept here
+// because the underlying findFriendshipEitherDirection helper is local
+// to this module.
+export async function areFriends(a: string, b: string): Promise<boolean> {
+  if (a === b) return false
+  const f = await findFriendshipEitherDirection(a, b)
+  return f?.status === 'accepted'
+}
+
 async function findFriendshipEitherDirection(
   a: string,
   b: string,
@@ -199,6 +210,19 @@ export async function sendFriendRequest(
   const target = await resolveUserByHandle(targetHandle)
   if (!target) throw new Error('No user with that handle.')
   if (target.id === meId) throw new Error("You can't friend yourself.")
+
+  // Block friending managed accounts (kid/kiosk). They're a household-
+  // internal concept; the friend system is between real adult users.
+  // Generic error to avoid leaking that the handle is a managed account.
+  const targetMembership = await db
+    .select({ role: householdMembers.role })
+    .from(householdMembers)
+    .where(eq(householdMembers.userId, target.id))
+    .limit(1)
+  const targetRole = targetMembership[0]?.role
+  if (targetRole === 'kid' || targetRole === 'kiosk') {
+    throw new Error('Unable to send a request to this user.')
+  }
 
   const recentCount = await db
     .select({ count: sql<number>`count(*)::int` })

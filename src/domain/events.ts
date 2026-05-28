@@ -4,6 +4,13 @@ export type DueKind = 'hard' | 'week_target'
 
 export type DomainEvent =
   | {
+      // LOAD-BEARING INVARIANT: `events.userId` on a `task.completed` row
+      // is the XP recipient — the user who actually clicked complete. For
+      // personal tasks this happens to also be the task owner. For
+      // household chores (householdId set), the completer may differ from
+      // the task creator; `applyEvent` still routes XP/streak to the
+      // user in `events.userId`. Do not "fix" code to read XP recipient
+      // from `tasks.userId` — it will silently break household chores.
       type: 'task.completed'
       taskId: string
       instanceId: string
@@ -15,6 +22,12 @@ export type DomainEvent =
       // missing (back-compat with old events written before this field
       // existed). 'week_target' selects the soft early-bird/late curve.
       dueKind?: DueKind
+      // Household chore metadata. Absent on personal-task events. The
+      // projection (`applyEvent`) ignores these — they exist for activity
+      // feeds, household leaderboards, and aggregate stats queries.
+      householdId?: string | null
+      assignedToUserId?: string | null
+      completedAs?: 'personal' | 'assigned' | 'free_for_all'
       occurredAt: Date
     }
   | {
@@ -189,6 +202,22 @@ export type DomainEvent =
       type: 'membership.revoked'
       revokedBy: string
       reason: string | null
+      occurredAt: Date
+    }
+  | {
+      // Informational: a user joined a household. Event owner (events.userId)
+      // is the joining user. Used by the household activity feed; no
+      // progression impact, applyEvent no-ops on these.
+      type: 'household.member.joined'
+      householdId: string
+      role: 'admin' | 'member' | 'kid'
+      occurredAt: Date
+    }
+  | {
+      // Informational: a user left or was removed from a household. Event
+      // owner is the departing user. Same projection rules as joined.
+      type: 'household.member.left'
+      householdId: string
       occurredAt: Date
     }
 
