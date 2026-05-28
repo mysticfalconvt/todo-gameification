@@ -67,6 +67,28 @@ function ManagedAccountSettingsLockout({
 }: {
   role: 'kid' | 'kiosk'
 }) {
+  const router = useRouter()
+  const qc = useQueryClient()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function onSignOut() {
+    setSigningOut(true)
+    try {
+      await signOut()
+      qc.removeQueries()
+      try {
+        localStorage.removeItem('todo-xp-query-cache-v1')
+      } catch {
+        // no-op if storage is blocked
+      }
+      await router.invalidate()
+      router.navigate({ to: '/' })
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
+  const homeTo = role === 'kiosk' ? '/household' : '/today'
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
@@ -79,12 +101,22 @@ function ManagedAccountSettingsLockout({
           Ask a grown-up in your household to update preferences for you
           from their settings page.
         </p>
-        <Link
-          to="/today"
-          className="mt-5 inline-block rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
-        >
-          ← Back to Today
-        </Link>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <Link
+            to={homeTo}
+            className="inline-block rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+          >
+            ← Back
+          </Link>
+          <button
+            type="button"
+            onClick={onSignOut}
+            disabled={signingOut}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600 disabled:opacity-60"
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
       </section>
     </main>
   )

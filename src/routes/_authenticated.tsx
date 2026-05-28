@@ -57,9 +57,11 @@ function KioskRedirect() {
   useEffect(() => {
     if (role !== 'kiosk') return
     // Allow /household and its sub-routes (per-member stats, etc.);
-    // bounce everywhere else. /auth/* is outside the authenticated
-    // tree so we don't see it here.
+    // also allow /settings so kiosks can reach the lockout view's
+    // sign-out button. Bounce everywhere else. /auth/* is outside the
+    // authenticated tree so we don't see it here.
     if (location.pathname.startsWith('/household')) return
+    if (location.pathname.startsWith('/settings')) return
     navigate({ to: '/household', replace: true })
   }, [role, location.pathname, navigate])
   return null

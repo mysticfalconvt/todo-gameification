@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import {
   deleteTask,
   getTask,
+  moveTaskToHousehold,
   reanalyzeTask,
   reopenLastCompletion,
   repeatTask,
@@ -17,6 +18,8 @@ import {
 } from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 import { getLlmStatus } from '../../../server/functions/config'
+import { getMyHouseholdFn } from '../../../server/functions/households'
+import { useSession } from '../../../lib/auth-client'
 import type {
   DurationUnit,
   MonthlyWeekIndex,
@@ -290,6 +293,46 @@ function EditTaskPage() {
     },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Failed to reopen'),
+  })
+
+  const { data: session } = useSession()
+  const myUserId = session?.user?.id ?? null
+  const myHouseholdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const myHousehold = myHouseholdQuery.data ?? null
+  const myMembershipRole = myHousehold?.role ?? null
+  const canMoveToHousehold =
+    !!myHousehold &&
+    myMembershipRole !== 'kid' &&
+    myMembershipRole !== 'kiosk'
+
+  // Sentinels: 'ffa' = free-for-all (null), 'self' = me, else a member userId.
+  const [moveAssigneeChoice, setMoveAssigneeChoice] = useState<string>('ffa')
+
+  const moveToHousehold = useMutation({
+    mutationFn: (input: { assignedToUserId: string | null }) =>
+      moveTaskToHousehold({
+        data: {
+          taskId,
+          householdId: myHousehold!.household.id,
+          assignedToUserId: input.assignedToUserId,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success('Moved to household.')
+      await qc.invalidateQueries({ queryKey: ['task', taskId] })
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['household-chores'] })
+      await qc.invalidateQueries({ queryKey: ['household-chores-week'] })
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to move to household',
+      )
+    },
   })
 
   const repeat = useMutation({
@@ -682,6 +725,78 @@ function EditTaskPage() {
           <p className="text-sm text-red-600" role="alert">
             {error}
           </p>
+        ) : null}
+
+        {!task.householdId && canMoveToHousehold && myHousehold ? (
+          <fieldset className="rounded-xl border border-[var(--line)] p-3">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Move to household
+            </legend>
+            <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
+              Promote this personal task into <strong>{myHousehold.household.name}</strong>{' '}
+              so the rest of the household can see it. Your past completions stay
+              on your personal stats; new completions count toward the household.
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Assignee
+                </span>
+                <select
+                  value={moveAssigneeChoice}
+                  onChange={(e) => setMoveAssigneeChoice(e.target.value)}
+                  className="field-input"
+                >
+                  <option value="ffa">Free-for-all — anyone can complete</option>
+                  <option value="self">Assign to me</option>
+                  {myMembershipRole === 'admin'
+                    ? myHousehold.members
+                        .filter(
+                          (m) => m.role !== 'kiosk' && m.userId !== myUserId,
+                        )
+                        .map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            Assign to {m.name} (@{m.handle})
+                          </option>
+                        ))
+                    : null}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  let assignedToUserId: string | null = null
+                  if (moveAssigneeChoice === 'ffa') {
+                    assignedToUserId = null
+                  } else if (moveAssigneeChoice === 'self') {
+                    assignedToUserId = myUserId
+                  } else {
+                    assignedToUserId = moveAssigneeChoice
+                  }
+                  moveToHousehold.mutate({ assignedToUserId })
+                }}
+                disabled={moveToHousehold.isPending}
+                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+              >
+                {moveToHousehold.isPending ? 'Moving…' : 'Move to household'}
+              </button>
+            </div>
+          </fieldset>
+        ) : null}
+
+        {task.householdId ? (
+          <fieldset className="rounded-xl border border-[var(--line)] p-3">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Household
+            </legend>
+            <p className="text-sm text-[var(--sea-ink-soft)]">
+              This task lives in your household. Manage it from the{' '}
+              <a href="/household" className="underline">
+                household page
+              </a>
+              .
+            </p>
+          </fieldset>
         ) : null}
 
         <fieldset className="rounded-xl border border-[var(--line)] p-3">

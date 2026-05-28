@@ -195,7 +195,7 @@ function HouseholdPage() {
       </header>
 
       <div
-        className="flex flex-wrap gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
+        className="flex flex-wrap gap-1.5 rounded-2xl border border-[var(--line)] bg-[var(--option-bg)] p-1.5"
         role="tablist"
         aria-label="Household tabs"
       >
@@ -206,7 +206,7 @@ function HouseholdPage() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`relative rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+            className={`relative flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-center text-xs font-semibold transition ${
               tab === t
                 ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
                 : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'

@@ -172,6 +172,8 @@ export interface TaskSummary {
 export interface TaskDetail extends TaskSummary {
   active: boolean
   updatedAt: string
+  householdId: string | null
+  assignedToUserId: string | null
 }
 
 export interface ProgressionSummary {
@@ -598,6 +600,8 @@ export async function getTask(
       ? latestCompletion.completedAt.toISOString()
       : null,
     hasOpenInstance: !!openInst,
+    householdId: row.householdId,
+    assignedToUserId: row.assignedToUserId,
   }
 }
 
@@ -698,6 +702,112 @@ export async function setTaskCategory(
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
   return { id: result[0].id }
+}
+
+// Move an existing personal task into a household. The point is to
+// "promote" a task you've been doing personally for a while (with
+// real completion history) so the rest of the family can see it on
+// the household chore list — without losing the historical events.
+//
+// Historical task.completed events stay associated with the task by
+// `payload.taskId`, but they don't get a `householdId` retroactively;
+// they still count for the user's personal progression / stats. Only
+// completions AFTER the move land in the household stats charts and
+// activity feed. That's the right semantics: moving the task forward
+// doesn't claim past work as "household activity."
+//
+// Owner-only operation. The new household must be one the owner is
+// in. Kids/kiosks can't move tasks (they can't create chores
+// either). assignee is optional — null = free-for-all; otherwise
+// must be the caller (members) or any member (admins).
+export async function moveTaskToHousehold(
+  userId: string,
+  input: {
+    taskId: string
+    householdId: string
+    assignedToUserId?: string | null
+  },
+): Promise<{ id: string }> {
+  if (!input.taskId) throw new Error('taskId required')
+  if (!input.householdId) throw new Error('householdId required')
+
+  return db.transaction(async (tx) => {
+    const task = await tx.query.tasks.findFirst({
+      where: and(eq(tasks.id, input.taskId), eq(tasks.userId, userId)),
+    })
+    if (!task) throw new Error('task not found')
+    if (task.householdId) {
+      throw new Error('That task is already in a household.')
+    }
+
+    const membership = await tx.query.householdMembers.findFirst({
+      where: and(
+        eq(householdMembers.userId, userId),
+        eq(householdMembers.householdId, input.householdId),
+      ),
+      columns: { role: true },
+    })
+    if (!membership) {
+      throw new Error('You are not a member of that household.')
+    }
+    if (membership.role === 'kid' || membership.role === 'kiosk') {
+      throw new Error('Kids and kiosk accounts cannot move tasks.')
+    }
+
+    // Resolve assignee. Reuses the createTask rules.
+    let assignedToUserId: string | null = null
+    if (input.assignedToUserId) {
+      if (input.assignedToUserId === userId) {
+        assignedToUserId = userId
+      } else {
+        if (membership.role !== 'admin') {
+          throw new Error('Only admins can assign moved chores to others.')
+        }
+        const assignee = await tx.query.householdMembers.findFirst({
+          where: and(
+            eq(householdMembers.userId, input.assignedToUserId),
+            eq(householdMembers.householdId, input.householdId),
+          ),
+          columns: { userId: true },
+        })
+        if (!assignee) {
+          throw new Error('Assignee is not a member of this household.')
+        }
+        assignedToUserId = input.assignedToUserId
+      }
+    }
+
+    const now = new Date()
+    await tx
+      .update(tasks)
+      .set({
+        householdId: input.householdId,
+        assignedToUserId,
+        updatedAt: now,
+      })
+      .where(eq(tasks.id, task.id))
+
+    // Mirror the move onto every open instance so the task appears
+    // in the household chores list / week view immediately. Closed
+    // (completed/skipped) instances stay as historical rows with
+    // their original null household — those events are personal
+    // history.
+    await tx
+      .update(taskInstances)
+      .set({
+        householdId: input.householdId,
+        assignedToUserId,
+      })
+      .where(
+        and(
+          eq(taskInstances.taskId, task.id),
+          isNull(taskInstances.completedAt),
+          isNull(taskInstances.skippedAt),
+        ),
+      )
+
+    return { id: task.id }
+  })
 }
 
 export async function countUncategorizedTasks(

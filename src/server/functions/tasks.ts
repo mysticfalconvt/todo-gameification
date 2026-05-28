@@ -101,6 +101,19 @@ export const setTaskCategory = createServerFn({ method: 'POST' })
     service.setTaskCategory(context.userId, data.taskId, data.slug),
   )
 
+export const moveTaskToHousehold = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: {
+      taskId: string
+      householdId: string
+      assignedToUserId?: string | null
+    }) => data,
+  )
+  .handler(({ data, context }) =>
+    service.moveTaskToHousehold(context.userId, data),
+  )
+
 export const reopenLastCompletion = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string }) => data)
