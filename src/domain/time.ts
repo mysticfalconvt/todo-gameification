@@ -8,6 +8,32 @@ export function assertValidTimeOfDay(value: string): void {
   }
 }
 
+// Per-weekday time overrides for a recurring task. Keys are weekday indices
+// '0'..'6' where 0 = Sunday (matching dayOfWeekInTz and the weekly recurrence
+// daysOfWeek convention); values are HH:MM. A weekday absent from the map falls
+// back to the task's base timeOfDay — so a task with no map (the common case)
+// behaves exactly as before.
+export type WeekdayTimes = Record<string, string>
+
+export function assertValidWeekdayTimes(map: WeekdayTimes): void {
+  for (const [key, value] of Object.entries(map)) {
+    const day = Number(key)
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      throw new Error(`invalid weekday key: ${key} (expected 0-6)`)
+    }
+    assertValidTimeOfDay(value)
+  }
+}
+
+// Resolve the effective HH:MM for a weekday: the override if present, else base.
+export function resolveTimeOfDay(
+  weekday: number,
+  base: string,
+  map?: WeekdayTimes | null,
+): string {
+  return map?.[String(weekday)] ?? base
+}
+
 export function setTimeInTz(
   dayAnchor: Date,
   timeOfDay: string,

@@ -4,6 +4,7 @@
 // token auth instead of cookies.
 import { createServerFn } from '@tanstack/react-start'
 import type { Recurrence } from '../../domain/recurrence'
+import type { WeekdayTimes } from '../../domain/time'
 import type { Difficulty } from '../../domain/events'
 import { authMiddleware } from '../middleware/auth'
 import * as service from '../services/tasks'
@@ -77,6 +78,7 @@ export const updateTask = createServerFn({ method: 'POST' })
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
+      timeByWeekday?: WeekdayTimes | null
       visibility?: service.TaskVisibility
       dueKind?: 'hard' | 'week_target'
     }) => data,

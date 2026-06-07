@@ -1,4 +1,11 @@
-import { dayOfWeekInTz, nextOccurrenceAt, pinDateInTz, setTimeInTz } from './time'
+import {
+  dayOfWeekInTz,
+  nextOccurrenceAt,
+  pinDateInTz,
+  resolveTimeOfDay,
+  setTimeInTz,
+  type WeekdayTimes,
+} from './time'
 import { formatInTimeZone } from 'date-fns-tz'
 
 // Legacy `days: number` shape is still accepted on read; new writes use
@@ -161,7 +168,42 @@ export interface ComputeNextDueInput {
   previousDueAt: Date
   completedAt: Date
   timeOfDay?: string | null
+  timeByWeekday?: WeekdayTimes | null
   timeZone?: string | null
+}
+
+// The effective HH:MM for whatever weekday `date` falls on in `timeZone`,
+// honoring per-weekday overrides and falling back to the base time.
+function timeForDate(
+  date: Date,
+  base: string,
+  map: WeekdayTimes | null | undefined,
+  timeZone: string,
+): string {
+  return resolveTimeOfDay(dayOfWeekInTz(date, timeZone), base, map)
+}
+
+// Per-weekday-aware version of nextOccurrenceAt for daily tasks: the next pinned
+// occurrence strictly after `from`, where each candidate day uses its own
+// weekday time. With no map this matches nextOccurrenceAt.
+function nextDailyOccurrence(
+  from: Date,
+  base: string,
+  map: WeekdayTimes | null | undefined,
+  timeZone: string,
+): Date {
+  for (let offset = 0; offset <= 8; offset++) {
+    const anchor = offset === 0 ? from : addDays(from, offset)
+    const candidate = setTimeInTz(
+      anchor,
+      timeForDate(anchor, base, map, timeZone),
+      timeZone,
+    )
+    if (candidate > from) return candidate
+  }
+  // Unreachable in practice; pin tomorrow defensively.
+  const anchor = addDays(from, 1)
+  return setTimeInTz(anchor, timeForDate(anchor, base, map, timeZone), timeZone)
 }
 
 export function computeNextDue(input: ComputeNextDueInput): Date {
@@ -189,13 +231,14 @@ export function computeNextDue(input: ComputeNextDueInput): Date {
 }
 
 function computeNextDueOnce(input: ComputeNextDueInput): Date {
-  const { recurrence, previousDueAt, completedAt, timeOfDay, timeZone } = input
+  const { recurrence, previousDueAt, completedAt, timeOfDay, timeByWeekday, timeZone } =
+    input
   const hasLocalPin = Boolean(timeOfDay && timeZone)
 
   switch (recurrence.type) {
     case 'daily':
       return hasLocalPin
-        ? nextOccurrenceAt(previousDueAt, timeOfDay!, timeZone!)
+        ? nextDailyOccurrence(previousDueAt, timeOfDay!, timeByWeekday, timeZone!)
         : addDays(previousDueAt, 1)
 
     case 'weekly': {
@@ -208,7 +251,11 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
         for (let offset = 1; offset <= 7; offset++) {
           const candidate = addDays(previousDueAt, offset)
           if (sorted.includes(dayOfWeekInTz(candidate, timeZone!))) {
-            return setTimeInTz(candidate, timeOfDay!, timeZone!)
+            return setTimeInTz(
+              candidate,
+              timeForDate(candidate, timeOfDay!, timeByWeekday, timeZone!),
+              timeZone!,
+            )
           }
         }
         throw new Error('unreachable: no valid day-of-week in a 7-day window')
@@ -239,7 +286,11 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
       // Sub-day intervals (hours / minutes) are relative offsets and
       // pinning them to HH:MM would snap them to a fixed hour daily.
       return hasLocalPin && unit === 'days'
-        ? setTimeInTz(next, timeOfDay!, timeZone!)
+        ? setTimeInTz(
+            next,
+            timeForDate(next, timeOfDay!, timeByWeekday, timeZone!),
+            timeZone!,
+          )
         : next
     }
 
@@ -249,7 +300,11 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
         completedAt.getTime() + msForDuration(amount, unit),
       )
       return hasLocalPin && unit === 'days'
-        ? setTimeInTz(next, timeOfDay!, timeZone!)
+        ? setTimeInTz(
+            next,
+            timeForDate(next, timeOfDay!, timeByWeekday, timeZone!),
+            timeZone!,
+          )
         : next
     }
 
@@ -260,7 +315,14 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
         const [yStr, mStr] = ym.split('-')
         const { year, month } = addOneMonth(Number(yStr), Number(mStr))
         const day = Math.min(dom, daysInMonth(year, month))
-        return pinDateInTz(year, month, day, timeOfDay!, timeZone!)
+        const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+        return pinDateInTz(
+          year,
+          month,
+          day,
+          resolveTimeOfDay(weekday, timeOfDay!, timeByWeekday),
+          timeZone!,
+        )
       }
       const { year, month } = addOneMonth(
         previousDueAt.getUTCFullYear(),
@@ -287,7 +349,13 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
           month = advanced.month
           day = nthWeekdayDay(year, month, week, dayOfWeek)
         }
-        return pinDateInTz(year, month, day, timeOfDay!, timeZone!)
+        return pinDateInTz(
+          year,
+          month,
+          day,
+          resolveTimeOfDay(dayOfWeek, timeOfDay!, timeByWeekday),
+          timeZone!,
+        )
       }
       let year = previousDueAt.getUTCFullYear()
       let month = previousDueAt.getUTCMonth() + 1
@@ -310,10 +378,11 @@ export function firstDueAt(options: {
   now: Date
   recurrence: Recurrence | null
   timeOfDay: string | null
+  timeByWeekday?: WeekdayTimes | null
   timeZone: string
   someday?: boolean
 }): Date | null {
-  const { now, recurrence, timeOfDay, timeZone, someday } = options
+  const { now, recurrence, timeOfDay, timeByWeekday, timeZone, someday } = options
 
   if (someday) return null
   if (!timeOfDay) return now
@@ -324,13 +393,25 @@ export function firstDueAt(options: {
     let year = Number(yStr)
     let month = Number(mStr)
     let day = Math.min(recurrence.dayOfMonth, daysInMonth(year, month))
-    let candidate = pinDateInTz(year, month, day, timeOfDay, timeZone)
+    const pin = (y: number, m: number, d: number) =>
+      pinDateInTz(
+        y,
+        m,
+        d,
+        resolveTimeOfDay(
+          new Date(Date.UTC(y, m - 1, d)).getUTCDay(),
+          timeOfDay,
+          timeByWeekday,
+        ),
+        timeZone,
+      )
+    const candidate = pin(year, month, day)
     if (candidate > now) return candidate
     const advanced = addOneMonth(year, month)
     year = advanced.year
     month = advanced.month
     day = Math.min(recurrence.dayOfMonth, daysInMonth(year, month))
-    return pinDateInTz(year, month, day, timeOfDay, timeZone)
+    return pin(year, month, day)
   }
 
   if (recurrence?.type === 'monthly_weekday') {
@@ -338,9 +419,10 @@ export function firstDueAt(options: {
     const [yStr, mStr] = ym.split('-')
     let year = Number(yStr)
     let month = Number(mStr)
+    const time = resolveTimeOfDay(recurrence.dayOfWeek, timeOfDay, timeByWeekday)
     let day = nthWeekdayDay(year, month, recurrence.week, recurrence.dayOfWeek)
     if (day > 0) {
-      const candidate = pinDateInTz(year, month, day, timeOfDay, timeZone)
+      const candidate = pinDateInTz(year, month, day, time, timeZone)
       if (candidate > now) return candidate
     }
     while (true) {
@@ -349,7 +431,7 @@ export function firstDueAt(options: {
       month = advanced.month
       day = nthWeekdayDay(year, month, recurrence.week, recurrence.dayOfWeek)
       if (day > 0) {
-        return pinDateInTz(year, month, day, timeOfDay, timeZone)
+        return pinDateInTz(year, month, day, time, timeZone)
       }
     }
   }
@@ -367,6 +449,10 @@ export function firstDueAt(options: {
         formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
       if (sameLocalDay) return candidate
     }
+    // A daily task can carry per-weekday times; pick each day's own time.
+    if (recurrence?.type === 'daily') {
+      return nextDailyOccurrence(now, timeOfDay, timeByWeekday, timeZone)
+    }
     return nextOccurrenceAt(now, timeOfDay, timeZone)
   }
 
@@ -375,7 +461,12 @@ export function firstDueAt(options: {
   }
   const sorted = [...recurrence.daysOfWeek].sort((a, b) => a - b)
   for (let offset = 0; offset < 8; offset++) {
-    const candidate = setTimeInTz(addDays(now, offset), timeOfDay, timeZone)
+    const anchor = addDays(now, offset)
+    const candidate = setTimeInTz(
+      anchor,
+      timeForDate(anchor, timeOfDay, timeByWeekday, timeZone),
+      timeZone,
+    )
     if (
       sorted.includes(dayOfWeekInTz(candidate, timeZone)) &&
       candidate > now

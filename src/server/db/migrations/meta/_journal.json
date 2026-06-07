@@ -274,6 +274,13 @@
       "when": 1777120000000,
       "tag": "0038_task_rotation",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1777130000000,
+      "tag": "0039_task_per_weekday_time",
+      "breakpoints": true
     }
   ]
 }

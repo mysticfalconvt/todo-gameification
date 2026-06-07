@@ -12,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { Recurrence } from '../../domain/recurrence'
+import type { WeekdayTimes } from '../../domain/time'
 
 // ---------------------------------------------------------------------------
 // Better Auth tables (schema shape matches better-auth 1.x defaults).
@@ -108,6 +109,9 @@ export const tasks = pgTable('tasks', {
   xpOverride: integer('xp_override'),
   recurrence: jsonb('recurrence').$type<Recurrence>(),
   timeOfDay: text('time_of_day'),
+  // Optional per-weekday time overrides ('0'..'6' = Sun..Sat -> HH:MM). A day
+  // absent from the map uses timeOfDay. See domain/time.ts resolveTimeOfDay.
+  timeByWeekday: jsonb('time_by_weekday').$type<WeekdayTimes>(),
   categorySlug: text('category_slug'),
   snoozeUntil: timestamp('snooze_until'),
   visibility: text('visibility', { enum: ['private', 'friends', 'public'] })

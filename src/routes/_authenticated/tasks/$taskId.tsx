@@ -177,6 +177,8 @@ function EditTaskPage() {
   const [form, setForm] = useState<RecurrenceForm>(DEFAULT_FORM)
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
+  const [weekendDiffers, setWeekendDiffers] = useState(false)
+  const [weekendTimeOfDay, setWeekendTimeOfDay] = useState('08:00')
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [error, setError] = useState<string | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
@@ -193,6 +195,15 @@ function EditTaskPage() {
     } else if (t.timeOfDay) {
       setDueKind('timed')
       setTimeOfDay(t.timeOfDay)
+      // Detect the "weekends differ" pattern: Sun (0) + Sat (6) overrides set
+      // to the same time. Any other map shape just hydrates the base time.
+      const map = t.timeByWeekday
+      const sun = map?.['0']
+      const sat = map?.['6']
+      if (sun && sat && sun === sat) {
+        setWeekendDiffers(true)
+        setWeekendTimeOfDay(sun)
+      }
     } else {
       // We can't distinguish "someday" from "anytime today" from task row alone
       // (that distinction lives on the current instance's dueAt). Default to
@@ -216,6 +227,7 @@ function EditTaskPage() {
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
+      timeByWeekday: Record<string, string> | null
       visibility: TaskVisibility
       dueKind?: 'hard' | 'week_target'
     }) => updateTask({ data: input }),
@@ -368,6 +380,10 @@ function EditTaskPage() {
         ? null
         : buildRecurrence({ ...form, kind: recurrenceKind }),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
+      timeByWeekday:
+        dueKind === 'timed' && recurrenceKind === 'daily' && weekendDiffers
+          ? { '0': weekendTimeOfDay, '6': weekendTimeOfDay }
+          : null,
       visibility,
       dueKind: dueKind === 'week' ? 'week_target' : 'hard',
     })
@@ -522,14 +538,48 @@ function EditTaskPage() {
             />
           </div>
           {dueKind === 'timed' ? (
-            <div className="mt-3">
-              <input
-                type="time"
-                required
-                value={timeOfDay}
-                onChange={(e) => setTimeOfDay(e.target.value)}
-                className="field-input max-w-[10rem]"
-              />
+            <div className="mt-3 space-y-3">
+              <div>
+                {recurrenceKind === 'daily' ? (
+                  <span className="mb-1 block text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+                    Mon–Fri
+                  </span>
+                ) : null}
+                <input
+                  type="time"
+                  required
+                  value={timeOfDay}
+                  onChange={(e) => setTimeOfDay(e.target.value)}
+                  className="field-input max-w-[10rem]"
+                />
+              </div>
+              {recurrenceKind === 'daily' ? (
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-[var(--sea-ink)]">
+                    <input
+                      type="checkbox"
+                      checked={weekendDiffers}
+                      onChange={(e) => setWeekendDiffers(e.target.checked)}
+                      className="h-4 w-4 cursor-pointer accent-[var(--lagoon-deep)]"
+                    />
+                    Different time on weekends
+                  </label>
+                  {weekendDiffers ? (
+                    <div className="mt-2">
+                      <span className="mb-1 block text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+                        Sat &amp; Sun
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        value={weekendTimeOfDay}
+                        onChange={(e) => setWeekendTimeOfDay(e.target.value)}
+                        className="field-input max-w-[10rem]"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
           <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">

@@ -137,6 +137,8 @@ function NewTaskPage() {
   const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState(1) // Mon
   const [dueKind, setDueKind] = useState<DueKind>('anytime')
   const [timeOfDay, setTimeOfDay] = useState('08:00')
+  const [weekendDiffers, setWeekendDiffers] = useState(false)
+  const [weekendTimeOfDay, setWeekendTimeOfDay] = useState('08:00')
   const [inAmount, setInAmount] = useState(2)
   const [inUnit, setInUnit] = useState<'minutes' | 'hours'>('hours')
   const [dateStr, setDateStr] = useState(() => {
@@ -185,6 +187,7 @@ function NewTaskPage() {
       difficulty: Difficulty
       recurrence: Recurrence | null
       timeOfDay: string | null
+      timeByWeekday?: Record<string, string> | null
       someday: boolean
       visibility: TaskVisibility
       dueAtOverride?: string | null
@@ -254,6 +257,10 @@ function NewTaskPage() {
         : dueKind === 'date' && dateTime
           ? dateTime
           : null
+    const effectiveTimeByWeekday =
+      dueKind === 'timed' && recurrenceKind === 'daily' && weekendDiffers
+        ? { '0': weekendTimeOfDay, '6': weekendTimeOfDay }
+        : null
     const cleanedSteps = steps
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
@@ -314,6 +321,7 @@ function NewTaskPage() {
             },
           ),
       timeOfDay: effectiveTimeOfDay,
+      timeByWeekday: effectiveTimeByWeekday,
       someday: isSomeday,
       visibility,
       dueAtOverride,
@@ -501,18 +509,52 @@ function NewTaskPage() {
             </div>
           ) : null}
           {dueKind === 'timed' ? (
-            <div className="mt-3 space-y-1">
-              <input
-                type="time"
-                required
-                value={timeOfDay}
-                onChange={(e) => setTimeOfDay(e.target.value)}
-                className="field-input max-w-[10rem]"
-              />
-              <PastTimeHint
-                time={timeOfDay}
-                recurring={recurrenceKind !== 'none'}
-              />
+            <div className="mt-3 space-y-3">
+              <div className="space-y-1">
+                {recurrenceKind === 'daily' ? (
+                  <span className="block text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+                    Mon–Fri
+                  </span>
+                ) : null}
+                <input
+                  type="time"
+                  required
+                  value={timeOfDay}
+                  onChange={(e) => setTimeOfDay(e.target.value)}
+                  className="field-input max-w-[10rem]"
+                />
+                <PastTimeHint
+                  time={timeOfDay}
+                  recurring={recurrenceKind !== 'none'}
+                />
+              </div>
+              {recurrenceKind === 'daily' ? (
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-[var(--sea-ink)]">
+                    <input
+                      type="checkbox"
+                      checked={weekendDiffers}
+                      onChange={(e) => setWeekendDiffers(e.target.checked)}
+                      className="h-4 w-4 cursor-pointer accent-[var(--lagoon-deep)]"
+                    />
+                    Different time on weekends
+                  </label>
+                  {weekendDiffers ? (
+                    <div className="mt-2 space-y-1">
+                      <span className="block text-[11px] font-semibold text-[var(--sea-ink-soft)]">
+                        Sat &amp; Sun
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        value={weekendTimeOfDay}
+                        onChange={(e) => setWeekendTimeOfDay(e.target.value)}
+                        className="field-input max-w-[10rem]"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
           {dueKind === 'week' ? (

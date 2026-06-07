@@ -42,7 +42,14 @@ import {
   firstDueAt,
 } from '../../domain/recurrence'
 import { assertHouseholdRole, listHouseholdMembers } from './households'
-import { assertValidTimeOfDay, setTimeInTz } from '../../domain/time'
+import {
+  assertValidTimeOfDay,
+  assertValidWeekdayTimes,
+  dayOfWeekInTz,
+  resolveTimeOfDay,
+  setTimeInTz,
+  type WeekdayTimes,
+} from '../../domain/time'
 import type { Difficulty, DomainEvent } from '../../domain/events'
 import {
   INITIAL_PROGRESSION,
@@ -74,6 +81,11 @@ export interface CreateTaskInput {
   difficulty: Difficulty
   recurrence: Recurrence | null
   timeOfDay: string | null
+  // Optional per-weekday time overrides ('0'..'6' = Sun..Sat -> HH:MM). Only
+  // meaningful alongside a base timeOfDay; a weekday absent from the map uses
+  // timeOfDay. The editor uses this for "different time on weekends" on daily
+  // tasks, but the scheduler honors any weekday pattern.
+  timeByWeekday?: WeekdayTimes | null
   someday: boolean
   visibility?: TaskVisibility
   // Absolute due instant set by the client. When present, overrides
@@ -115,6 +127,7 @@ export interface UpdateTaskInput {
   difficulty: Difficulty
   recurrence: Recurrence | null
   timeOfDay: string | null
+  timeByWeekday?: WeekdayTimes | null
   visibility?: TaskVisibility
   // Affects only future instances (matching the existing edit-form copy).
   // The currently open instance keeps whatever due_kind it was created with.
@@ -177,6 +190,7 @@ export interface TaskSummary {
 export interface TaskDetail extends TaskSummary {
   active: boolean
   updatedAt: string
+  timeByWeekday: WeekdayTimes | null
   householdId: string | null
   assignedToUserId: string | null
 }
@@ -261,6 +275,7 @@ function validateCreate(input: CreateTaskInput) {
     throw new Error('invalid difficulty')
   }
   if (input.timeOfDay) assertValidTimeOfDay(input.timeOfDay)
+  validateWeekdayTimes(input.timeByWeekday, input.timeOfDay)
   if (input.someday && input.recurrence) {
     throw new Error('someday tasks cannot be recurring')
   }
@@ -279,12 +294,26 @@ function validateUpdate(input: UpdateTaskInput) {
     throw new Error('invalid difficulty')
   }
   if (input.timeOfDay) assertValidTimeOfDay(input.timeOfDay)
+  validateWeekdayTimes(input.timeByWeekday, input.timeOfDay)
   if (
     input.visibility !== undefined &&
     !TASK_VISIBILITY_VALUES.includes(input.visibility)
   ) {
     throw new Error('invalid visibility')
   }
+}
+
+// Per-weekday time overrides require a base timeOfDay to fall back to (a day
+// not listed in the map uses it), and every entry must be a valid weekday->HH:MM.
+function validateWeekdayTimes(
+  map: WeekdayTimes | null | undefined,
+  timeOfDay: string | null,
+) {
+  if (!map || Object.keys(map).length === 0) return
+  if (!timeOfDay) {
+    throw new Error('timeByWeekday requires a base timeOfDay')
+  }
+  assertValidWeekdayTimes(map)
 }
 
 // ---------------------------------------------------------------------------
@@ -391,12 +420,20 @@ export async function createTask(
     throw new Error('Round-robin rotation requires a household chore.')
   }
 
+  // A weekday-time map only makes sense alongside a base time; drop it for
+  // someday/anytime tasks so the column never holds an orphaned override.
+  const effectiveTimeOfDay = input.someday ? null : input.timeOfDay
+  const effectiveTimeByWeekday = effectiveTimeOfDay
+    ? (input.timeByWeekday ?? null)
+    : null
+
   const dueAt = input.dueAtOverride
     ? new Date(input.dueAtOverride)
     : firstDueAt({
         now,
         recurrence: input.recurrence,
-        timeOfDay: input.someday ? null : input.timeOfDay,
+        timeOfDay: effectiveTimeOfDay,
+        timeByWeekday: effectiveTimeByWeekday,
         timeZone,
         someday: input.someday,
       })
@@ -442,7 +479,8 @@ export async function createTask(
         difficulty: input.difficulty,
         xpOverride: scored?.xp ?? null,
         recurrence: input.recurrence,
-        timeOfDay: input.someday ? null : input.timeOfDay,
+        timeOfDay: effectiveTimeOfDay,
+        timeByWeekday: effectiveTimeByWeekday,
         categorySlug: categorization?.slug ?? null,
         visibility: input.visibility ?? 'friends',
         dueKind,
@@ -594,6 +632,7 @@ export async function getTask(
     xpOverride: row.xpOverride,
     recurrence: row.recurrence,
     timeOfDay: row.timeOfDay,
+    timeByWeekday: row.timeByWeekday ?? null,
     categorySlug: row.categorySlug,
     snoozeUntil: row.snoozeUntil?.toISOString() ?? null,
     active: row.active,
@@ -621,6 +660,9 @@ export async function updateTask(
     difficulty: input.difficulty,
     recurrence: input.recurrence,
     timeOfDay: input.timeOfDay,
+    // Override map is meaningless without a base time; clear it if the task
+    // becomes anytime/someday.
+    timeByWeekday: input.timeOfDay ? (input.timeByWeekday ?? null) : null,
     updatedAt: new Date(),
   }
   if (input.visibility !== undefined) {
@@ -1470,6 +1512,18 @@ export async function approveClaim(
       ? 'assigned'
       : 'free_for_all'
 
+    // Record the time that actually applied to this occurrence's weekday, so
+    // punctuality scoring and timing stats compare against the right clock time
+    // for per-weekday schedules (and replay stays deterministic).
+    const recipientTimeZone = await getUserTimeZone(xpRecipientId)
+    const scheduledTimeOfDay = task.timeOfDay
+      ? resolveTimeOfDay(
+          dayOfWeekInTz(instance.dueAt ?? now, recipientTimeZone),
+          task.timeOfDay,
+          task.timeByWeekday,
+        )
+      : null
+
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
@@ -1477,7 +1531,7 @@ export async function approveClaim(
       difficulty: task.difficulty as Difficulty,
       xpOverride: effectiveXpOverride,
       dueAt: instance.dueAt,
-      timeOfDay: task.timeOfDay,
+      timeOfDay: scheduledTimeOfDay,
       dueKind,
       householdId: instance.householdId,
       assignedToUserId: instance.assignedToUserId,
@@ -1502,7 +1556,6 @@ export async function approveClaim(
       occurredAt: now,
     })
 
-    const recipientTimeZone = await getUserTimeZone(xpRecipientId)
     const current = await tx.query.progression.findFirst({
       where: eq(progression.userId, xpRecipientId),
     })
@@ -1548,6 +1601,7 @@ export async function approveClaim(
         previousDueAt: instance.dueAt,
         completedAt: now,
         timeOfDay: task.timeOfDay,
+        timeByWeekday: task.timeByWeekday,
         timeZone: recipientTimeZone,
       })
       const snoozedUntil = nextDue > now ? nextDue : null
@@ -1698,6 +1752,7 @@ export async function listHouseholdChoresWeek(
       difficulty: tasks.difficulty,
       xpOverride: tasks.xpOverride,
       timeOfDay: tasks.timeOfDay,
+      timeByWeekday: tasks.timeByWeekday,
       recurrence: tasks.recurrence,
       assignedToUserId: tasks.assignedToUserId,
     })
@@ -1837,6 +1892,7 @@ export async function listHouseholdChoresWeek(
         now: new Date(weekStart.getTime() - 1),
         recurrence: t.recurrence,
         timeOfDay: t.timeOfDay,
+        timeByWeekday: t.timeByWeekday,
         timeZone,
         someday: false,
       })
@@ -1862,6 +1918,7 @@ export async function listHouseholdChoresWeek(
         previousDueAt: cursor,
         completedAt: cursor,
         timeOfDay: t.timeOfDay,
+        timeByWeekday: t.timeByWeekday,
         timeZone,
       })
       if (!next || next <= cursor) break
@@ -2626,6 +2683,26 @@ export async function completeInstance(
           ? 'assigned'
           : 'free_for_all'
 
+    // Read the recipient's timezone for the punctuality curve. For
+    // self-completion this matches `timeZone` (loaded earlier). For
+    // on-behalf-of, it could differ (e.g. parent in PST completing a
+    // chore for a kid traveling in EST); pull the assignee's tz so the
+    // streak boundary is computed in *their* day.
+    const recipientTimeZone =
+      xpRecipientId === userId
+        ? timeZone
+        : await getUserTimeZone(xpRecipientId)
+
+    // The clock time that applied to this occurrence's weekday (per-weekday
+    // schedules vary it), so punctuality + timing stats use the right target.
+    const scheduledTimeOfDay = task.timeOfDay
+      ? resolveTimeOfDay(
+          dayOfWeekInTz(instance.dueAt ?? now, recipientTimeZone),
+          task.timeOfDay,
+          task.timeByWeekday,
+        )
+      : null
+
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
@@ -2633,7 +2710,7 @@ export async function completeInstance(
       difficulty: task.difficulty as Difficulty,
       xpOverride: parentXpOverride,
       dueAt: instance.dueAt,
-      timeOfDay: task.timeOfDay,
+      timeOfDay: scheduledTimeOfDay,
       dueKind,
       householdId: instance.householdId,
       assignedToUserId: instance.assignedToUserId,
@@ -2663,16 +2740,6 @@ export async function completeInstance(
       },
       occurredAt: now,
     })
-
-    // Read the recipient's timezone for the punctuality curve. For
-    // self-completion this matches `timeZone` (loaded earlier). For
-    // on-behalf-of, it could differ (e.g. parent in PST completing a
-    // chore for a kid traveling in EST); pull the assignee's tz so the
-    // streak boundary is computed in *their* day.
-    const recipientTimeZone =
-      xpRecipientId === userId
-        ? timeZone
-        : await getUserTimeZone(xpRecipientId)
 
     const current = await tx.query.progression.findFirst({
       where: eq(progression.userId, xpRecipientId),
@@ -2721,6 +2788,7 @@ export async function completeInstance(
         previousDueAt: instance.dueAt,
         completedAt: now,
         timeOfDay: task.timeOfDay,
+        timeByWeekday: task.timeByWeekday,
         timeZone,
       })
       // Hide the rematerialized instance from today/today-queries until
@@ -2857,6 +2925,7 @@ export async function skipInstance(
         previousDueAt: instance.dueAt,
         completedAt: now,
         timeOfDay: task.timeOfDay,
+        timeByWeekday: task.timeByWeekday,
         timeZone,
       })
       const snoozedUntil = nextDue > now ? nextDue : null
@@ -4255,7 +4324,13 @@ export async function toggleTaskStep(
     const punctuality = punctualityMultiplier({
       dueAt: instance.dueAt,
       completedAt: now,
-      timeOfDay: task.timeOfDay,
+      timeOfDay: task.timeOfDay
+        ? resolveTimeOfDay(
+            dayOfWeekInTz(instance.dueAt ?? now, timeZone),
+            task.timeOfDay,
+            task.timeByWeekday,
+          )
+        : null,
       timeZone,
     })
 

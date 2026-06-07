@@ -425,3 +425,71 @@ describe('expectedCompletionsPerWeek', () => {
     ).toBeNull()
   })
 })
+
+describe('per-weekday times (daily)', () => {
+  // Base 06:00 weekdays, 08:00 on Sat (6) and Sun (0), America/Chicago.
+  const weekendMap = { '0': '08:00', '6': '08:00' }
+  const tz = 'America/Chicago'
+
+  it('computeNextDue: Fri 06:00 → Sat 08:00', () => {
+    // 2026-04-17 11:00Z = Fri 06:00 CDT
+    const next = computeNextDue({
+      recurrence: { type: 'daily' },
+      previousDueAt: at('2026-04-17T11:00:00Z'),
+      completedAt: at('2026-04-17T12:00:00Z'),
+      timeOfDay: '06:00',
+      timeByWeekday: weekendMap,
+      timeZone: tz,
+    })
+    expect(formatLocal(next, tz)).toBe('2026-04-18 08:00')
+  })
+
+  it('computeNextDue: Sun 08:00 → Mon 06:00', () => {
+    // 2026-04-19 13:00Z = Sun 08:00 CDT
+    const next = computeNextDue({
+      recurrence: { type: 'daily' },
+      previousDueAt: at('2026-04-19T13:00:00Z'),
+      completedAt: at('2026-04-19T14:00:00Z'),
+      timeOfDay: '06:00',
+      timeByWeekday: weekendMap,
+      timeZone: tz,
+    })
+    expect(formatLocal(next, tz)).toBe('2026-04-20 06:00')
+  })
+
+  it('firstDueAt: Friday afternoon → next morning is Sat 08:00', () => {
+    // 2026-04-17 20:00Z = Fri 15:00 CDT (past today's 06:00)
+    const due = firstDueAt({
+      now: at('2026-04-17T20:00:00Z'),
+      recurrence: { type: 'daily' },
+      timeOfDay: '06:00',
+      timeByWeekday: weekendMap,
+      timeZone: tz,
+    })
+    expect(formatLocal(due, tz)).toBe('2026-04-18 08:00')
+  })
+
+  it('firstDueAt: weekday before the time → same day at weekday time', () => {
+    // 2026-04-17 10:00Z = Fri 05:00 CDT (before today's 06:00)
+    const due = firstDueAt({
+      now: at('2026-04-17T10:00:00Z'),
+      recurrence: { type: 'daily' },
+      timeOfDay: '06:00',
+      timeByWeekday: weekendMap,
+      timeZone: tz,
+    })
+    expect(formatLocal(due, tz)).toBe('2026-04-17 06:00')
+  })
+
+  it('no map → identical to plain daily (Fri 06:00 → Sat 06:00)', () => {
+    const next = computeNextDue({
+      recurrence: { type: 'daily' },
+      previousDueAt: at('2026-04-17T11:00:00Z'),
+      completedAt: at('2026-04-17T12:00:00Z'),
+      timeOfDay: '06:00',
+      timeByWeekday: null,
+      timeZone: tz,
+    })
+    expect(formatLocal(next, tz)).toBe('2026-04-18 06:00')
+  })
+})
