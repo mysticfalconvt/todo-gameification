@@ -85,7 +85,11 @@ function TaskStatsPage() {
             completionCount={stats.completionCount}
             totalXp={stats.totalXp}
             timing={stats.timingOffset}
+            household={!!stats.household}
           />
+          {stats.household && stats.household.perPerson.length > 0 ? (
+            <HouseholdBreakdownSection household={stats.household} />
+          ) : null}
           <XpLineSection data={stats.xpByDay} label="XP from this task" />
           {stats.task.timeOfDay ? (
             <TimingDistributionSection
@@ -111,6 +115,7 @@ function SummaryRow({
   completionCount,
   totalXp,
   timing,
+  household,
 }: {
   completionCount: number
   totalXp: number
@@ -119,6 +124,7 @@ function SummaryRow({
     avgOffsetMin: number
     withinThirtyCount: number
   } | null
+  household: boolean
 }) {
   const onTimePct =
     timing && timing.totalScheduled > 0
@@ -126,8 +132,16 @@ function SummaryRow({
       : null
   return (
     <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Stat label="Completions" value={String(completionCount)} />
-      <Stat label="Total XP" value={`+${totalXp}`} />
+      <Stat
+        label="Completions"
+        value={String(completionCount)}
+        hint={household ? 'household total' : undefined}
+      />
+      <Stat
+        label="Total XP"
+        value={`+${totalXp}`}
+        hint={household ? 'household total' : undefined}
+      />
       {timing && (
         <Stat
           label="On-time"
@@ -170,7 +184,12 @@ function Stat({
 function RecentCompletionsSection({
   items,
 }: {
-  items: Array<{ instanceId: string | null; occurredAt: string; xp: number }>
+  items: Array<{
+    instanceId: string | null
+    occurredAt: string
+    xp: number
+    by: { name: string; color: string | null } | null
+  }>
 }) {
   if (items.length === 0) {
     return (
@@ -199,11 +218,37 @@ function RecentCompletionsSection({
             key={item.instanceId ?? `${item.occurredAt}-${i}`}
             className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
           >
-            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.14)] text-xs font-bold text-[var(--lagoon-deep)]">
+            <span
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold"
+              style={
+                item.by
+                  ? {
+                      borderColor: item.by.color ?? 'var(--lagoon-deep)',
+                      color: item.by.color ?? 'var(--lagoon-deep)',
+                      backgroundColor: 'var(--option-bg)',
+                    }
+                  : {
+                      borderColor: 'var(--lagoon-deep)',
+                      color: 'var(--lagoon-deep)',
+                      backgroundColor: 'rgba(79,184,178,0.14)',
+                    }
+              }
+            >
               ✓
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-[var(--sea-ink)]">
+              {item.by ? (
+                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
+                  {item.by.name}
+                </p>
+              ) : null}
+              <p
+                className={
+                  item.by
+                    ? 'text-xs text-[var(--sea-ink-soft)]'
+                    : 'text-sm text-[var(--sea-ink)]'
+                }
+              >
                 {formatDateTime(item.occurredAt)}
               </p>
             </div>
@@ -213,6 +258,61 @@ function RecentCompletionsSection({
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+type Household = NonNullable<
+  Awaited<ReturnType<typeof getTaskStats>>['household']
+>
+
+function HouseholdBreakdownSection({ household }: { household: Household }) {
+  const total = household.perPerson.reduce((s, p) => s + p.completions, 0)
+  return (
+    <section className="island-shell rounded-2xl p-4">
+      <header className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">By person</h2>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
+          {household.rotation === 'round_robin' ? 'Rotating' : 'Shared'}
+        </span>
+      </header>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {household.perPerson.map((p) => {
+          const share = total > 0 ? Math.round((p.completions / total) * 100) : 0
+          return (
+            <div
+              key={p.userId}
+              className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
+            >
+              <div className="mb-2 flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: p.color ?? 'var(--lagoon-deep)' }}
+                />
+                <span className="truncate text-sm font-semibold text-[var(--sea-ink)]">
+                  {p.name}
+                </span>
+              </div>
+              <p className="text-lg font-bold text-[var(--sea-ink)]">
+                {p.completions}
+                <span className="ml-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
+                  ({share}%)
+                </span>
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--sea-ink-soft)]">
+                {p.onTimePct !== null ? `${p.onTimePct}% on-time` : 'no due dates'}
+                {' · '}+{p.xp} XP
+              </p>
+              {p.lastCompletedAt ? (
+                <p className="mt-0.5 text-[11px] text-[var(--sea-ink-soft)]">
+                  last {formatDateTime(p.lastCompletedAt)}
+                </p>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
     </section>
   )
 }

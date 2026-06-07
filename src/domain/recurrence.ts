@@ -130,6 +130,32 @@ function buildUnpinnedDate(
   )
 }
 
+// The cadence a recurrence rule implies, expressed as expected completions per
+// week. Used by per-task "consistency" stats to compare actual vs expected
+// frequency. `after_completion` returns null because it has no fixed cadence —
+// the next due date is anchored on whenever you finish, so actual always equals
+// expected; the "average gap" stat is the meaningful signal there instead.
+export function expectedCompletionsPerWeek(r: Recurrence): number | null {
+  switch (r.type) {
+    case 'daily':
+      return 7
+    case 'weekly':
+      return r.daysOfWeek.length || null
+    case 'interval': {
+      const { amount, unit } = resolveDuration(r)
+      if (amount <= 0) return null
+      const perDay =
+        unit === 'days' ? 1 / amount : unit === 'hours' ? 24 / amount : 1440 / amount
+      return perDay * 7
+    }
+    case 'monthly_day':
+    case 'monthly_weekday':
+      return 12 / 52 // ~0.23/wk
+    case 'after_completion':
+      return null
+  }
+}
+
 export interface ComputeNextDueInput {
   recurrence: Recurrence
   previousDueAt: Date

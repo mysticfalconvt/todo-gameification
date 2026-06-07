@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { computeNextDue, firstDueAt } from './recurrence'
+import {
+  computeNextDue,
+  expectedCompletionsPerWeek,
+  firstDueAt,
+} from './recurrence'
 import { formatInTimeZone } from 'date-fns-tz'
 
 const at = (iso: string) => new Date(iso)
@@ -370,5 +374,54 @@ describe('firstDueAt', () => {
       timeZone: 'America/Chicago',
     })
     expect(formatLocal(result, 'America/Chicago')).toBe('2026-05-05 08:00')
+  })
+})
+
+describe('expectedCompletionsPerWeek', () => {
+  it('daily is 7', () => {
+    expect(expectedCompletionsPerWeek({ type: 'daily' })).toBe(7)
+  })
+
+  it('weekly counts the selected days', () => {
+    expect(
+      expectedCompletionsPerWeek({ type: 'weekly', daysOfWeek: [1, 3] }),
+    ).toBe(2)
+  })
+
+  it('weekly with no days is null', () => {
+    expect(
+      expectedCompletionsPerWeek({ type: 'weekly', daysOfWeek: [] }),
+    ).toBeNull()
+  })
+
+  it('day interval scales by amount', () => {
+    expect(
+      expectedCompletionsPerWeek({ type: 'interval', amount: 2, unit: 'days' }),
+    ).toBe(3.5)
+  })
+
+  it('hour interval scales by amount', () => {
+    expect(
+      expectedCompletionsPerWeek({ type: 'interval', amount: 12, unit: 'hours' }),
+    ).toBe(14)
+  })
+
+  it('legacy interval days shape is honored', () => {
+    expect(expectedCompletionsPerWeek({ type: 'interval', days: 7 })).toBe(1)
+  })
+
+  it('monthly is ~0.23/wk', () => {
+    expect(expectedCompletionsPerWeek({ type: 'monthly_day', dayOfMonth: 1 })).toBeCloseTo(
+      12 / 52,
+    )
+    expect(
+      expectedCompletionsPerWeek({ type: 'monthly_weekday', week: 1, dayOfWeek: 2 }),
+    ).toBeCloseTo(12 / 52)
+  })
+
+  it('after_completion has no fixed cadence', () => {
+    expect(
+      expectedCompletionsPerWeek({ type: 'after_completion', amount: 3, unit: 'days' }),
+    ).toBeNull()
   })
 })

@@ -180,9 +180,13 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
               ) : null}
             </section>
 
+            {task?.recurrence && stats?.cadence ? (
+              <CadenceSection cadence={stats.cadence} />
+            ) : null}
+
             <section className="mb-2">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
-                All-time
+                {stats?.household ? 'Household — all-time' : 'All-time'}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <Stat
@@ -196,6 +200,10 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
               </div>
             </section>
 
+            {stats?.household && stats.household.perPerson.length > 0 ? (
+              <HouseholdSection household={stats.household} />
+            ) : null}
+
             {stats && stats.recentCompletions.length > 0 ? (
               <section className="mt-4">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
@@ -207,10 +215,27 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
                       key={item.instanceId ?? `${item.occurredAt}-${i}`}
                       className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2 text-xs"
                     >
-                      <span className="text-[var(--sea-ink)]">
-                        {formatDateTime(item.occurredAt)}
+                      <span className="flex min-w-0 items-center gap-1.5 text-[var(--sea-ink)]">
+                        {item.by ? (
+                          <>
+                            <span
+                              aria-hidden
+                              className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+                              style={{
+                                backgroundColor: item.by.color ?? 'var(--lagoon-deep)',
+                              }}
+                            />
+                            <span className="truncate font-semibold">
+                              {item.by.name}
+                            </span>
+                            <span className="text-[var(--sea-ink-soft)]">·</span>
+                          </>
+                        ) : null}
+                        <span className="truncate">
+                          {formatDateTime(item.occurredAt)}
+                        </span>
                       </span>
-                      <span className="font-semibold text-[var(--lagoon-deep)]">
+                      <span className="flex-shrink-0 font-semibold text-[var(--lagoon-deep)]">
                         +{item.xp} XP
                       </span>
                     </li>
@@ -493,15 +518,128 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string
+  hint?: string
+}) {
   return (
     <div className="island-shell rounded-xl p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
         {label}
       </p>
       <p className="mt-0.5 text-lg font-bold text-[var(--sea-ink)]">{value}</p>
+      {hint ? (
+        <p className="mt-0.5 text-[10px] text-[var(--sea-ink-soft)]">{hint}</p>
+      ) : null}
     </div>
   )
+}
+
+type Household = NonNullable<
+  Awaited<ReturnType<typeof getTaskStats>>['household']
+>
+
+function HouseholdSection({ household }: { household: Household }) {
+  const total = household.perPerson.reduce((s, p) => s + p.completions, 0)
+  return (
+    <section className="mb-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        By person
+        {household.rotation === 'round_robin' ? ' · rotating' : ''}
+      </p>
+      <ul className="space-y-1">
+        {household.perPerson.map((p) => {
+          const share = total > 0 ? Math.round((p.completions / total) * 100) : 0
+          const meta = [
+            `${p.completions}× (${share}%)`,
+            p.onTimePct !== null ? `${p.onTimePct}% on-time` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+          return (
+            <li
+              key={p.userId}
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2 text-xs"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: p.color ?? 'var(--lagoon-deep)' }}
+                />
+                <span className="truncate font-semibold text-[var(--sea-ink)]">
+                  {p.name}
+                </span>
+              </span>
+              <span className="flex-shrink-0 text-[var(--sea-ink-soft)]">
+                {meta}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+type Cadence = NonNullable<
+  Awaited<ReturnType<typeof getTaskStats>>['cadence']
+>
+
+function CadenceSection({ cadence }: { cadence: Cadence }) {
+  const { onTime, consistencyPct, avgGapDays, currentStreak, bestDayOfWeek } =
+    cadence
+  const footnotes: string[] = []
+  if (currentStreak > 0) {
+    footnotes.push(
+      `🔥 ${currentStreak} on-time in a row`,
+    )
+  }
+  if (avgGapDays !== null) footnotes.push(`~${avgGapDays}d between`)
+  if (bestDayOfWeek)
+    footnotes.push(`most on ${WEEKDAY_NAMES[bestDayOfWeek.weekday] ?? '—'}`)
+
+  return (
+    <section className="mb-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        Cadence
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Stat label="Per week" value={formatRate(cadence.perWeek)} />
+        <Stat label="Per month" value={formatRate(cadence.perMonth)} />
+        <Stat
+          label="On-time"
+          value={onTime ? `${onTime.pct}%` : '—'}
+          hint="on/before due"
+        />
+        <Stat
+          label="Consistency"
+          value={consistencyPct !== null ? `${consistencyPct}%` : '—'}
+          hint="vs expected"
+        />
+      </div>
+      {footnotes.length > 0 ? (
+        <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+          {footnotes.join(' · ')}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+// Compact "N×/wk" style rate. Whole number when it rounds cleanly, else one
+// decimal; "<0.1" so a rarely-done task never reads as a flat 0.
+function formatRate(rate: number): string {
+  if (rate <= 0) return '0×'
+  if (rate < 0.1) return '<0.1×'
+  const rounded = Math.round(rate * 10) / 10
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return `${text}×`
 }
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g

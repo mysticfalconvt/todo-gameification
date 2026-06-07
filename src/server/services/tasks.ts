@@ -36,7 +36,12 @@ import {
   user as userTable,
 } from '../db/schema'
 import type { Recurrence } from '../../domain/recurrence'
-import { computeNextDue, firstDueAt } from '../../domain/recurrence'
+import {
+  computeNextDue,
+  expectedCompletionsPerWeek,
+  firstDueAt,
+} from '../../domain/recurrence'
+import { assertHouseholdRole, listHouseholdMembers } from './households'
 import { assertValidTimeOfDay, setTimeInTz } from '../../domain/time'
 import type { Difficulty, DomainEvent } from '../../domain/events'
 import {
@@ -3425,7 +3430,45 @@ export interface TaskStats {
     instanceId: string | null
     occurredAt: string
     xp: number
+    // Who completed it — set only for household chores (so the dialog can show
+    // "Bob · Jun 5"). Null/omitted for personal tasks.
+    by: { name: string; color: string | null } | null
   }>
+  // Present only for household chores. The top-level totals (completionCount,
+  // totalXp, cadence, timingOffset) are household-wide when this is set; this
+  // block breaks the same completions down per person.
+  household: {
+    rotation: 'fixed' | 'round_robin'
+    perPerson: Array<{
+      userId: string
+      name: string
+      handle: string
+      color: string | null
+      completions: number
+      xp: number
+      // Their own on/before-due rate. Null when none of their completions
+      // carried a dueAt.
+      onTimePct: number | null
+      lastCompletedAt: string | null
+    }>
+  } | null
+  // Frequency/consistency stats for repeating tasks. Null for one-off tasks
+  // (no recurrence rule to measure against).
+  cadence: {
+    perWeek: number
+    perMonth: number
+    // % of completions done on or before their scheduled due day. Null when no
+    // completion in the window carried a dueAt to compare against.
+    onTime: { pct: number; comparable: number } | null
+    expectedPerWeek: number | null
+    // Actual perWeek vs expectedPerWeek, capped at 100. Null when the rule has
+    // no fixed cadence (after_completion) or no completions yet.
+    consistencyPct: number | null
+    avgGapDays: number | null
+    // Most-recent run of consecutive on-time completions.
+    currentStreak: number
+    bestDayOfWeek: { weekday: number; count: number } | null
+  } | null
 }
 
 export async function getTaskStats(
@@ -3448,28 +3491,45 @@ export async function getTaskStats(
       recurrence: tasks.recurrence,
       categorySlug: tasks.categorySlug,
       ownerId: tasks.userId,
+      householdId: tasks.householdId,
+      rotationStrategy: tasks.rotationStrategy,
     })
     .from(tasks)
     .where(eq(tasks.id, taskId))
     .limit(1)
     .then((rows) => rows[0] ?? null)
 
-  if (taskRow && taskRow.ownerId !== userId) {
+  // For a household chore, any member can view the stats and completions are
+  // counted household-wide (by payload.householdId) so a rotating chore shows
+  // the whole household's rhythm — not just the viewer's slice. For a personal
+  // task, only the owner can view and only their own completions count.
+  const householdId = taskRow?.householdId ?? null
+  if (householdId) {
+    await assertHouseholdRole(userId, householdId, [
+      'admin',
+      'member',
+      'kid',
+      'kiosk',
+    ])
+  } else if (taskRow && taskRow.ownerId !== userId) {
     throw new Error('task not found')
   }
 
   const rows = await db
     .select({
+      userId: events.userId,
       payload: events.payload,
       occurredAt: events.occurredAt,
     })
     .from(events)
     .where(
       and(
-        eq(events.userId, userId),
         eq(events.type, 'task.completed'),
         isNotNull(events.occurredAt),
         gte(events.occurredAt, since),
+        householdId
+          ? sql`${events.payload}->>'householdId' = ${householdId}`
+          : eq(events.userId, userId),
         sql`${events.payload}->>'taskId' = ${taskId}`,
       ),
     )
@@ -3503,10 +3563,38 @@ export async function getTaskStats(
     instanceId: string | null
     occurredAt: string
     xp: number
+    userId: string
   }> = []
   let completionCount = 0
   let totalXp = 0
   let hasAnyScheduled = false
+
+  // Per-person breakdown for household chores, keyed by the completer's userId
+  // (events.userId). Empty for personal tasks. Names are resolved after the loop.
+  const perPerson = new Map<
+    string,
+    {
+      completions: number
+      xp: number
+      onTimeComparable: number
+      onTimeCount: number
+      lastMs: number
+    }
+  >()
+
+  // Cadence accumulators (only meaningful for recurring tasks). rows are
+  // ascending by occurredAt, so firstOccurredMs is the earliest completion and
+  // the gap/streak logic can read them in chronological order.
+  let firstOccurredMs: number | null = null
+  let lastOccurredMs: number | null = null
+  let gapSumMs = 0
+  let gapCount = 0
+  const weekdayCounts = new Array<number>(7).fill(0)
+  let onTimeComparable = 0
+  let onTimeCount = 0
+  // On-time flag (done on/before due day) per completion that had a comparable
+  // dueAt, in chronological order — the current streak is its trailing run.
+  const onTimeFlags: boolean[] = []
 
   for (const r of rows) {
     if (!r.occurredAt) continue
@@ -3536,7 +3624,46 @@ export async function getTaskStats(
       instanceId,
       occurredAt: r.occurredAt.toISOString(),
       xp,
+      userId: r.userId,
     })
+
+    const person = perPerson.get(r.userId) ?? {
+      completions: 0,
+      xp: 0,
+      onTimeComparable: 0,
+      onTimeCount: 0,
+      lastMs: 0,
+    }
+    person.completions += 1
+    person.xp += xp
+    person.lastMs = r.occurredAt.getTime()
+    perPerson.set(r.userId, person)
+
+    // Cadence bookkeeping. dayKey is the local calendar day (yyyy-MM-dd) — parse
+    // it back as UTC midnight to read its weekday without a second tz formatter.
+    const occMs = r.occurredAt.getTime()
+    if (firstOccurredMs === null) firstOccurredMs = occMs
+    if (lastOccurredMs !== null) {
+      gapSumMs += occMs - lastOccurredMs
+      gapCount += 1
+    }
+    lastOccurredMs = occMs
+    const weekday = new Date(`${dayKey}T00:00:00Z`).getUTCDay()
+    if (weekday >= 0 && weekday <= 6) weekdayCounts[weekday] += 1
+
+    const dueRaw = typeof p['dueAt'] === 'string' ? (p['dueAt'] as string) : null
+    if (dueRaw) {
+      const dueDate = new Date(dueRaw)
+      if (!Number.isNaN(dueDate.getTime())) {
+        const dueDayKey = dayFmt.format(dueDate)
+        const onTime = dayKey <= dueDayKey
+        onTimeComparable += 1
+        if (onTime) onTimeCount += 1
+        onTimeFlags.push(onTime)
+        person.onTimeComparable += 1
+        if (onTime) person.onTimeCount += 1
+      }
+    }
 
     const scheduledTod =
       typeof p['timeOfDay'] === 'string' ? (p['timeOfDay'] as string) : null
@@ -3625,6 +3752,111 @@ export async function getTaskStats(
     taskRow?.title ??
     (rows.length > 0 ? '(deleted task)' : '(unknown task)')
 
+  // Cadence stats — only for recurring tasks. Rates use a single span: the
+  // window start for a fixed window, or the first completion for all-time
+  // (floored at 1 day so a same-day task doesn't divide by ~0).
+  let cadence: TaskStats['cadence'] = null
+  if (taskRow?.recurrence) {
+    const now = Date.now()
+    const effectiveStartMs = allTime
+      ? (firstOccurredMs ?? now)
+      : since.getTime()
+    const spanDays = Math.max(1, (now - effectiveStartMs) / 86_400_000)
+    const perWeek = completionCount / (spanDays / 7)
+    const perMonth = completionCount / (spanDays / 30.44)
+
+    const expectedPerWeek = expectedCompletionsPerWeek(taskRow.recurrence)
+    const consistencyPct =
+      expectedPerWeek && expectedPerWeek > 0
+        ? Math.round(Math.min(100, (perWeek / expectedPerWeek) * 100))
+        : null
+
+    // Trailing run of on-time completions, newest first.
+    let currentStreak = 0
+    for (let i = onTimeFlags.length - 1; i >= 0; i--) {
+      if (onTimeFlags[i]) currentStreak += 1
+      else break
+    }
+
+    let bestDayOfWeek: { weekday: number; count: number } | null = null
+    for (let d = 0; d < 7; d++) {
+      if (weekdayCounts[d] > 0 && (!bestDayOfWeek || weekdayCounts[d] > bestDayOfWeek.count)) {
+        bestDayOfWeek = { weekday: d, count: weekdayCounts[d] }
+      }
+    }
+
+    cadence = {
+      perWeek,
+      perMonth,
+      onTime:
+        onTimeComparable > 0
+          ? {
+              pct: Math.round((onTimeCount / onTimeComparable) * 100),
+              comparable: onTimeComparable,
+            }
+          : null,
+      expectedPerWeek,
+      consistencyPct: completionCount > 0 ? consistencyPct : null,
+      avgGapDays:
+        gapCount > 0
+          ? Math.round((gapSumMs / gapCount / 86_400_000) * 10) / 10
+          : null,
+      currentStreak,
+      bestDayOfWeek,
+    }
+  }
+
+  // Household per-person breakdown + name map for "who completed it" labels.
+  let household: TaskStats['household'] = null
+  const nameByUser = new Map<
+    string,
+    { name: string; color: string | null }
+  >()
+  if (householdId) {
+    const members = await listHouseholdMembers(userId, householdId)
+    const memberById = new Map(members.map((m) => [m.userId, m]))
+    for (const m of members) {
+      nameByUser.set(m.userId, { name: m.name, color: m.color })
+    }
+    const perPersonRows = Array.from(perPerson.entries())
+      .map(([uid, agg]) => {
+        const m = memberById.get(uid)
+        if (m && !nameByUser.has(uid)) {
+          nameByUser.set(uid, { name: m.name, color: m.color })
+        }
+        return {
+          userId: uid,
+          name: m?.name ?? 'Former member',
+          handle: m?.handle ?? '',
+          color: m?.color ?? null,
+          completions: agg.completions,
+          xp: agg.xp,
+          onTimePct:
+            agg.onTimeComparable > 0
+              ? Math.round((agg.onTimeCount / agg.onTimeComparable) * 100)
+              : null,
+          lastCompletedAt:
+            agg.lastMs > 0 ? new Date(agg.lastMs).toISOString() : null,
+        }
+      })
+      .sort((a, b) => b.completions - a.completions)
+    household = {
+      rotation:
+        taskRow?.rotationStrategy === 'round_robin' ? 'round_robin' : 'fixed',
+      perPerson: perPersonRows,
+    }
+  }
+
+  const recentCompletions = recent
+    .slice(-15)
+    .reverse()
+    .map((r) => ({
+      instanceId: r.instanceId,
+      occurredAt: r.occurredAt,
+      xp: r.xp,
+      by: householdId ? (nameByUser.get(r.userId) ?? null) : null,
+    }))
+
   return {
     days: allTime ? fillDays : (days as number),
     task: {
@@ -3649,7 +3881,9 @@ export async function getTaskStats(
         }
       : null,
     // Most recent 15, newest first.
-    recentCompletions: recent.slice(-15).reverse(),
+    recentCompletions,
+    household,
+    cadence,
   }
 }
 
