@@ -210,6 +210,9 @@ function AppNav() {
                   <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                     Stats
                   </Link>
+                  <Link to="/weekly-summary" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                    Weekly
+                  </Link>
                   <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
                     Garden
                   </Link>

@@ -281,6 +281,20 @@
       "when": 1777130000000,
       "tag": "0039_task_per_weekday_time",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1777140000000,
+      "tag": "0040_weekly_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1777150000000,
+      "tag": "0041_weekly_summary_onboarding",
+      "breakpoints": true
     }
   ]
 }

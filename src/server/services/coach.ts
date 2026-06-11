@@ -599,7 +599,7 @@ export async function generateCoachSummary(
  * Strip common reasoning-model artifacts that leak past the system prompt.
  * Return null if there's nothing usable left — the UI will hide the panel.
  */
-function sanitizeCoachOutput(raw: string | null): string | null {
+export function sanitizeCoachOutput(raw: string | null): string | null {
   if (!raw) return null
   let s = raw
 

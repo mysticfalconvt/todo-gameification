@@ -1,0 +1,179 @@
+// HTML + text rendering for the weekly summary email. Pure function of the
+// WeeklySummary (+ optional LLM analysis) so it's easy to test and reuse.
+// Inline styles only — email clients strip <style> and external CSS.
+import type { WeeklySummary } from '../services/weeklySummary'
+import { findGame } from '../../games/registry'
+
+function appUrl(): string {
+  return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(
+    /\/$/,
+    '',
+  )
+}
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function deltaText(delta: number, unit: string): string {
+  if (delta === 0) return 'same as last week'
+  const sign = delta > 0 ? '+' : '−'
+  return `${sign}${Math.abs(delta)}${unit ? ` ${unit}` : ''} vs last week`
+}
+
+export interface RenderedEmail {
+  subject: string
+  text: string
+  html: string
+}
+
+export function renderWeeklyEmail(
+  summary: WeeklySummary,
+  analysis: string | null,
+): RenderedEmail {
+  const k = summary.kpis
+  const base = appUrl()
+  const subject = `Your week: ${summary.weekStartLabel}–${summary.weekEndLabel} · ${k.completionsThisWeek} done, ${k.xpThisWeek} XP`
+
+  // ---- Plain text ----
+  const textLines: string[] = []
+  textLines.push(`Week of ${summary.weekStartLabel}–${summary.weekEndLabel}`)
+  textLines.push('')
+  if (analysis) {
+    textLines.push(analysis)
+    textLines.push('')
+  }
+  textLines.push(
+    `Completions: ${k.completionsThisWeek} (${deltaText(k.completionsThisWeek - k.completionsLastWeek, '')})`,
+  )
+  textLines.push(
+    `XP earned: ${k.xpThisWeek} (${deltaText(k.xpThisWeek - k.xpLastWeek, 'XP')})`,
+  )
+  textLines.push(`Current streak: ${k.currentStreak} days (longest ${k.longestStreak})`)
+  textLines.push(`Level ${k.level} · ${k.totalXp} total XP · ${k.tokens} tokens`)
+  if (summary.topTasks.length > 0) {
+    textLines.push('')
+    textLines.push('Most-completed this week:')
+    for (const t of summary.topTasks.slice(0, 5)) {
+      textLines.push(`  - ${t.title} (${t.count}×)`)
+    }
+  }
+  const me = summary.leaderboard.find((r) => r.isMe)
+  if (me && summary.leaderboard.length > 1) {
+    textLines.push('')
+    textLines.push(
+      `Friends leaderboard: rank ${me.rank} of ${summary.leaderboard.length} (${me.value} XP this week)`,
+    )
+  }
+  textLines.push('')
+  textLines.push(`See the full summary: ${base}/weekly-summary`)
+  textLines.push(`Turn this email off: ${base}/settings`)
+  const text = textLines.join('\n')
+
+  // ---- HTML ----
+  const ink = '#0f2a2f'
+  const soft = '#2a4448'
+  const lagoon = '#1f6e75'
+  const line = 'rgba(23,58,64,0.18)'
+
+  const kpiCell = (label: string, value: string, sub: string) => `
+    <td style="padding:10px 12px;border:1px solid ${line};border-radius:12px;background:#ffffff;vertical-align:top;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:${soft};">${esc(label)}</div>
+      <div style="font-size:22px;font-weight:700;color:${ink};margin-top:2px;">${esc(value)}</div>
+      <div style="font-size:11px;color:${soft};margin-top:2px;">${esc(sub)}</div>
+    </td>`
+
+  const topTasksHtml =
+    summary.topTasks.length > 0
+      ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Most-completed this week</h3>
+         <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
+           ${summary.topTasks
+             .slice(0, 5)
+             .map((t) => `<li style="margin:3px 0;">${esc(t.title)} <span style="color:${soft};">(${t.count}×)</span></li>`)
+             .join('')}
+         </ul>`
+      : ''
+
+  const repeating = summary.repeatingTasks.filter((r) => r.thisWeekCount > 0).slice(0, 5)
+  const repeatingHtml =
+    repeating.length > 0
+      ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Habits you kept up</h3>
+         <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
+           ${repeating
+             .map((r) => `<li style="margin:3px 0;">${esc(r.title)} <span style="color:${soft};">— ${r.thisWeekCount}× this week, ${r.allTimeCount} all-time</span></li>`)
+             .join('')}
+         </ul>`
+      : ''
+
+  const playedGames = summary.arcade.personal.filter((g) => g.played > 0).slice(0, 6)
+  const arcadeHtml =
+    playedGames.length > 0
+      ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Arcade</h3>
+         <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
+           ${playedGames
+             .map((g) => `<li style="margin:3px 0;">${esc(findGame(g.gameId)?.name ?? g.gameId)} <span style="color:${soft};">— ${g.won}/${g.played} won</span></li>`)
+             .join('')}
+         </ul>`
+      : ''
+
+  const lbHtml =
+    me && summary.leaderboard.length > 1
+      ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Friends leaderboard (XP, last 7 days)</h3>
+         <ol style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
+           ${summary.leaderboard
+             .slice(0, 8)
+             .map((r) => `<li style="margin:3px 0;${r.isMe ? `font-weight:700;color:${lagoon};` : ''}">${esc(r.isMe ? 'You' : r.name || '@' + r.handle)} <span style="color:${soft};font-weight:400;">— ${r.value} XP</span></li>`)
+             .join('')}
+         </ol>`
+      : ''
+
+  const analysisHtml = analysis
+    ? `<div style="background:#ffffff;border:1px solid ${line};border-radius:12px;padding:16px;margin:16px 0;">
+         <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:${soft};margin-bottom:6px;">Your week in review</div>
+         <div style="font-size:15px;line-height:1.6;color:${ink};white-space:pre-line;">${esc(analysis)}</div>
+       </div>`
+    : ''
+
+  const html = `<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#f3f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px;">
+    <p style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:${soft};margin:0 0 4px;">Weekly summary</p>
+    <h1 style="font-size:24px;color:${ink};margin:0 0 4px;">Week of ${esc(summary.weekStartLabel)}–${esc(summary.weekEndLabel)}</h1>
+    <p style="font-size:13px;color:${soft};margin:0 0 16px;">Here's how the week went.</p>
+
+    ${analysisHtml}
+
+    <table role="presentation" cellpadding="0" cellspacing="6" style="width:100%;border-collapse:separate;">
+      <tr>
+        ${kpiCell('Completions', String(k.completionsThisWeek), deltaText(k.completionsThisWeek - k.completionsLastWeek, ''))}
+        ${kpiCell('XP earned', String(k.xpThisWeek), deltaText(k.xpThisWeek - k.xpLastWeek, 'XP'))}
+      </tr>
+      <tr>
+        ${kpiCell('Current streak', `${k.currentStreak}d`, `longest ${k.longestStreak}d`)}
+        ${kpiCell('Tokens', String(k.tokens), `level ${k.level} · ${k.totalXp} XP`)}
+      </tr>
+    </table>
+
+    ${topTasksHtml}
+    ${repeatingHtml}
+    ${arcadeHtml}
+    ${lbHtml}
+
+    <div style="margin:28px 0 8px;">
+      <a href="${base}/weekly-summary" style="display:inline-block;background:${lagoon};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:999px;">See your full summary →</a>
+    </div>
+    <p style="font-size:12px;color:${soft};margin:16px 0 0;">
+      You're getting this because you turned on weekly summaries.
+      <a href="${base}/settings" style="color:${lagoon};">Turn it off</a>.
+    </p>
+  </div>
+</body>
+</html>`
+
+  return { subject, text, html }
+}

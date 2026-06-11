@@ -10,7 +10,12 @@
 import { db } from '../db/client'
 import { llmCallLog } from '../db/schema'
 
-export type LlmCallKind = 'score' | 'categorize' | 'coach' | 'word_search'
+export type LlmCallKind =
+  | 'score'
+  | 'categorize'
+  | 'coach'
+  | 'word_search'
+  | 'weekly'
 
 export function isLlmConfigured(): boolean {
   return Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL)

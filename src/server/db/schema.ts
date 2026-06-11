@@ -432,6 +432,10 @@ export const userPrefs = pgTable('user_prefs', {
   mergeHouseholdIntoToday: boolean('merge_household_into_today')
     .notNull()
     .default(true),
+  // Opt-in to the Monday-morning weekly summary email. Defaults off for
+  // everyone — the user turns it on in Settings (members only). The page
+  // at /weekly-summary is viewable regardless of this flag.
+  weeklyEmailOptIn: boolean('weekly_email_opt_in').notNull().default(false),
 })
 
 // Per-user cache for the coach blurb. One row per user; upserted by
@@ -451,6 +455,43 @@ export const coachSummaries = pgTable('coach_summaries', {
     .notNull()
     .defaultNow(),
 })
+
+// Per-week cache for the LLM weekly-summary analysis. One row per
+// (user, weekKey) where weekKey is the ISO week-start (yyyy-MM-dd, Monday)
+// in the user's timezone. Upserted by generateWeeklyAnalysis on a cache
+// miss or a forced regenerate (the "Regenerate now" button). Mirrors
+// coachSummaries — attitude is tracked so a prefs change regenerates.
+export const weeklySummaries = pgTable(
+  'weekly_summaries',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    weekKey: text('week_key').notNull(),
+    analysis: text('analysis').notNull(),
+    attitude: text('attitude').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.weekKey] })],
+)
+
+// Dedup ledger for the weekly summary email. The hourly cron inserts
+// onConflictDoNothing keyed on (user, weekKey) and only sends when the
+// insert took effect — so retries, missed ticks, and double-fires never
+// send the same week's email twice.
+export const weeklyEmailLog = pgTable(
+  'weekly_email_log',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    weekKey: text('week_key').notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.weekKey] })],
+)
 
 export const pushSubscriptions = pgTable('push_subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),

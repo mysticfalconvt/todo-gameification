@@ -149,6 +149,7 @@ function SettingsPage() {
       <HouseholdSection />
       <AppearanceSection />
       <CoachAttitudeSection />
+      <WeeklySummarySection />
       <CategoriesSection />
       <PasswordSection />
       <NotificationsSection />
@@ -842,6 +843,69 @@ function Switch({
         }`}
       />
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Weekly summary
+// ---------------------------------------------------------------------------
+
+function WeeklySummarySection() {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+  const memberQuery = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => getMemberStatusFn(),
+  })
+  const isMember = memberQuery.data?.isMember === true
+  const optedIn = profileQuery.data?.weeklyEmailOptIn ?? false
+
+  const setPref = useMutation({
+    mutationFn: (weeklyEmailOptIn: boolean) =>
+      updatePrefs({ data: { weeklyEmailOptIn } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">
+        Weekly summary
+      </h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        A Monday-morning recap of your week — completions, streaks, habits,
+        arcade, and how you stack up against friends, with a short AI review.{' '}
+        <Link
+          to="/weekly-summary"
+          className="font-semibold text-[var(--lagoon-deep)] underline"
+        >
+          Preview your summary →
+        </Link>
+      </p>
+
+      <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+        <span className="flex-1">
+          <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+            Email me the weekly summary
+          </span>
+          <span className="block text-xs text-[var(--sea-ink-soft)]">
+            {isMember
+              ? 'Sent Monday around 8am your time. Off by default — flip this on to receive it.'
+              : 'The weekly email is a membership feature. Scroll up to Membership to upgrade.'}
+          </span>
+        </span>
+        <Switch
+          checked={optedIn && isMember}
+          disabled={!isMember || setPref.isPending}
+          onChange={(v) => setPref.mutate(v)}
+          ariaLabel="Email me the weekly summary"
+        />
+      </label>
+    </section>
   )
 }
 

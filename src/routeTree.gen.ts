@@ -24,6 +24,7 @@ import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
 import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
 import { Route as AuthenticatedArcadeRouteImport } from './routes/_authenticated/arcade'
+import { Route as AuthenticatedWeeklySummaryIndexRouteImport } from './routes/_authenticated/weekly-summary/index'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -132,6 +133,12 @@ const AuthenticatedArcadeRoute = AuthenticatedArcadeRouteImport.update({
   path: '/arcade',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedWeeklySummaryIndexRoute =
+  AuthenticatedWeeklySummaryIndexRouteImport.update({
+    id: '/weekly-summary/',
+    path: '/weekly-summary/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
@@ -349,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/stats/': typeof AuthenticatedStatsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/weekly-summary/': typeof AuthenticatedWeeklySummaryIndexRoute
   '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
@@ -398,6 +406,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/stats': typeof AuthenticatedStatsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
+  '/weekly-summary': typeof AuthenticatedWeeklySummaryIndexRoute
   '/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
@@ -449,6 +458,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/stats/': typeof AuthenticatedStatsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/_authenticated/weekly-summary/': typeof AuthenticatedWeeklySummaryIndexRoute
   '/_authenticated/admin/llm/$callId': typeof AuthenticatedAdminLlmCallIdRoute
   '/_authenticated/admin/users/$userId': typeof AuthenticatedAdminUsersUserIdRoute
   '/_authenticated/stats/task/$taskId': typeof AuthenticatedStatsTaskTaskIdRoute
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/stats/'
     | '/tasks/'
+    | '/weekly-summary/'
     | '/admin/llm/$callId'
     | '/admin/users/$userId'
     | '/stats/task/$taskId'
@@ -549,6 +560,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stats'
     | '/tasks'
+    | '/weekly-summary'
     | '/admin/llm/$callId'
     | '/admin/users/$userId'
     | '/stats/task/$taskId'
@@ -599,6 +611,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/stats/'
     | '/_authenticated/tasks/'
+    | '/_authenticated/weekly-summary/'
     | '/_authenticated/admin/llm/$callId'
     | '/_authenticated/admin/users/$userId'
     | '/_authenticated/stats/task/$taskId'
@@ -748,6 +761,13 @@ declare module '@tanstack/react-router' {
       path: '/arcade'
       fullPath: '/arcade'
       preLoaderRoute: typeof AuthenticatedArcadeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/weekly-summary/': {
+      id: '/_authenticated/weekly-summary/'
+      path: '/weekly-summary'
+      fullPath: '/weekly-summary/'
+      preLoaderRoute: typeof AuthenticatedWeeklySummaryIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tasks/': {
@@ -1004,6 +1024,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedStatsIndexRoute: typeof AuthenticatedStatsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
+  AuthenticatedWeeklySummaryIndexRoute: typeof AuthenticatedWeeklySummaryIndexRoute
   AuthenticatedAdminLlmCallIdRoute: typeof AuthenticatedAdminLlmCallIdRoute
   AuthenticatedAdminUsersUserIdRoute: typeof AuthenticatedAdminUsersUserIdRoute
   AuthenticatedStatsTaskTaskIdRoute: typeof AuthenticatedStatsTaskTaskIdRoute
@@ -1031,6 +1052,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   AuthenticatedStatsIndexRoute: AuthenticatedStatsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
+  AuthenticatedWeeklySummaryIndexRoute: AuthenticatedWeeklySummaryIndexRoute,
   AuthenticatedAdminLlmCallIdRoute: AuthenticatedAdminLlmCallIdRoute,
   AuthenticatedAdminUsersUserIdRoute: AuthenticatedAdminUsersUserIdRoute,
   AuthenticatedStatsTaskTaskIdRoute: AuthenticatedStatsTaskTaskIdRoute,

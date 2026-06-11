@@ -8,6 +8,7 @@ import {
 import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
 import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
 import { githubPollHandler } from './jobs/githubPoll'
+import { sendWeeklySummaryHandler } from './jobs/sendWeeklySummary'
 import {
   focusSessionEndHandler,
   focusSessionExpireHandler,
@@ -31,12 +32,14 @@ async function boot(): Promise<PgBoss> {
   await boss.createQueue('cleanup-stale-subs')
   await boss.createQueue('check-plant-risk')
   await boss.createQueue('poll-github')
+  await boss.createQueue('send-weekly-summary')
   await boss.createQueue(FOCUS_END_QUEUE)
   await boss.createQueue(FOCUS_EXPIRE_QUEUE)
   await boss.work('send-reminder', sendReminderHandler)
   await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
   await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
   await boss.work('poll-github', async () => githubPollHandler())
+  await boss.work('send-weekly-summary', async () => sendWeeklySummaryHandler())
   await boss.work(FOCUS_END_QUEUE, focusSessionEndHandler)
   await boss.work(FOCUS_EXPIRE_QUEUE, focusSessionExpireHandler)
   await boss.schedule('cleanup-stale-subs', '0 3 * * *')
@@ -47,6 +50,9 @@ async function boot(): Promise<PgBoss> {
   // poll_interval_minutes (so a user with 15-min interval only gets
   // polled every 15 min, not every tick).
   await boss.schedule('poll-github', '* * * * *')
+  // Runs at :00 every hour, UTC. The handler filters to opted-in members
+  // whose local time is Monday 08:00 and dedups via weekly_email_log.
+  await boss.schedule('send-weekly-summary', '0 * * * *')
   return boss
 }
 

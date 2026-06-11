@@ -48,6 +48,12 @@ const ONBOARDING_TASKS: OnboardingTaskSpec[] = [
     notes:
       'Head to the arcade and spend a token on Memory Flip — match 6 pairs before 6 mismatches.',
   },
+  {
+    externalRef: 'onboarding-weekly-summary',
+    title: 'Check out your weekly summary',
+    notes:
+      'A recap of your completions, streaks, habits, arcade runs, and how you stack up against friends — with a short AI review of your week. See it here: https://todo.rboskind.com/weekly-summary — and flip on the Monday email from the Settings page if you want it in your inbox.',
+  },
 ]
 
 // Same set categories.ts seeds lazily. Keep in sync with DEFAULT_CATEGORIES
