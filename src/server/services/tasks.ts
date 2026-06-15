@@ -233,6 +233,17 @@ export async function getUserTimeZone(userId: string): Promise<string> {
   return row?.timezone ?? 'UTC'
 }
 
+// The local HH:MM a user's quiet window ends, or null if none configured.
+// Used to re-anchor "anytime" recurring tasks to the morning rather than
+// re-surfacing them at whatever time of day they were created.
+async function getUserQuietHoursEnd(userId: string): Promise<string | null> {
+  const row = await db.query.user.findFirst({
+    where: eq(userTable.id, userId),
+    columns: { quietHoursEnd: true },
+  })
+  return row?.quietHoursEnd ?? null
+}
+
 // Pulls the user's recent AI-scored tasks as calibration examples for the
 // score LLM. Dedupes by lowercased title so the model sees variety, not
 // the same chore repeated. `excludeTaskId` is used when re-analyzing an
@@ -1603,6 +1614,7 @@ export async function approveClaim(
         timeOfDay: task.timeOfDay,
         timeByWeekday: task.timeByWeekday,
         timeZone: recipientTimeZone,
+        quietHoursEnd: await getUserQuietHoursEnd(xpRecipientId),
       })
       const snoozedUntil = nextDue > now ? nextDue : null
       const nextAssignee = await resolveNextRecurrenceAssignee(tx, task)
@@ -1735,6 +1747,9 @@ export async function listHouseholdChoresWeek(
   if (!m) throw new Error('Not a member of this household.')
 
   const timeZone = await getUserTimeZone(viewerId)
+  // So the week preview anchors "anytime" daily chores to the same morning
+  // slot they'll actually materialize into (see computeNextDue).
+  const quietHoursEnd = await getUserQuietHoursEnd(viewerId)
 
   // Resolve the week window as UTC instants. The start is local
   // midnight of startDateLocal in the viewer's tz; end is +7 days.
@@ -1920,6 +1935,7 @@ export async function listHouseholdChoresWeek(
         timeOfDay: t.timeOfDay,
         timeByWeekday: t.timeByWeekday,
         timeZone,
+        quietHoursEnd,
       })
       if (!next || next <= cursor) break
       cursor = next
@@ -2790,6 +2806,7 @@ export async function completeInstance(
         timeOfDay: task.timeOfDay,
         timeByWeekday: task.timeByWeekday,
         timeZone,
+        quietHoursEnd: await getUserQuietHoursEnd(userId),
       })
       // Hide the rematerialized instance from today/today-queries until
       // its next due time. Without this an "anytime + repeat 2h after

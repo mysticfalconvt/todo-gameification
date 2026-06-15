@@ -254,6 +254,69 @@ describe('computeNextDue', () => {
     })
   })
 
+  describe('anytime daily (no pinned timeOfDay) re-anchors to morning', () => {
+    it('with a timezone but no quiet hours → next local start-of-day', () => {
+      // Created/completed mid-afternoon Chicago time. Old behavior carried the
+      // 14:15 local time forward; new behavior surfaces it at local midnight
+      // the next day so it's available all day.
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-04-18T19:15:00Z'), // 14:15 CDT
+        completedAt: at('2026-04-18T20:00:00Z'),
+        timeOfDay: null,
+        timeZone: 'America/Chicago',
+      })
+      expect(formatLocal(next, 'America/Chicago')).toBe('2026-04-19 00:00')
+    })
+
+    it('with quiet hours → next morning at quiet-hours end', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-04-18T19:15:00Z'), // 14:15 CDT
+        completedAt: at('2026-04-18T20:00:00Z'),
+        timeOfDay: null,
+        timeZone: 'America/Chicago',
+        quietHoursEnd: '07:00',
+      })
+      expect(formatLocal(next, 'America/Chicago')).toBe('2026-04-19 07:00')
+    })
+
+    it('catches up past a stale anytime instance, still landing in the morning', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-04-10T19:15:00Z'),
+        completedAt: at('2026-04-18T20:00:00Z'),
+        timeOfDay: null,
+        timeZone: 'America/Chicago',
+        quietHoursEnd: '07:00',
+      })
+      expect(next > at('2026-04-18T20:00:00Z')).toBe(true)
+      expect(formatLocal(next, 'America/Chicago')).toBe('2026-04-19 07:00')
+    })
+
+    it('falls back to a raw +1 day when no timezone is provided', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-04-18T09:00:00Z'),
+        completedAt: at('2026-04-18T12:00:00Z'),
+        timeOfDay: null,
+      })
+      expect(next.toISOString()).toBe('2026-04-19T09:00:00.000Z')
+    })
+
+    it('ignores a malformed quietHoursEnd and uses start-of-day', () => {
+      const next = computeNextDue({
+        recurrence: { type: 'daily' },
+        previousDueAt: at('2026-04-18T19:15:00Z'),
+        completedAt: at('2026-04-18T20:00:00Z'),
+        timeOfDay: null,
+        timeZone: 'America/Chicago',
+        quietHoursEnd: 'not-a-time',
+      })
+      expect(formatLocal(next, 'America/Chicago')).toBe('2026-04-19 00:00')
+    })
+  })
+
   describe('timezone-pinned weekly', () => {
     it('finds next selected local day-of-week at HH:MM', () => {
       // previousDueAt: Wed 2026-04-22 08:00 America/Chicago (CDT = UTC-5) = 13:00Z

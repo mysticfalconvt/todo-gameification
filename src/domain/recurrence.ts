@@ -170,6 +170,26 @@ export interface ComputeNextDueInput {
   timeOfDay?: string | null
   timeByWeekday?: WeekdayTimes | null
   timeZone?: string | null
+  // For "anytime" daily tasks (no pinned timeOfDay): the local HH:MM the next
+  // occurrence should re-anchor to so it surfaces in the morning rather than
+  // dragging the creation time forward. Defaults to local start-of-day.
+  quietHoursEnd?: string | null
+}
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
+// "Anytime" daily tasks carry no pinned clock time. Rather than advancing the
+// original creation time-of-day by 24h each cycle — which makes a task created
+// at 2pm keep re-surfacing at 2pm — re-anchor every occurrence to the next
+// local morning so it's available for the whole day. "Morning" is the end of
+// the user's quiet hours when configured, otherwise local start-of-day.
+function nextAnytimeDaily(
+  from: Date,
+  quietHoursEnd: string | null | undefined,
+  timeZone: string,
+): Date {
+  const anchor = quietHoursEnd && HHMM.test(quietHoursEnd) ? quietHoursEnd : '00:00'
+  return nextDailyOccurrence(from, anchor, null, timeZone)
 }
 
 // The effective HH:MM for whatever weekday `date` falls on in `timeZone`,
@@ -231,14 +251,28 @@ export function computeNextDue(input: ComputeNextDueInput): Date {
 }
 
 function computeNextDueOnce(input: ComputeNextDueInput): Date {
-  const { recurrence, previousDueAt, completedAt, timeOfDay, timeByWeekday, timeZone } =
-    input
+  const {
+    recurrence,
+    previousDueAt,
+    completedAt,
+    timeOfDay,
+    timeByWeekday,
+    timeZone,
+    quietHoursEnd,
+  } = input
   const hasLocalPin = Boolean(timeOfDay && timeZone)
 
   switch (recurrence.type) {
     case 'daily':
-      return hasLocalPin
-        ? nextDailyOccurrence(previousDueAt, timeOfDay!, timeByWeekday, timeZone!)
+      if (hasLocalPin) {
+        return nextDailyOccurrence(previousDueAt, timeOfDay!, timeByWeekday, timeZone!)
+      }
+      // "Anytime" daily task: re-anchor to the next local morning so it
+      // surfaces at the start of the day (or quiet-hours end) instead of
+      // carrying the creation time forward. Falls back to a raw +1 day only
+      // when we have no timezone to localize against.
+      return timeZone
+        ? nextAnytimeDaily(previousDueAt, quietHoursEnd, timeZone)
         : addDays(previousDueAt, 1)
 
     case 'weekly': {
