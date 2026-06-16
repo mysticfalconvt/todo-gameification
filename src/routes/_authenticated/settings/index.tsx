@@ -21,6 +21,7 @@ import {
   removeGithubIntegration,
   syncGithubNow,
   updateGithubPollInterval,
+  updateGithubSyncOptions,
   upsertGithubIntegration,
 } from '../../../server/functions/github'
 import {
@@ -2154,6 +2155,16 @@ function GithubSection() {
       toast.error(err instanceof Error ? err.message : 'Update failed.'),
   })
 
+  const updateSyncOptions = useMutation({
+    mutationFn: (opts: {
+      trackReviewRequested: boolean
+      trackAssigned: boolean
+    }) => updateGithubSyncOptions({ data: opts }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['github-integration'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed.'),
+  })
+
   const disconnect = useMutation({
     mutationFn: () => removeGithubIntegration(),
     onSuccess: () => {
@@ -2206,8 +2217,8 @@ function GithubSection() {
           </h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {connected
-              ? `Connected as @${status?.externalId ?? '…'}. PRs where you're requested as a reviewer become tasks automatically.`
-              : 'Connect a GitHub token so PRs assigned to you as a reviewer show up as tasks.'}
+              ? `Connected as @${status?.externalId ?? '…'}. PRs you're asked to review or are assigned to become tasks automatically — choose which below.`
+              : 'Connect a GitHub token so PRs you need to review or are assigned to show up as tasks.'}
           </p>
         </div>
         <span
@@ -2277,6 +2288,48 @@ function GithubSection() {
                 </>
               ) : null}
             </dl>
+
+            {(() => {
+              const reviewOn = status?.trackReviewRequested ?? true
+              const assignedOn = status?.trackAssigned ?? true
+              // Don't let the user clear the last enabled flow — there'd be
+              // nothing left to sync. The server enforces this too.
+              const setFlows = (review: boolean, assigned: boolean) => {
+                if (!review && !assigned) {
+                  toast.error('Keep at least one option enabled.')
+                  return
+                }
+                updateSyncOptions.mutate({
+                  trackReviewRequested: review,
+                  trackAssigned: assigned,
+                })
+              }
+              return (
+                <fieldset className="space-y-2">
+                  <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                    Create tasks for
+                  </legend>
+                  <label className="flex items-center gap-2 text-sm text-[var(--sea-ink)]">
+                    <input
+                      type="checkbox"
+                      checked={reviewOn}
+                      disabled={updateSyncOptions.isPending}
+                      onChange={(e) => setFlows(e.target.checked, assignedOn)}
+                    />
+                    PRs where I'm requested as a reviewer
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-[var(--sea-ink)]">
+                    <input
+                      type="checkbox"
+                      checked={assignedOn}
+                      disabled={updateSyncOptions.isPending}
+                      onChange={(e) => setFlows(reviewOn, e.target.checked)}
+                    />
+                    PRs assigned to me
+                  </label>
+                </fieldset>
+              )
+            })()}
 
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">

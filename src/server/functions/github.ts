@@ -22,6 +22,15 @@ export const updateGithubPollInterval = createServerFn({ method: 'POST' })
     service.updateGithubPollInterval(context.userId, data.pollIntervalMinutes),
   )
 
+export const updateGithubSyncOptions = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: { trackReviewRequested: boolean; trackAssigned: boolean }) => data,
+  )
+  .handler(({ data, context }) =>
+    service.updateGithubSyncOptions(context.userId, data),
+  )
+
 export const removeGithubIntegration = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.removeGithubIntegration(context.userId))

@@ -518,6 +518,12 @@ export const userIntegrations = pgTable(
     externalId: text('external_id'), // e.g. GitHub username, for display
     token: text('token').notNull(),
     pollIntervalMinutes: integer('poll_interval_minutes').notNull().default(5),
+    // Which GitHub PR flows surface as tasks. Both default true (prior
+    // always-both behavior); a user can narrow to just one.
+    trackReviewRequested: boolean('track_review_requested')
+      .notNull()
+      .default(true),
+    trackAssigned: boolean('track_assigned').notNull().default(true),
     lastPolledAt: timestamp('last_polled_at'),
     lastPollError: text('last_poll_error'),
     // Parsed from the `github-authentication-token-expiration` header that

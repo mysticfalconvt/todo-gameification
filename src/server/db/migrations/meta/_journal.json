@@ -295,6 +295,13 @@
       "when": 1777150000000,
       "tag": "0041_weekly_summary_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1777160000000,
+      "tag": "0042_github_sync_options",
+      "breakpoints": true
     }
   ]
 }

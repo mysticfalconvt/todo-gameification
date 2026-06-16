@@ -59,6 +59,13 @@ export const deferInstanceToTomorrow = createServerFn({ method: 'POST' })
     service.deferInstanceToTomorrow(context.userId, data.instanceId),
   )
 
+export const surfaceInstanceNow = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { instanceId: string }) => data)
+  .handler(({ data, context }) =>
+    service.surfaceInstanceNow(context.userId, data.instanceId),
+  )
+
 export const listAllTasks = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.listAllTasks(context.userId))

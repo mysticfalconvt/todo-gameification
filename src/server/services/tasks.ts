@@ -187,6 +187,16 @@ export interface TaskSummary {
   hasOpenInstance: boolean
 }
 
+// List-view row: TaskSummary plus the soonest open instance's schedule, used
+// by the tasks page's "Upcoming" filter and "Show in Today now" action.
+export interface TaskListRow extends TaskSummary {
+  openInstanceId: string | null
+  nextDueAt: string | null
+  // True when an open, dated instance exists that the Today list is currently
+  // hiding because it's scheduled past today or snoozed into the future.
+  upcoming: boolean
+}
+
 export interface TaskDetail extends TaskSummary {
   active: boolean
   updatedAt: string
@@ -550,7 +560,18 @@ export async function createTask(
   }
 }
 
-export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
+export async function listAllTasks(userId: string): Promise<TaskListRow[]> {
+  const now = new Date()
+  const timeZone = await getUserTimeZone(userId)
+  // End of the user's local day — same horizon the Today list uses to decide
+  // what's "later" vs "now" (see listTodayInstances).
+  const todayLocal = formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
+  const [y, m, d] = todayLocal.split('-').map(Number)
+  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1))
+    .toISOString()
+    .slice(0, 10)} 00:00:00`
+  const horizon = fromZonedTime(tomorrowStr, timeZone)
+
   const rows = await db
     .select({
       id: tasks.id,
@@ -571,37 +592,83 @@ export async function listAllTasks(userId: string): Promise<TaskSummary[]> {
         WHERE ${taskInstances.taskId} = ${tasks.id}
           AND ${taskInstances.completedAt} IS NOT NULL
       )`,
-      openInstanceId: sql<string | null>`(
-        SELECT ${taskInstances.id}
-        FROM ${taskInstances}
-        WHERE ${taskInstances.taskId} = ${tasks.id}
-          AND ${taskInstances.completedAt} IS NULL
-          AND ${taskInstances.skippedAt} IS NULL
-        LIMIT 1
-      )`,
     })
     .from(tasks)
     .where(and(eq(tasks.userId, userId), eq(tasks.active, true)))
     .orderBy(tasks.createdAt)
 
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    notes: r.notes,
-    difficulty: r.difficulty as Difficulty,
-    xpOverride: r.xpOverride,
-    recurrence: r.recurrence,
-    timeOfDay: r.timeOfDay,
-    categorySlug: r.categorySlug,
-    snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
-    createdAt: r.createdAt.toISOString(),
-    visibility: r.visibility as TaskVisibility,
-    dueKind: r.dueKind as 'hard' | 'week_target',
-    lastCompletedAt: r.lastCompletedAt
-      ? new Date(r.lastCompletedAt).toISOString()
-      : null,
-    hasOpenInstance: r.openInstanceId !== null,
-  }))
+  // Open (not completed/skipped/claimed) instances for these tasks. We pick
+  // the soonest per task so the "Show now" action targets the next occurrence.
+  const openRows = await db
+    .select({
+      id: taskInstances.id,
+      taskId: taskInstances.taskId,
+      dueAt: taskInstances.dueAt,
+      dueKind: taskInstances.dueKind,
+      snoozedUntil: taskInstances.snoozedUntil,
+    })
+    .from(taskInstances)
+    .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.active, true),
+        isNull(taskInstances.completedAt),
+        isNull(taskInstances.skippedAt),
+        isNull(taskInstances.claimedAt),
+      ),
+    )
+
+  const openByTask = new Map<string, (typeof openRows)[number]>()
+  for (const o of openRows) {
+    const cur = openByTask.get(o.taskId)
+    if (!cur) {
+      openByTask.set(o.taskId, o)
+      continue
+    }
+    // Prefer the soonest dueAt; someday instances (null dueAt) sort last.
+    const a = o.dueAt ? o.dueAt.getTime() : Infinity
+    const b = cur.dueAt ? cur.dueAt.getTime() : Infinity
+    if (a < b) openByTask.set(o.taskId, o)
+  }
+
+  return rows.map((r) => {
+    const open = openByTask.get(r.id) ?? null
+    const dueAt = open?.dueAt ?? null
+    const snoozedUntil = open?.snoozedUntil ?? null
+    const taskSnoozed = r.snoozeUntil != null && r.snoozeUntil >= now
+    // Mirrors the Today filter inverted: a dated open instance the Today list
+    // is hiding because it's scheduled past today, snoozed, or the whole task
+    // is snoozed. Someday tasks (null dueAt) are not "upcoming."
+    const upcoming =
+      open !== null &&
+      dueAt !== null &&
+      ((dueAt >= horizon && open.dueKind !== 'week_target') ||
+        (snoozedUntil !== null && snoozedUntil >= now) ||
+        taskSnoozed)
+
+    return {
+      id: r.id,
+      title: r.title,
+      notes: r.notes,
+      difficulty: r.difficulty as Difficulty,
+      xpOverride: r.xpOverride,
+      recurrence: r.recurrence,
+      timeOfDay: r.timeOfDay,
+      categorySlug: r.categorySlug,
+      snoozeUntil: r.snoozeUntil?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      visibility: r.visibility as TaskVisibility,
+      dueKind: r.dueKind as 'hard' | 'week_target',
+      lastCompletedAt: r.lastCompletedAt
+        ? new Date(r.lastCompletedAt).toISOString()
+        : null,
+      hasOpenInstance: open !== null,
+      openInstanceId: open?.id ?? null,
+      nextDueAt: dueAt ? dueAt.toISOString() : null,
+      upcoming,
+    }
+  })
 }
 
 export async function getTask(
@@ -3028,6 +3095,56 @@ export async function deferInstanceToTomorrow(
       deferredUntil: newDueAt.toISOString(),
       xpOverride: newOverride,
     }
+  })
+}
+
+// Pull an upcoming instance into "now" so it shows in Today immediately —
+// e.g. a chore scheduled later this week that you (or a household kid) want
+// to start early. Clears any per-instance snooze and the parent task's
+// snooze, and moves dueAt to now so it clears the Today horizon. For a
+// household free-for-all chore this makes it visible to every member.
+export async function surfaceInstanceNow(
+  userId: string,
+  instanceId: string,
+): Promise<{ dueAt: string }> {
+  if (!instanceId) throw new Error('instanceId required')
+  const now = new Date()
+  const timeZone = await getUserTimeZone(userId)
+  return db.transaction(async (tx) => {
+    const instance = await loadInstanceForLifecycle(tx, userId, instanceId)
+    if (instance.completedAt || instance.skippedAt) {
+      throw new Error('instance already handled')
+    }
+    const task = await tx.query.tasks.findFirst({
+      where: eq(tasks.id, instance.taskId),
+      columns: { timeOfDay: true, timeByWeekday: true },
+    })
+    // Time-sensitive tasks keep their clock time (just moved to today), so the
+    // displayed time — and the next recurrence computed from this dueAt — stay
+    // on the original schedule. "Anytime" tasks just surface at the moment.
+    const newDueAt = task?.timeOfDay
+      ? setTimeInTz(
+          now,
+          resolveTimeOfDay(
+            dayOfWeekInTz(now, timeZone),
+            task.timeOfDay,
+            task.timeByWeekday,
+          ),
+          timeZone,
+        )
+      : now
+    await tx
+      .update(taskInstances)
+      .set({ dueAt: newDueAt, snoozedUntil: null })
+      .where(eq(taskInstances.id, instanceId))
+    // Lift a task-level snooze too, otherwise the Today query still hides it.
+    await tx
+      .update(tasks)
+      .set({ snoozeUntil: null })
+      .where(
+        and(eq(tasks.id, instance.taskId), isNotNull(tasks.snoozeUntil)),
+      )
+    return { dueAt: newDueAt.toISOString() }
   })
 }
 

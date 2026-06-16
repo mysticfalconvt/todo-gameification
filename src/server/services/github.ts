@@ -81,6 +81,8 @@ export interface GithubIntegrationStatus {
   connected: boolean
   externalId: string | null
   pollIntervalMinutes: number
+  trackReviewRequested: boolean
+  trackAssigned: boolean
   lastPolledAt: string | null
   lastPollError: string | null
   tokenExpiresAt: string | null
@@ -211,6 +213,10 @@ async function searchPrs(
 
 export async function fetchReviewRequestedPrs(
   token: string,
+  options: { reviewRequested: boolean; assigned: boolean } = {
+    reviewRequested: true,
+    assigned: true,
+  },
 ): Promise<FetchReviewRequestedResult> {
   // Two separate searches — OR across qualifiers in GitHub's issue-search
   // isn't reliable. Dedupe by prId so a PR that's both assigned-to-you
@@ -218,10 +224,12 @@ export async function fetchReviewRequestedPrs(
   // per-flow id sets so the sync can tell which flow surfaced each PR.
   // Re-instancing a completed task is gated on the assignee flow
   // transitioning false → true; review-requested transitions never
-  // re-instance.
+  // re-instance. A disabled flow is skipped entirely so its PRs neither
+  // create tasks nor count toward presence.
+  const empty = { prs: [] as GithubReviewPr[], tokenExpiresAt: null }
   const [review, assigned] = await Promise.all([
-    searchPrs(token, 'review-requested:@me'),
-    searchPrs(token, 'assignee:@me'),
+    options.reviewRequested ? searchPrs(token, 'review-requested:@me') : empty,
+    options.assigned ? searchPrs(token, 'assignee:@me') : empty,
   ])
   const reviewRequestedIds = new Set(review.prs.map((p) => p.prId))
   const assigneeIds = new Set(assigned.prs.map((p) => p.prId))
@@ -248,6 +256,8 @@ export async function getGithubIntegration(
       connected: false,
       externalId: null,
       pollIntervalMinutes: 5,
+      trackReviewRequested: true,
+      trackAssigned: true,
       lastPolledAt: null,
       lastPollError: null,
       tokenExpiresAt: null,
@@ -257,6 +267,8 @@ export async function getGithubIntegration(
     connected: true,
     externalId: row.externalId,
     pollIntervalMinutes: row.pollIntervalMinutes,
+    trackReviewRequested: row.trackReviewRequested,
+    trackAssigned: row.trackAssigned,
     lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
     lastPollError: row.lastPollError,
     tokenExpiresAt: row.tokenExpiresAt?.toISOString() ?? null,
@@ -338,6 +350,33 @@ export async function updateGithubPollInterval(
   return getGithubIntegration(userId)
 }
 
+export async function updateGithubSyncOptions(
+  userId: string,
+  options: { trackReviewRequested: boolean; trackAssigned: boolean },
+): Promise<GithubIntegrationStatus> {
+  // At least one flow must stay on — otherwise the integration silently
+  // stops surfacing anything, which reads as a bug rather than a choice.
+  if (!options.trackReviewRequested && !options.trackAssigned) {
+    throw new Error('Enable at least one of review-requested or assigned.')
+  }
+  const result = await db
+    .update(userIntegrations)
+    .set({
+      trackReviewRequested: options.trackReviewRequested,
+      trackAssigned: options.trackAssigned,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(userIntegrations.userId, userId),
+        eq(userIntegrations.provider, PROVIDER),
+      ),
+    )
+    .returning({ userId: userIntegrations.userId })
+  if (result.length === 0) throw new Error('not connected')
+  return getGithubIntegration(userId)
+}
+
 export async function removeGithubIntegration(userId: string): Promise<void> {
   await db
     .delete(userIntegrations)
@@ -388,7 +427,10 @@ export async function syncReviewTasksForUser(
   let reviewRequestedRefs = new Set<string>()
   let tokenExpiresAt: Date | null = integration.tokenExpiresAt ?? null
   try {
-    const result = await fetchReviewRequestedPrs(integration.token)
+    const result = await fetchReviewRequestedPrs(integration.token, {
+      reviewRequested: integration.trackReviewRequested,
+      assigned: integration.trackAssigned,
+    })
     prs = result.prs
     assigneeRefs = new Set(
       [...result.assigneeIds].map((id) => `github-pr-${id}`),

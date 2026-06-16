@@ -6,6 +6,7 @@ import {
   deleteTask,
   listAllTasks,
   setTaskCategory,
+  surfaceInstanceNow,
 } from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 import type { Recurrence } from '../../../domain/recurrence'
@@ -32,6 +33,7 @@ const UNCATEGORIZED = '__uncategorized__'
 function AllTasksPage() {
   const qc = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [showUpcomingOnly, setShowUpcomingOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkPending, setBulkPending] = useState(false)
@@ -69,8 +71,24 @@ function AllTasksPage() {
     },
   })
 
+  const surface = useMutation({
+    mutationFn: (instanceId: string) =>
+      surfaceInstanceNow({ data: { instanceId } }),
+    onSuccess: () => {
+      toast.success('Added to Today.')
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['today'] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not add to Today'),
+  })
+
   const tasks = Array.isArray(tasksQuery.data) ? tasksQuery.data : []
   const categories = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
+  const upcomingCount = useMemo(
+    () => tasks.filter((t) => t.upcoming).length,
+    [tasks],
+  )
 
   const catBySlug = useMemo(() => {
     const m = new Map<string, Category>()
@@ -106,6 +124,7 @@ function AllTasksPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const base = tasks.filter((t) => {
+      if (showUpcomingOnly && !t.upcoming) return false
       if (
         selectedCategory === UNCATEGORIZED
           ? t.categorySlug !== null
@@ -117,7 +136,7 @@ function AllTasksPage() {
       return true
     })
     return [...base].sort(compareBy(sortKey))
-  }, [tasks, selectedCategory, sortKey, search])
+  }, [tasks, selectedCategory, showUpcomingOnly, sortKey, search])
 
   // Keep selection in sync with what's actually on screen — if a filter
   // removes a selected row, drop it so the count stays meaningful.
@@ -221,8 +240,24 @@ function AllTasksPage() {
         <SortSelect value={sortKey} options={TASKS_SORTS} onChange={setSortKey} />
       </div>
 
-      {categories.length > 0 ? (
+      {categories.length > 0 || upcomingCount > 0 ? (
         <div className="mb-5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowUpcomingOnly((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              showUpcomingOnly
+                ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+            }`}
+            aria-pressed={showUpcomingOnly}
+          >
+            <span aria-hidden>🗓️</span>
+            Upcoming
+            <span className="text-[10px] opacity-70">{upcomingCount}</span>
+          </button>
+          {categories.length > 0 ? (
+          <>
           <button
             type="button"
             onClick={() => setSelectedCategory(null)}
@@ -238,6 +273,9 @@ function AllTasksPage() {
           {categories.map((c) => {
             const count = categoryCounts.counts.get(c.slug) ?? 0
             const on = selectedCategory === c.slug
+            // Empty categories aren't worth a chip — but keep one visible if
+            // it's the active filter so the user can still clear it.
+            if (count === 0 && !on) return null
             return (
               <button
                 key={c.slug}
@@ -278,6 +316,8 @@ function AllTasksPage() {
                 {categoryCounts.uncategorized}
               </span>
             </button>
+          ) : null}
+          </>
           ) : null}
         </div>
       ) : null}
@@ -332,7 +372,9 @@ function AllTasksPage() {
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : filtered.length === 0 ? (
         <p className="text-[var(--sea-ink-soft)]">
-          {selectedCategory ? (
+          {showUpcomingOnly ? (
+            <>Nothing scheduled for later right now.</>
+          ) : selectedCategory ? (
             <>No tasks in this category.</>
           ) : (
             <>
@@ -415,8 +457,21 @@ function AllTasksPage() {
                     {' • '}
                     {recurrenceLabel(t.recurrence)}
                     {cat ? ` • ${cat.label}` : ''}
+                    {t.upcoming && t.nextDueAt
+                      ? ` • ${upcomingLabel(t.nextDueAt, t.timeOfDay)}`
+                      : ''}
                   </p>
                 </button>
+                {showUpcomingOnly && t.upcoming && t.openInstanceId ? (
+                  <button
+                    type="button"
+                    onClick={() => surface.mutate(t.openInstanceId!)}
+                    disabled={surface.isPending}
+                    className="rounded-full border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.16)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] transition disabled:opacity-60"
+                  >
+                    Show now
+                  </button>
+                ) : null}
                 <Link
                   to="/tasks/$taskId"
                   params={{ taskId: t.id }}
@@ -483,6 +538,25 @@ function recurrenceLabel(r: Recurrence | null) {
       return `Monthly — ${week} ${WEEKDAY_SHORT[r.dayOfWeek] ?? ''}`
     }
   }
+}
+
+// Compact "when is this scheduled" label for upcoming rows. Time is shown
+// only for time-pinned tasks; "anytime" tasks (no timeOfDay) just show the day.
+function upcomingLabel(iso: string, timeOfDay: string | null): string {
+  const d = new Date(iso)
+  const startOfDay = (x: Date) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const dayDiff = Math.round(
+    (startOfDay(d) - startOfDay(new Date())) / 86_400_000,
+  )
+  const time = timeOfDay
+    ? ` ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+    : ''
+  if (dayDiff <= 0) return `Later today${time}`
+  if (dayDiff === 1) return `Tomorrow${time}`
+  if (dayDiff < 7)
+    return `${d.toLocaleDateString(undefined, { weekday: 'long' })}${time}`
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
