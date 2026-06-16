@@ -6,7 +6,7 @@ import {
   createPortalSession,
   getPricingDisplay,
 } from '../services/billing'
-import { getMemberStatus } from '../services/membership'
+import { getEffectiveMemberStatus } from '../services/membership'
 import { authMiddleware } from '../middleware/auth'
 
 // Resolve the public origin for Stripe success/cancel URLs. Prefer the
@@ -53,4 +53,4 @@ export const getPricingDisplayFn = createServerFn({ method: 'GET' }).handler(
 // render upgrade buttons or member content.
 export const getMemberStatusFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .handler(({ context }) => getMemberStatus(context.userId))
+  .handler(({ context }) => getEffectiveMemberStatus(context.userId))

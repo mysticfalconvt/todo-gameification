@@ -12,7 +12,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { db } from '../db/client'
 import { user as userTable, userPrefs, weeklyEmailLog } from '../db/schema'
 import { isEmailConfigured, sendMail } from '../email'
-import { getMemberStatus } from '../services/membership'
+import { getEffectiveMemberStatus } from '../services/membership'
 import {
   generateWeeklyAnalysis,
   getWeeklySummary,
@@ -52,7 +52,7 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
     if (localDow !== SEND_ISO_DOW || localHour !== SEND_HOUR_LOCAL) continue
 
     try {
-      const member = await getMemberStatus(u.id)
+      const member = await getEffectiveMemberStatus(u.id)
       if (!member.isMember) continue
 
       const summary = await getWeeklySummary(u.id)

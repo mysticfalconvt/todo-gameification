@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '../middleware/auth'
-import { getMemberStatus } from '../services/membership'
+import { getEffectiveMemberStatus } from '../services/membership'
 import {
   generateWeeklyAnalysis,
   getWeeklySummary,
@@ -20,7 +20,7 @@ export type WeeklySummaryResponse =
 export const getWeeklySummaryFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<WeeklySummaryResponse> => {
-    const member = await getMemberStatus(context.userId)
+    const member = await getEffectiveMemberStatus(context.userId)
     if (!member.isMember) return { gated: true }
     const summary = await getWeeklySummary(context.userId)
     const analysis = await generateWeeklyAnalysis(context.userId, summary)
@@ -35,7 +35,7 @@ export const regenerateWeeklyAnalysisFn = createServerFn({ method: 'POST' })
     async ({
       context,
     }): Promise<{ analysis: string; generatedAt: string } | null> => {
-      const member = await getMemberStatus(context.userId)
+      const member = await getEffectiveMemberStatus(context.userId)
       if (!member.isMember) throw new Error('Members only.')
       const summary = await getWeeklySummary(context.userId)
       return generateWeeklyAnalysis(context.userId, summary, { force: true })

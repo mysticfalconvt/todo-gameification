@@ -8,7 +8,7 @@ import { and, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { coachSummaries, events, tasks, userPrefs } from '../db/schema'
 import { callLlmChat } from '../llm/client'
-import { getMemberStatus } from './membership'
+import { getEffectiveMemberStatus } from './membership'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
 
@@ -481,7 +481,7 @@ export async function generateCoachSummary(
   const [timeZone, prefs, member] = await Promise.all([
     taskService.getUserTimeZone(userId),
     loadCoachPrefs(userId),
-    getMemberStatus(userId),
+    getEffectiveMemberStatus(userId),
   ])
   // Free tier gets the warm attitude in concise mode only. We do NOT
   // overwrite the user's saved preference — the moment they upgrade,

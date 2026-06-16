@@ -11,6 +11,7 @@ import {
 import { listCategories } from '../../server/functions/categories'
 import { getCoachSummary } from '../../server/functions/coach'
 import { getMemberStatusFn } from '../../server/functions/billing'
+import { getMyHouseholdFn } from '../../server/functions/households'
 import { getProfile } from '../../server/functions/user'
 import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 import type { GardenView } from '../../server/services/garden'
@@ -76,6 +77,14 @@ function TodayPage() {
     queryKey: ['recent-activity'],
     queryFn: () => listRecentActivity(),
   })
+
+  // Kid accounts can't create tasks (the server rejects it and /tasks/new
+  // shows a blocked view), so hide the entry points entirely.
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const isKid = householdQuery.data?.role === 'kid'
 
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
@@ -294,12 +303,14 @@ function TodayPage() {
               : 'flex flex-col items-end gap-2'
           }
         >
-          <Link
-            to="/tasks/new"
-            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
-          >
-            + New
-          </Link>
+          {!isKid && (
+            <Link
+              to="/tasks/new"
+              className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
+            >
+              + New
+            </Link>
+          )}
           <Link
             to="/focus"
             className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"

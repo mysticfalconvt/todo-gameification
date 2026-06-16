@@ -5,7 +5,7 @@ import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { findGame, GAMES } from '../../games/registry'
 import type { GameTier } from '../../games/types'
-import { getMemberStatus } from './membership'
+import { getEffectiveMemberStatus } from './membership'
 import { getUserTimeZone } from './tasks'
 import { checkAndNotifyLowPool } from './wordle'
 
@@ -67,7 +67,7 @@ export async function finishGame(
   // Server-side gate. The arcade UI already hides member-tier games for
   // free users, but a direct API call would otherwise bypass it.
   if (game.tier === 'member') {
-    const status = await getMemberStatus(input.userId)
+    const status = await getEffectiveMemberStatus(input.userId)
     if (!status.isMember) {
       throw new Error('Members only — upgrade to play this game')
     }

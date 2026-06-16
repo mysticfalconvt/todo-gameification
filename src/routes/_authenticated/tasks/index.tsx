@@ -9,6 +9,7 @@ import {
   surfaceInstanceNow,
 } from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
+import { getMyHouseholdFn } from '../../../server/functions/households'
 import type { Recurrence } from '../../../domain/recurrence'
 import { resolveDuration } from '../../../domain/recurrence'
 import { xpLabel } from '../../../lib/xp-label'
@@ -50,6 +51,13 @@ function AllTasksPage() {
     queryKey: ['categories'],
     queryFn: () => listCategories(),
   })
+
+  // Kid accounts can't create tasks, so hide the entry points.
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const isKid = householdQuery.data?.role === 'kid'
 
   const remove = useMutation({
     mutationFn: (taskId: string) => deleteTask({ data: { taskId } }),
@@ -219,12 +227,14 @@ function AllTasksPage() {
         <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
           All tasks
         </h1>
-        <Link
-          to="/tasks/new"
-          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
-        >
-          + New task
-        </Link>
+        {!isKid && (
+          <Link
+            to="/tasks/new"
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+          >
+            + New task
+          </Link>
+        )}
       </div>
 
       <CategoryHistogram />
@@ -377,13 +387,17 @@ function AllTasksPage() {
           ) : selectedCategory ? (
             <>No tasks in this category.</>
           ) : (
-            <>
-              No tasks yet.{' '}
-              <Link to="/tasks/new" className="font-semibold">
-                Create one
-              </Link>
-              .
-            </>
+            isKid ? (
+              <>No tasks yet.</>
+            ) : (
+              <>
+                No tasks yet.{' '}
+                <Link to="/tasks/new" className="font-semibold">
+                  Create one
+                </Link>
+                .
+              </>
+            )
           )}
         </p>
       ) : (

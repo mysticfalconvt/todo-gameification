@@ -18,7 +18,7 @@ import {
   type MembershipTier,
 } from '../../domain/membership'
 import { db } from '../db/client'
-import { events, memberships } from '../db/schema'
+import { events, householdMembers, memberships } from '../db/schema'
 
 // The set of membership.* event types — used both to filter the event
 // log when replaying and to ensure we never persist a non-membership
@@ -50,6 +50,11 @@ export interface MemberStatus {
   cancelAtPeriodEnd: boolean
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
+  // True when isMember is granted not by this user's own subscription but
+  // by belonging to a household where another member pays (the family
+  // case: one parent pays, kids/partners are included). The UI uses this
+  // to show "full access via your household" instead of billing controls.
+  inherited: boolean
 }
 
 function rowToStatus(
@@ -90,9 +95,14 @@ function rowToStatus(
     cancelAtPeriodEnd: state.cancelAtPeriodEnd,
     stripeCustomerId: state.stripeCustomerId,
     stripeSubscriptionId: state.stripeSubscriptionId,
+    inherited: false,
   }
 }
 
+// The user's OWN membership, ignoring any household inheritance. Use this
+// where the question is genuinely "did THIS user pay?" — e.g. the
+// household paywall (`assertAdminIsMember`), which must hold even if a
+// child in the same household pays.
 export async function getMemberStatus(userId: string): Promise<MemberStatus> {
   const row = await db.query.memberships.findFirst({
     where: eq(memberships.userId, userId),
@@ -100,8 +110,47 @@ export async function getMemberStatus(userId: string): Promise<MemberStatus> {
   return rowToStatus(row ?? null)
 }
 
+// Does any OTHER member of this user's household have a real (non-free)
+// membership? Queried directly against the household + membership tables
+// (rather than via the households service) to avoid an import cycle.
+async function householdHasPaidMember(userId: string): Promise<boolean> {
+  const mine = await db.query.householdMembers.findFirst({
+    where: eq(householdMembers.userId, userId),
+    columns: { householdId: true },
+  })
+  if (!mine) return false
+
+  const siblings = await db.query.householdMembers.findMany({
+    where: eq(householdMembers.householdId, mine.householdId),
+    columns: { userId: true },
+  })
+  const otherIds = siblings
+    .map((s) => s.userId)
+    .filter((id) => id !== userId)
+  if (otherIds.length === 0) return false
+
+  const rows = await db.query.memberships.findMany({
+    where: inArray(memberships.userId, otherIds),
+  })
+  return rows.some((row) => rowToStatus(row).isMember)
+}
+
+// Access-control view of membership: the user's own status, OR — if they
+// don't pay themselves but belong to a household where someone does —
+// inherited full access. This is what gates member-only features and
+// drives the upsell banners, so kids/partners in a paid family get the
+// same access as the payer and never see "upgrade" prompts.
+export async function getEffectiveMemberStatus(
+  userId: string,
+): Promise<MemberStatus> {
+  const own = await getMemberStatus(userId)
+  if (own.isMember) return own
+  if (!(await householdHasPaidMember(userId))) return own
+  return { ...own, isMember: true, isTrial: false, inherited: true }
+}
+
 export async function requireMember(userId: string): Promise<MemberStatus> {
-  const s = await getMemberStatus(userId)
+  const s = await getEffectiveMemberStatus(userId)
   if (!s.isMember) {
     throw new Response('Members only', { status: 403 })
   }

@@ -568,7 +568,18 @@ function MembershipSection() {
       <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
         Membership
       </h2>
-      {m.tier === 'lifetime' ? (
+      {m.inherited ? (
+        <div className="space-y-2">
+          <p className="text-base font-semibold text-[var(--sea-ink)]">
+            Full access ✨
+          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            You have full access through your household — the Garden, full
+            arcade, AI Coach personalities, and weekly email are all unlocked.
+            No separate subscription needed.
+          </p>
+        </div>
+      ) : m.tier === 'lifetime' ? (
         <div className="space-y-2">
           <p className="text-base font-semibold text-[var(--sea-ink)]">
             Lifetime ✨
