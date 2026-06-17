@@ -486,7 +486,17 @@ function MembershipUpsellCard() {
     queryKey: ['member-status'],
     queryFn: () => getMemberStatusFn(),
   })
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
   const [open, setOpen] = useState(false)
+
+  // Kid / kiosk accounts can't buy a membership and ride on the household
+  // admin's plan — never show them a pay prompt, regardless of the
+  // household's current payment state.
+  const role = householdQuery.data?.role
+  if (role === 'kid' || role === 'kiosk') return null
 
   const status = memberQuery.data
   if (!status) return null
