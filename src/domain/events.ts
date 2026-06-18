@@ -28,6 +28,13 @@ export type DomainEvent =
       householdId?: string | null
       assignedToUserId?: string | null
       completedAs?: 'personal' | 'assigned' | 'free_for_all'
+      // Game tokens earned by this completion. Non-zero only for kid
+      // recipients (see KID_TOKENS_EVERY_N_COMPLETIONS) — adults earn
+      // tokens from focus sessions, not task completions. Baked into the
+      // payload at write time so replay (`rebuildProgression`) is
+      // deterministic, exactly like `focus.completed.tokensEarned`.
+      // Absent/0 on every adult and personal-task completion.
+      tokensEarned?: number
       occurredAt: Date
     }
   | {
@@ -250,6 +257,13 @@ export const FOCUS_REWARDS_VISIBLE: Record<5 | 10 | 15 | 25 | 50, { tokens: numb
 export function focusRewardsFor(mode: FocusMode) {
   return mode === 'pocket' ? FOCUS_REWARDS_POCKET : FOCUS_REWARDS_VISIBLE
 }
+
+// Kids are less likely to run focus sessions, so they earn arcade tokens
+// from finishing chores instead: one token for every N completions. The
+// award is computed at completion time (the kid's Nth, 2Nth, … chore) and
+// baked into the `task.completed` event's `tokensEarned` field so the
+// event log stays the source of truth on replay.
+export const KID_TOKENS_EVERY_N_COMPLETIONS = 2
 
 // TESTING ONLY — when > 0, every focus session (visible or pocket)
 // runs for this many seconds regardless of the user-chosen duration.

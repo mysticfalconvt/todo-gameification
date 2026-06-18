@@ -171,7 +171,9 @@ export function applyEvent(
         level: levelFor(xp),
         currentStreak,
         longestStreak: Math.max(state.longestStreak, currentStreak),
-        tokens: state.tokens,
+        // Kids earn arcade tokens from completing chores; the amount is
+        // resolved at write time and stored on the event (0 for adults).
+        tokens: state.tokens + (event.tokensEarned ?? 0),
         lastCompletionAt: event.occurredAt,
       }
     }

@@ -10,6 +10,7 @@
 // format, etc.) so any caller gets the same guarantees.
 import {
   and,
+  count,
   desc,
   eq,
   gt,
@@ -51,6 +52,7 @@ import {
   type WeekdayTimes,
 } from '../../domain/time'
 import type { Difficulty, DomainEvent } from '../../domain/events'
+import { KID_TOKENS_EVERY_N_COMPLETIONS } from '../../domain/events'
 import {
   INITIAL_PROGRESSION,
   applyEvent,
@@ -1769,6 +1771,14 @@ export async function approveClaim(
         )
       : null
 
+    // The claimer is the kid, so this is where their chore-completion
+    // tokens accrue (1 every Nth approved chore).
+    const tokensEarned = await kidCompletionTokens(
+      tx,
+      xpRecipientId,
+      instance.householdId,
+    )
+
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
@@ -1781,6 +1791,7 @@ export async function approveClaim(
       householdId: instance.householdId,
       assignedToUserId: instance.assignedToUserId,
       completedAs,
+      tokensEarned,
       occurredAt: now,
     }
     await tx.insert(events).values({
@@ -1797,6 +1808,7 @@ export async function approveClaim(
         householdId: event.householdId ?? null,
         assignedToUserId: event.assignedToUserId ?? null,
         completedAs: event.completedAs,
+        tokensEarned: event.tokensEarned ?? 0,
       },
       occurredAt: now,
     })
@@ -2563,6 +2575,11 @@ async function rebuildProgression(
               ? (p['timeOfDay'] as string)
               : null,
           dueKind: p['dueKind'] === 'week_target' ? 'week_target' : 'hard',
+          // Preserve kid completion-tokens across replay (reopen rebuilds).
+          tokensEarned:
+            typeof p['tokensEarned'] === 'number'
+              ? (p['tokensEarned'] as number)
+              : 0,
           occurredAt,
         },
         { timeZone },
@@ -2727,6 +2744,37 @@ async function rebuildProgression(
         updatedAt: now,
       },
     })
+}
+
+// Kids earn arcade tokens by finishing chores instead of running focus
+// sessions. Returns the tokens this completion grants the recipient: 1 on
+// every KID_TOKENS_EVERY_N_COMPLETIONS-th chore for a kid, 0 for everyone
+// else (adults earn tokens from focus time). Counts the recipient's prior
+// task.completed events — this completion's row is not yet inserted, so the
+// running tally drives the parity. Personal tasks (no household) never earn
+// since only household members carry a 'kid' role.
+async function kidCompletionTokens(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  recipientId: string,
+  householdId: string | null,
+): Promise<number> {
+  if (!householdId) return 0
+  const membership = await tx.query.householdMembers.findFirst({
+    where: and(
+      eq(householdMembers.userId, recipientId),
+      eq(householdMembers.householdId, householdId),
+    ),
+    columns: { role: true },
+  })
+  if (membership?.role !== 'kid') return 0
+  const [row] = await tx
+    .select({ n: count() })
+    .from(events)
+    .where(
+      and(eq(events.userId, recipientId), eq(events.type, 'task.completed')),
+    )
+  const completionNumber = (row?.n ?? 0) + 1
+  return completionNumber % KID_TOKENS_EVERY_N_COMPLETIONS === 0 ? 1 : 0
 }
 
 export async function completeInstance(
@@ -2966,6 +3014,13 @@ export async function completeInstance(
         )
       : null
 
+    // Kid recipients earn an arcade token every Nth completion (adults: 0).
+    const tokensEarned = await kidCompletionTokens(
+      tx,
+      xpRecipientId,
+      instance.householdId,
+    )
+
     const event: DomainEvent = {
       type: 'task.completed',
       taskId: task.id,
@@ -2978,6 +3033,7 @@ export async function completeInstance(
       householdId: instance.householdId,
       assignedToUserId: instance.assignedToUserId,
       completedAs,
+      tokensEarned,
       occurredAt: now,
     }
 
@@ -3000,6 +3056,7 @@ export async function completeInstance(
         householdId: event.householdId ?? null,
         assignedToUserId: event.assignedToUserId ?? null,
         completedAs: event.completedAs,
+        tokensEarned: event.tokensEarned ?? 0,
       },
       occurredAt: now,
     })
