@@ -359,9 +359,9 @@ export async function createTask(
   const now = new Date()
   const timeZone = await getUserTimeZone(userId)
 
-  // Household validation. Kids can't create tasks at all. Members can
-  // assign only to themselves or free-for-all. Admins can assign to any
-  // household member. If householdId is set without assignedToUserId,
+  // Household validation. Kids can't create tasks at all. Any adult
+  // (admin or member) can assign a chore to any household member, a role
+  // group, or free-for-all. If householdId is set without assignedToUserId,
   // it's free-for-all.
   let householdId: string | null = null
   let assignedToUserId: string | null = null
@@ -399,12 +399,9 @@ export async function createTask(
       }
       assigneeGroup = input.assigneeGroup
     } else if (input.rotationStrategy === 'round_robin') {
-      // Round-robin is admin-only because the rotation can route a
-      // chore to anyone in the pool — admins are the only role that
-      // can assign chores to other members anyway.
-      if (mine.role !== 'admin') {
-        throw new Error('Only admins can create round-robin chores.')
-      }
+      // Any adult (admin or member) may set up a round-robin rotation —
+      // same as assigning a chore to a specific person. Kids/kiosk are
+      // already blocked above.
       if (!input.recurrence) {
         throw new Error('Round-robin requires a recurring chore.')
       }
@@ -445,9 +442,9 @@ export async function createTask(
       if (input.assignedToUserId === userId) {
         assignedToUserId = userId
       } else {
-        if (mine.role !== 'admin') {
-          throw new Error('Only admins can assign chores to other members.')
-        }
+        // Any adult (admin or member) may assign a chore to any other
+        // household member. We only validate the assignee actually
+        // belongs to this household.
         const assignee = await db.query.householdMembers.findFirst({
           where: and(
             eq(householdMembers.userId, input.assignedToUserId),
@@ -930,9 +927,8 @@ export async function moveTaskToHousehold(
       if (input.assignedToUserId === userId) {
         assignedToUserId = userId
       } else {
-        if (membership.role !== 'admin') {
-          throw new Error('Only admins can assign moved chores to others.')
-        }
+        // Any adult may assign to any household member (admin-only gate
+        // removed); just validate the assignee is in the household.
         const assignee = await tx.query.householdMembers.findFirst({
           where: and(
             eq(householdMembers.userId, input.assignedToUserId),
@@ -983,11 +979,9 @@ export async function moveTaskToHousehold(
 }
 
 // Change who an existing household chore is assigned to. Mirrors the
-// assignee rules used by createTask / moveTaskToHousehold:
-//   - admins may assign to any household member, a role group, or
-//     free-for-all;
-//   - members (and the chore's creator) may only set themselves,
-//     free-for-all, or a role group — never another specific person.
+// assignee rules used by createTask / moveTaskToHousehold: any adult
+// (admin or member) may assign to any household member, a role group, or
+// free-for-all.
 // Permission to reassign at all: the chore's creator OR a household
 // admin. Round-robin chores are excluded — their assignee is driven by
 // the rotation, so reassigning here would be undone on the next
@@ -1049,9 +1043,8 @@ export async function reassignHouseholdTask(
       if (input.assignedToUserId === userId) {
         assignedToUserId = userId
       } else {
-        if (!isAdmin) {
-          throw new Error('Only admins can assign chores to other members.')
-        }
+        // Any adult may reassign to any household member; just validate
+        // the assignee belongs to this household.
         const assignee = await tx.query.householdMembers.findFirst({
           where: and(
             eq(householdMembers.userId, input.assignedToUserId),

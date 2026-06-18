@@ -173,7 +173,6 @@ function NewTaskPage() {
   })
   const household = householdQuery.data
   const isKid = household?.role === 'kid'
-  const isAdmin = household?.role === 'admin'
 
   const isSomeday = dueKind === 'someday'
   // Week-target tasks are one-off in v1 — disable recurrence when picked.
@@ -276,7 +275,7 @@ function NewTaskPage() {
       // rotationPool[0] as the initial assignee, then cycles per
       // recurrence. Validate the basics up front so the server
       // doesn't reject after a long round-trip.
-      if (isAdmin && rotationStrategy === 'round_robin') {
+      if (rotationStrategy === 'round_robin') {
         if (recurrenceLocked || recurrenceKind === 'none') {
           setError('Round-robin needs a recurring chore.')
           return
@@ -691,10 +690,9 @@ function NewTaskPage() {
             </label>
             {forHousehold ? (
               <div className="mt-3 space-y-3">
-                {/* Round-robin is admin-only and only meaningful for
-                    recurring chores. Otherwise fall back to the fixed
-                    assignee picker. */}
-                {isAdmin && !recurrenceLocked && recurrenceKind !== 'none' ? (
+                {/* Round-robin is only meaningful for recurring chores.
+                    Otherwise fall back to the fixed assignee picker. */}
+                {!recurrenceLocked && recurrenceKind !== 'none' ? (
                   <div
                     className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-1"
                     role="radiogroup"
@@ -719,7 +717,7 @@ function NewTaskPage() {
                   </div>
                 ) : null}
 
-                {isAdmin && rotationStrategy === 'round_robin' ? (
+                {rotationStrategy === 'round_robin' ? (
                   <RotationPoolPicker
                     members={household.members.filter(
                       (m) => m.role !== 'kiosk',
@@ -742,17 +740,14 @@ function NewTaskPage() {
                       {household.members.some((m) => m.role === 'kid') ? (
                         <option value="group:kids">Any kid — no specific person</option>
                       ) : null}
-                      {household.role === 'admin'
-                        ? household.members
-                            .filter((m) => m.role !== 'kiosk')
-                            .map((m) => (
-                              <option key={m.userId} value={m.userId}>
-                                Assign to {m.name} (@{m.handle})
-                              </option>
-                            ))
-                        : (
-                          <option value="self">Assign to me</option>
-                        )}
+                      {/* Any adult may assign to any specific member. */}
+                      {household.members
+                        .filter((m) => m.role !== 'kiosk')
+                        .map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            Assign to {m.name} (@{m.handle})
+                          </option>
+                        ))}
                     </select>
                   </label>
                 )}

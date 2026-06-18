@@ -849,17 +849,14 @@ function EditTaskPage() {
                     <option value="group:kids">Any kid — no specific person</option>
                   ) : null}
                   <option value="self">Assign to me</option>
-                  {myMembershipRole === 'admin'
-                    ? myHousehold.members
-                        .filter(
-                          (m) => m.role !== 'kiosk' && m.userId !== myUserId,
-                        )
-                        .map((m) => (
-                          <option key={m.userId} value={m.userId}>
-                            Assign to {m.name} (@{m.handle})
-                          </option>
-                        ))
-                    : null}
+                  {/* Any adult may assign to any specific member. */}
+                  {myHousehold.members
+                    .filter((m) => m.role !== 'kiosk' && m.userId !== myUserId)
+                    .map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        Assign to {m.name} (@{m.handle})
+                      </option>
+                    ))}
                 </select>
               </label>
               <button
@@ -924,17 +921,16 @@ function EditTaskPage() {
                         <option value="group:kids">Any kid — no specific person</option>
                       ) : null}
                       <option value="self">Assign to me</option>
-                      {myMembershipRole === 'admin'
-                        ? myHousehold.members
-                            .filter(
-                              (m) => m.role !== 'kiosk' && m.userId !== myUserId,
-                            )
-                            .map((m) => (
-                              <option key={m.userId} value={m.userId}>
-                                Assign to {m.name} (@{m.handle})
-                              </option>
-                            ))
-                        : null}
+                      {/* Any adult may assign to any specific member. */}
+                      {myHousehold.members
+                        .filter(
+                          (m) => m.role !== 'kiosk' && m.userId !== myUserId,
+                        )
+                        .map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            Assign to {m.name} (@{m.handle})
+                          </option>
+                        ))}
                     </select>
                   </label>
                   <button
