@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useSession } from '../../../lib/auth-client'
+import { assigneeBarStyle } from '../../../components/household/assigneeBar'
 import {
   acceptInviteFn,
   approveClaimFn,
@@ -435,6 +436,87 @@ function ChoresTab({
   })
   const filteredWeekRows = weekRows.filter(filterChore)
 
+  // Split chores into what's actionable now vs later, so the list can
+  // tuck not-yet-due chores into a collapsible "Upcoming" section (the
+  // same idea as Today's "Later today"). A chore is "upcoming" when its
+  // due time is still in the future — later today or a future day.
+  // Overdue / due-now chores and someday (null-due) chores stay in the
+  // main list.
+  const now = new Date()
+  function isUpcoming(c: { dueAt: string | null }): boolean {
+    return c.dueAt !== null && new Date(c.dueAt) > now
+  }
+  const nowChores = sortedChores.filter((c) => !isUpcoming(c))
+  const upcomingChores = sortedChores.filter(isUpcoming)
+
+  function renderChore(c: (typeof sortedChores)[number]) {
+    const assigneeLabel = c.assignedToName ?? `@${c.assignedToHandle ?? ''}`
+    return (
+      <li
+        key={c.instanceId}
+        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--option-bg)] py-2 pl-4 pr-3"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1"
+          style={assigneeBarStyle(c, members)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium text-[var(--sea-ink)]">
+              {c.title}
+            </span>
+            {c.recurring && (
+              <span className="rounded-full bg-[var(--lagoon-soft)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--lagoon-deep)]">
+                repeats
+              </span>
+            )}
+          </div>
+          <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+            {c.assignedToUserId ? (
+              <span>
+                Assigned to <strong>{assigneeLabel}</strong>
+              </span>
+            ) : c.assigneeGroup === 'adults' ? (
+              <span className="font-semibold text-[var(--lagoon-deep)]">
+                Any adult
+              </span>
+            ) : c.assigneeGroup === 'kids' ? (
+              <span className="font-semibold text-[var(--lagoon-deep)]">
+                Any kid
+              </span>
+            ) : (
+              <span className="font-semibold text-[var(--lagoon-deep)]">
+                Free for all
+              </span>
+            )}
+            {c.dueAt && (
+              <span> · due {new Date(c.dueAt).toLocaleString()}</span>
+            )}
+          </div>
+        </div>
+        {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
+          <button
+            type="button"
+            onClick={() =>
+              clickChore({
+                instanceId: c.instanceId,
+                title: c.title,
+                assignedToUserId: c.assignedToUserId,
+                assignedToHandle: c.assignedToHandle,
+                assignedToName: c.assignedToName,
+              })
+            }
+            disabled={complete.isPending}
+            className="rounded-lg bg-[var(--btn-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
+          >
+            Complete
+          </button>
+        )}
+      </li>
+    )
+  }
+
   // Shared click handler: decides whether to open the credit picker
   // or complete immediately, based on viewer role + assignment.
   function clickChore(c: {
@@ -470,11 +552,20 @@ function ChoresTab({
     }
   }
 
-  function canCompleteChore(assignedToUserId: string | null): boolean {
+  function canCompleteChore(
+    assignedToUserId: string | null,
+    assigneeGroup: 'adults' | 'kids' | null,
+  ): boolean {
     const isMine =
       assignedToUserId !== null && assignedToUserId === viewerUserId
     const isFreeForAll = assignedToUserId === null
-    return viewerRole === 'kid' ? isMine || isFreeForAll : true
+    if (viewerRole === 'kid') {
+      // Kids can complete their own + open chores, but never an
+      // "any adult" chore (the server rejects it too).
+      if (assigneeGroup === 'adults') return false
+      return isMine || isFreeForAll
+    }
+    return true
   }
 
   return (
@@ -567,72 +658,24 @@ function ChoresTab({
             )}
           </section>
         ) : (
-          <section className="island-shell rounded-2xl p-4">
-            <ul className="space-y-2">
-              {sortedChores.map((c) => {
-                const assigneeLabel =
-                  c.assignedToName ?? `@${c.assignedToHandle ?? ''}`
-                const assigneeColor = c.assignedToUserId
-                  ? memberById.get(c.assignedToUserId)?.color ?? null
-                  : null
-                return (
-                  <li
-                    key={c.instanceId}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2"
-                    style={{
-                      borderLeft: `4px solid ${
-                        assigneeColor ?? 'var(--line)'
-                      }`,
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-medium text-[var(--sea-ink)]">
-                          {c.title}
-                        </span>
-                        {c.recurring && (
-                          <span className="rounded-full bg-[var(--lagoon-soft)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--lagoon-deep)]">
-                            repeats
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-                        {c.assignedToUserId ? (
-                          <span>
-                            Assigned to <strong>{assigneeLabel}</strong>
-                          </span>
-                        ) : (
-                          <span className="font-semibold text-[var(--lagoon-deep)]">
-                            Free for all
-                          </span>
-                        )}
-                        {c.dueAt && (
-                          <span> · due {new Date(c.dueAt).toLocaleString()}</span>
-                        )}
-                      </div>
-                    </div>
-                    {canCompleteChore(c.assignedToUserId) && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          clickChore({
-                            instanceId: c.instanceId,
-                            title: c.title,
-                            assignedToUserId: c.assignedToUserId,
-                            assignedToHandle: c.assignedToHandle,
-                            assignedToName: c.assignedToName,
-                          })
-                        }
-                        disabled={complete.isPending}
-                        className="rounded-lg bg-[var(--btn-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
-                      >
-                        Complete
-                      </button>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+          <section className="island-shell space-y-3 rounded-2xl p-4">
+            {nowChores.length > 0 ? (
+              <ul className="space-y-2">{nowChores.map(renderChore)}</ul>
+            ) : (
+              <p className="text-sm text-[var(--sea-ink-soft)]">
+                Nothing due yet — see what&rsquo;s upcoming below.
+              </p>
+            )}
+            {upcomingChores.length > 0 ? (
+              <details className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Upcoming ({upcomingChores.length})
+                </summary>
+                <ul className="mt-3 space-y-2">
+                  {upcomingChores.map(renderChore)}
+                </ul>
+              </details>
+            ) : null}
           </section>
         )
       ) : viewMode === 'week' ? (
@@ -691,6 +734,7 @@ type WeekRow = {
   assignedToUserId: string | null
   assignedToHandle: string | null
   assignedToName: string | null
+  assigneeGroup: 'adults' | 'kids' | null
   recurring: boolean
   completedAt: string | null
   completedByUserId: string | null
@@ -812,6 +856,7 @@ type KanbanChore = {
   assignedToUserId: string | null
   assignedToHandle: string | null
   assignedToName: string | null
+  assigneeGroup: 'adults' | 'kids' | null
   recurring: boolean
 }
 
@@ -837,7 +882,10 @@ function KanbanView({
     assignedToHandle: string | null
     assignedToName: string | null
   }) => void
-  canCompleteChore: (assignedToUserId: string | null) => boolean
+  canCompleteChore: (
+    assignedToUserId: string | null,
+    assigneeGroup: 'adults' | 'kids' | null,
+  ) => boolean
   completePending: boolean
 }) {
   if (isLoading) {
@@ -850,9 +898,19 @@ function KanbanView({
   // reassign or delete from there.
   const byAssignee = new Map<string, KanbanChore[]>()
   byAssignee.set('__ffa__', [])
+  byAssignee.set('__adults__', [])
+  byAssignee.set('__kids__', [])
   for (const m of members) byAssignee.set(m.userId, [])
   for (const c of chores) {
-    const key = c.assignedToUserId ?? '__ffa__'
+    // Group-targeted chores have no specific assignee — bucket them by
+    // their role group; plain free-for-all falls through to __ffa__.
+    const key =
+      c.assignedToUserId ??
+      (c.assigneeGroup === 'adults'
+        ? '__adults__'
+        : c.assigneeGroup === 'kids'
+          ? '__kids__'
+          : '__ffa__')
     const bucket = byAssignee.get(key) ?? []
     bucket.push(c)
     byAssignee.set(key, bucket)
@@ -871,7 +929,9 @@ function KanbanView({
   }
   const orphanIds: string[] = []
   for (const key of byAssignee.keys()) {
-    if (key === '__ffa__') continue
+    if (key === '__ffa__' || key === '__adults__' || key === '__kids__') {
+      continue
+    }
     if (orderedMemberIds.includes(key)) continue
     orphanIds.push(key)
   }
@@ -892,6 +952,28 @@ function KanbanView({
       color: m.color,
       isFFA: false,
       chores: byAssignee.get(id) ?? [],
+    })
+  }
+  // Role-group columns appear only when they hold chores, so households
+  // that never use group assignment don't see empty columns.
+  const adultsChores = byAssignee.get('__adults__') ?? []
+  if (adultsChores.length > 0) {
+    columns.push({
+      key: '__adults__',
+      label: 'Any adult',
+      color: null,
+      isFFA: true,
+      chores: adultsChores,
+    })
+  }
+  const kidsChores = byAssignee.get('__kids__') ?? []
+  if (kidsChores.length > 0) {
+    columns.push({
+      key: '__kids__',
+      label: 'Any kid',
+      color: null,
+      isFFA: true,
+      chores: kidsChores,
     })
   }
   columns.push({
@@ -972,7 +1054,7 @@ function KanbanView({
                             : 'anytime'}
                         </div>
                       </div>
-                      {canCompleteChore(c.assignedToUserId) && (
+                      {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1026,9 +1108,13 @@ function WeekView({
     assignedToHandle: string | null
     assignedToName: string | null
   }) => void
-  canCompleteChore: (assignedToUserId: string | null) => boolean
+  canCompleteChore: (
+    assignedToUserId: string | null,
+    assigneeGroup: 'adults' | 'kids' | null,
+  ) => boolean
   completePending: boolean
 }) {
+  const members = Array.from(memberById.values())
   // Build the 7-day shell from weekStart so empty days still render.
   const days: { iso: string; label: string; weekday: string }[] = []
   for (let i = 0; i < 7; i++) {
@@ -1143,16 +1229,13 @@ function WeekView({
                 ) : (
                   <ul className="space-y-2">
                     {dayRows.map((r) => {
-                      const assigneeColor = r.assignedToUserId
-                        ? memberById.get(r.assignedToUserId)?.color ?? null
-                        : null
                       return (
                         <WeekRowItem
                           key={`${r.taskId}-${r.dueAt}`}
                           row={r}
                           viewerUserId={viewerUserId}
                           memberById={memberById}
-                          assigneeColor={assigneeColor}
+                          barStyle={assigneeBarStyle(r, members)}
                           onClick={onClickChore}
                           canCompleteChore={canCompleteChore}
                           completePending={completePending}
@@ -1174,7 +1257,7 @@ function WeekRowItem({
   row,
   viewerUserId,
   memberById,
-  assigneeColor,
+  barStyle,
   onClick,
   canCompleteChore,
   completePending,
@@ -1182,7 +1265,7 @@ function WeekRowItem({
   row: WeekRow
   viewerUserId: string | undefined
   memberById: Map<string, HouseholdMemberRow>
-  assigneeColor: string | null
+  barStyle: { backgroundColor?: string; backgroundImage?: string }
   onClick: (c: {
     instanceId: string
     title: string
@@ -1190,7 +1273,10 @@ function WeekRowItem({
     assignedToHandle: string | null
     assignedToName: string | null
   }) => void
-  canCompleteChore: (assignedToUserId: string | null) => boolean
+  canCompleteChore: (
+    assignedToUserId: string | null,
+    assigneeGroup: 'adults' | 'kids' | null,
+  ) => boolean
   completePending: boolean
 }) {
   const isProjection = row.instanceId === null
@@ -1215,19 +1301,23 @@ function WeekRowItem({
     !isProjection &&
     !isCompleted &&
     !isSkipped &&
-    canCompleteChore(row.assignedToUserId)
+    canCompleteChore(row.assignedToUserId, row.assigneeGroup)
 
   return (
     <li
-      className={`flex flex-col gap-2 rounded-lg border p-2 ${
+      className={`relative flex flex-col gap-2 overflow-hidden rounded-lg border p-2 pl-3 ${
         isProjection
           ? 'border-dashed border-[var(--line)] bg-transparent opacity-60'
           : isCompleted
             ? 'border-[var(--line)] bg-[var(--option-bg)] opacity-70'
             : 'border-[var(--line)] bg-[var(--surface-strong)]'
       } ${isAssignedToMe && !isCompleted ? 'ring-1 ring-[var(--lagoon-deep)]' : ''}`}
-      style={{ borderLeft: `4px solid ${assigneeColor ?? 'var(--line)'}` }}
     >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-1"
+        style={barStyle}
+      />
       <div className="min-w-0">
         {/* Title wraps freely — week columns get narrow, especially on
             7-col desktop, and truncating short titles ("clear the t…")
@@ -1261,7 +1351,11 @@ function WeekRowItem({
             </>
           ) : (
             <span className="font-semibold text-[var(--lagoon-deep)]">
-              Free for all
+              {row.assigneeGroup === 'adults'
+                ? 'Any adult'
+                : row.assigneeGroup === 'kids'
+                  ? 'Any kid'
+                  : 'Free for all'}
             </span>
           )}
           {isCompleted && completer ? (

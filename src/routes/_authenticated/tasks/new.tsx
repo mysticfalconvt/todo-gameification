@@ -195,6 +195,7 @@ function NewTaskPage() {
       steps?: string[] | null
       householdId?: string | null
       assignedToUserId?: string | null
+      assigneeGroup?: 'adults' | 'kids' | null
       rotationStrategy?: 'fixed' | 'round_robin'
       rotationPool?: string[] | null
     }) => createTask({ data: input }),
@@ -266,6 +267,7 @@ function NewTaskPage() {
       .filter((s) => s.length > 0)
     let householdId: string | null = null
     let assignedToUserId: string | null = null
+    let outgoingAssigneeGroup: 'adults' | 'kids' | null = null
     let outgoingRotationStrategy: 'fixed' | 'round_robin' = 'fixed'
     let outgoingRotationPool: string[] | null = null
     if (forHousehold && household) {
@@ -288,6 +290,11 @@ function NewTaskPage() {
         assignedToUserId = null
       } else if (assignee === 'ffa') {
         assignedToUserId = null
+      } else if (assignee === 'group:adults' || assignee === 'group:kids') {
+        // Group target: free-for-all restricted to a role. No specific
+        // assignee; the server enforces who may complete.
+        assignedToUserId = null
+        outgoingAssigneeGroup = assignee === 'group:adults' ? 'adults' : 'kids'
       } else if (assignee === 'self') {
         // Server treats "no assignee" as free-for-all, so explicitly
         // pin the creator id to make this an assigned chore for them.
@@ -329,6 +336,7 @@ function NewTaskPage() {
       steps: cleanedSteps.length > 0 ? cleanedSteps : null,
       householdId,
       assignedToUserId,
+      assigneeGroup: outgoingAssigneeGroup,
       rotationStrategy: outgoingRotationStrategy,
       rotationPool: outgoingRotationPool,
     })
@@ -730,6 +738,10 @@ function NewTaskPage() {
                       className="field-input"
                     >
                       <option value="ffa">Free for all — anyone can complete</option>
+                      <option value="group:adults">Any adult — no specific person</option>
+                      {household.members.some((m) => m.role === 'kid') ? (
+                        <option value="group:kids">Any kid — no specific person</option>
+                      ) : null}
                       {household.role === 'admin'
                         ? household.members
                             .filter((m) => m.role !== 'kiosk')

@@ -302,6 +302,20 @@
       "when": 1777160000000,
       "tag": "0042_github_sync_options",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1777170000000,
+      "tag": "0043_household_kid_friendships",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1777180000000,
+      "tag": "0044_task_assignee_group",
+      "breakpoints": true
     }
   ]
 }

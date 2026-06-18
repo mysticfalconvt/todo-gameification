@@ -13,6 +13,10 @@ import { getCoachSummary } from '../../server/functions/coach'
 import { getMemberStatusFn } from '../../server/functions/billing'
 import { getMyHouseholdFn } from '../../server/functions/households'
 import { getProfile } from '../../server/functions/user'
+import {
+  assigneeBarStyle,
+  type BarMember,
+} from '../../components/household/assigneeBar'
 import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 import type { GardenView } from '../../server/services/garden'
 import { runOrQueue } from '../../lib/offline-queue'
@@ -85,6 +89,8 @@ function TodayPage() {
     queryFn: () => getMyHouseholdFn(),
   })
   const isKid = householdQuery.data?.role === 'kid'
+  // Members (with colors) for the left-edge color bar on household chores.
+  const householdMembers: BarMember[] = householdQuery.data?.members ?? []
 
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
@@ -368,6 +374,7 @@ function TodayPage() {
         <TodayBuckets
           instances={instances}
           catBySlug={catBySlug}
+          householdMembers={householdMembers}
           onComplete={handleComplete}
           onSnooze={(id) =>
             snooze.mutate({ instanceId: id, hours: 1 })
@@ -642,13 +649,35 @@ function StepsBadge({
   )
 }
 
-function HouseholdBadge({ freeForAll }: { freeForAll: boolean }) {
+function HouseholdBadge({
+  freeForAll,
+  assigneeGroup,
+}: {
+  freeForAll: boolean
+  assigneeGroup?: 'adults' | 'kids' | null
+}) {
+  const label =
+    assigneeGroup === 'adults'
+      ? '🏠 any adult'
+      : assigneeGroup === 'kids'
+        ? '🏠 any kid'
+        : freeForAll
+          ? '🏠 anyone'
+          : '🏠 household'
+  const title =
+    assigneeGroup === 'adults'
+      ? 'Household chore for any adult'
+      : assigneeGroup === 'kids'
+        ? 'Household chore for any kid'
+        : freeForAll
+          ? 'Free-for-all household chore'
+          : 'Household chore'
   return (
     <span
       className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--lagoon-deep)]"
-      title={freeForAll ? 'Free-for-all household chore' : 'Household chore'}
+      title={title}
     >
-      {freeForAll ? '🏠 anyone' : '🏠 household'}
+      {label}
     </span>
   )
 }
@@ -896,6 +925,7 @@ function ActivityStrip({ days }: { days: string[] }) {
 function TodayBuckets({
   instances,
   catBySlug,
+  householdMembers,
   onComplete,
   onSnooze,
   onSkip,
@@ -903,6 +933,7 @@ function TodayBuckets({
 }: {
   instances: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
+  householdMembers: BarMember[]
   onComplete: (inst: TodayInstance) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
@@ -941,6 +972,7 @@ function TodayBuckets({
         <BucketList
           rows={anytime}
           catBySlug={catBySlug}
+          householdMembers={householdMembers}
           onComplete={onComplete}
           onSnooze={onSnooze}
           onSkip={onSkip}
@@ -956,6 +988,7 @@ function TodayBuckets({
           <BucketList
             rows={g.rows}
             catBySlug={catBySlug}
+            householdMembers={householdMembers}
             onComplete={onComplete}
             onSnooze={onSnooze}
             onSkip={onSkip}
@@ -978,6 +1011,7 @@ function TodayBuckets({
                 <BucketList
                   rows={g.rows}
                   catBySlug={catBySlug}
+                  householdMembers={householdMembers}
                   onComplete={onComplete}
                   onSnooze={onSnooze}
                   onSkip={onSkip}
@@ -995,6 +1029,7 @@ function TodayBuckets({
 function BucketList({
   rows,
   catBySlug,
+  householdMembers,
   onComplete,
   onSnooze,
   onSkip,
@@ -1002,6 +1037,7 @@ function BucketList({
 }: {
   rows: TodayInstance[]
   catBySlug: Map<string, { label: string; color: string }>
+  householdMembers: BarMember[]
   onComplete: (inst: TodayInstance) => void
   onSnooze: (instanceId: string) => void
   onSkip: (instanceId: string) => void
@@ -1012,8 +1048,15 @@ function BucketList({
       {rows.map((inst) => (
         <li
           key={inst.instanceId}
-          className="island-shell flex items-center gap-3 rounded-xl p-3"
+          className="island-shell relative flex items-center gap-3 overflow-hidden rounded-xl p-3"
         >
+          {inst.householdId ? (
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-1"
+              style={assigneeBarStyle(inst, householdMembers)}
+            />
+          ) : null}
           <button
             type="button"
             aria-label={`Complete ${inst.title}`}
@@ -1047,7 +1090,10 @@ function BucketList({
                 />
               ) : null}
               {inst.householdId ? (
-                <HouseholdBadge freeForAll={inst.assignedToUserId === null} />
+                <HouseholdBadge
+                  freeForAll={inst.assignedToUserId === null}
+                  assigneeGroup={inst.assigneeGroup}
+                />
               ) : null}
             </p>
             <p className="text-xs text-[var(--sea-ink-soft)]">

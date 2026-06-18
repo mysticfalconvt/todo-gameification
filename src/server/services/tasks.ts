@@ -118,6 +118,11 @@ export interface CreateTaskInput {
   //                       only admins may create round-robin tasks.
   rotationStrategy?: 'fixed' | 'round_robin'
   rotationPool?: string[] | null
+  // Group-targeted free-for-all. 'adults' = any adult may complete;
+  // 'kids' = requested of the kids. Mutually exclusive with
+  // `assignedToUserId` and round-robin. Admins and members may both set
+  // it (kids/kiosk can't create chores at all).
+  assigneeGroup?: 'adults' | 'kids' | null
 }
 
 export interface UpdateTaskInput {
@@ -156,6 +161,7 @@ export interface TodayInstance {
   dueKind: 'hard' | 'week_target'
   householdId: string | null
   assignedToUserId: string | null
+  assigneeGroup: 'adults' | 'kids' | null
 }
 
 export interface SomedayInstance {
@@ -203,6 +209,8 @@ export interface TaskDetail extends TaskSummary {
   timeByWeekday: WeekdayTimes | null
   householdId: string | null
   assignedToUserId: string | null
+  assigneeGroup: 'adults' | 'kids' | null
+  rotationStrategy: 'fixed' | 'round_robin'
 }
 
 export interface ProgressionSummary {
@@ -355,6 +363,7 @@ export async function createTask(
   // it's free-for-all.
   let householdId: string | null = null
   let assignedToUserId: string | null = null
+  let assigneeGroup: 'adults' | 'kids' | null = null
   let rotationStrategy: 'fixed' | 'round_robin' = 'fixed'
   let rotationPool: string[] | null = null
   let lastAssigneeCursor: string | null = null
@@ -372,7 +381,22 @@ export async function createTask(
     }
     householdId = input.householdId
 
-    if (input.rotationStrategy === 'round_robin') {
+    if (input.assigneeGroup) {
+      // Group ("any adult" / "any kid") = a free-for-all restricted to a
+      // role. Admins and members may both set it. Mutually exclusive
+      // with a specific assignee and with round-robin; assignedToUserId
+      // stays null (anyone in the group completes).
+      if (input.assigneeGroup !== 'adults' && input.assigneeGroup !== 'kids') {
+        throw new Error('Invalid assignee group.')
+      }
+      if (input.rotationStrategy === 'round_robin') {
+        throw new Error('Round-robin and group assignment can’t be combined.')
+      }
+      if (input.assignedToUserId) {
+        throw new Error('Pick either a specific person or a group, not both.')
+      }
+      assigneeGroup = input.assigneeGroup
+    } else if (input.rotationStrategy === 'round_robin') {
       // Round-robin is admin-only because the rotation can route a
       // chore to anyone in the pool — admins are the only role that
       // can assign chores to other members anyway.
@@ -439,6 +463,8 @@ export async function createTask(
     throw new Error('assignedToUserId requires a householdId.')
   } else if (input.rotationStrategy === 'round_robin') {
     throw new Error('Round-robin rotation requires a household chore.')
+  } else if (input.assigneeGroup) {
+    throw new Error('Group assignment requires a household chore.')
   }
 
   // A weekday-time map only makes sense alongside a base time; drop it for
@@ -507,6 +533,7 @@ export async function createTask(
         dueKind,
         householdId,
         assignedToUserId,
+        assigneeGroup,
         rotationStrategy,
         rotationPool,
         lastAssigneeCursor,
@@ -522,6 +549,7 @@ export async function createTask(
         dueKind,
         householdId,
         assignedToUserId,
+        assigneeGroup,
       })
       .returning()
 
@@ -724,6 +752,8 @@ export async function getTask(
     hasOpenInstance: !!openInst,
     householdId: row.householdId,
     assignedToUserId: row.assignedToUserId,
+    assigneeGroup: row.assigneeGroup,
+    rotationStrategy: row.rotationStrategy as 'fixed' | 'round_robin',
   }
 }
 
@@ -851,6 +881,7 @@ export async function moveTaskToHousehold(
     taskId: string
     householdId: string
     assignedToUserId?: string | null
+    assigneeGroup?: 'adults' | 'kids' | null
   },
 ): Promise<{ id: string }> {
   if (!input.taskId) throw new Error('taskId required')
@@ -881,7 +912,19 @@ export async function moveTaskToHousehold(
 
     // Resolve assignee. Reuses the createTask rules.
     let assignedToUserId: string | null = null
-    if (input.assignedToUserId) {
+    let assigneeGroup: 'adults' | 'kids' | null = null
+    if (input.assigneeGroup) {
+      // Group ("any adult" / "any kid") — free-for-all within a role.
+      // Admins and members may both set it; mutually exclusive with a
+      // specific assignee.
+      if (input.assigneeGroup !== 'adults' && input.assigneeGroup !== 'kids') {
+        throw new Error('Invalid assignee group.')
+      }
+      if (input.assignedToUserId) {
+        throw new Error('Pick either a specific person or a group, not both.')
+      }
+      assigneeGroup = input.assigneeGroup
+    } else if (input.assignedToUserId) {
       if (input.assignedToUserId === userId) {
         assignedToUserId = userId
       } else {
@@ -908,6 +951,7 @@ export async function moveTaskToHousehold(
       .set({
         householdId: input.householdId,
         assignedToUserId,
+        assigneeGroup,
         updatedAt: now,
       })
       .where(eq(tasks.id, task.id))
@@ -922,7 +966,114 @@ export async function moveTaskToHousehold(
       .set({
         householdId: input.householdId,
         assignedToUserId,
+        assigneeGroup,
       })
+      .where(
+        and(
+          eq(taskInstances.taskId, task.id),
+          isNull(taskInstances.completedAt),
+          isNull(taskInstances.skippedAt),
+        ),
+      )
+
+    return { id: task.id }
+  })
+}
+
+// Change who an existing household chore is assigned to. Mirrors the
+// assignee rules used by createTask / moveTaskToHousehold:
+//   - admins may assign to any household member, a role group, or
+//     free-for-all;
+//   - members (and the chore's creator) may only set themselves,
+//     free-for-all, or a role group — never another specific person.
+// Permission to reassign at all: the chore's creator OR a household
+// admin. Round-robin chores are excluded — their assignee is driven by
+// the rotation, so reassigning here would be undone on the next
+// recurrence.
+export async function reassignHouseholdTask(
+  userId: string,
+  input: {
+    taskId: string
+    assignedToUserId?: string | null
+    assigneeGroup?: 'adults' | 'kids' | null
+  },
+): Promise<{ id: string }> {
+  if (!input.taskId) throw new Error('taskId required')
+
+  return db.transaction(async (tx) => {
+    const task = await tx.query.tasks.findFirst({
+      where: eq(tasks.id, input.taskId),
+    })
+    if (!task) throw new Error('task not found')
+    if (!task.householdId) {
+      throw new Error('That task is not a household chore.')
+    }
+    if (task.rotationStrategy === 'round_robin') {
+      throw new Error(
+        'Round-robin chores rotate automatically and can’t be reassigned here.',
+      )
+    }
+
+    const membership = await tx.query.householdMembers.findFirst({
+      where: and(
+        eq(householdMembers.userId, userId),
+        eq(householdMembers.householdId, task.householdId),
+      ),
+      columns: { role: true },
+    })
+    if (!membership) {
+      throw new Error('You are not a member of this household.')
+    }
+    const isCreator = task.userId === userId
+    const isAdmin = membership.role === 'admin'
+    if (!isCreator && !isAdmin) {
+      throw new Error(
+        'Only the chore’s creator or a household admin can reassign it.',
+      )
+    }
+
+    // Resolve the new assignment. Same rules as createTask.
+    let assignedToUserId: string | null = null
+    let assigneeGroup: 'adults' | 'kids' | null = null
+    if (input.assigneeGroup) {
+      if (input.assigneeGroup !== 'adults' && input.assigneeGroup !== 'kids') {
+        throw new Error('Invalid assignee group.')
+      }
+      if (input.assignedToUserId) {
+        throw new Error('Pick either a specific person or a group, not both.')
+      }
+      assigneeGroup = input.assigneeGroup
+    } else if (input.assignedToUserId) {
+      if (input.assignedToUserId === userId) {
+        assignedToUserId = userId
+      } else {
+        if (!isAdmin) {
+          throw new Error('Only admins can assign chores to other members.')
+        }
+        const assignee = await tx.query.householdMembers.findFirst({
+          where: and(
+            eq(householdMembers.userId, input.assignedToUserId),
+            eq(householdMembers.householdId, task.householdId),
+          ),
+          columns: { userId: true },
+        })
+        if (!assignee) {
+          throw new Error('Assignee is not a member of this household.')
+        }
+        assignedToUserId = input.assignedToUserId
+      }
+    }
+
+    await tx
+      .update(tasks)
+      .set({ assignedToUserId, assigneeGroup, updatedAt: new Date() })
+      .where(eq(tasks.id, task.id))
+
+    // Mirror onto every open instance so the change shows up immediately
+    // in today / household views. Closed instances stay as history.
+    await tx
+      .update(taskInstances)
+      .set({ assignedToUserId, assigneeGroup })
       .where(
         and(
           eq(taskInstances.taskId, task.id),
@@ -1228,18 +1379,29 @@ export async function listTodayInstances(
   const myMembership = mergePref
     ? await db.query.householdMembers.findFirst({
         where: eq(householdMembers.userId, userId),
-        columns: { householdId: true },
+        columns: { householdId: true, role: true },
       })
     : null
+  // Unassigned household chores (specific assignee is null) show to the
+  // viewer when the chore's group is open to their role: plain
+  // free-for-all and "any kid" chores show to everyone; "any adult"
+  // chores are hidden from kids (who also can't complete them).
+  const openToMe =
+    myMembership?.role === 'kid'
+      ? and(
+          isNull(taskInstances.assignedToUserId),
+          or(
+            isNull(taskInstances.assigneeGroup),
+            eq(taskInstances.assigneeGroup, 'kids'),
+          ),
+        )
+      : isNull(taskInstances.assignedToUserId)
   const visibility = myMembership
     ? or(
         and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId)),
         and(
           eq(taskInstances.householdId, myMembership.householdId),
-          or(
-            eq(taskInstances.assignedToUserId, userId),
-            isNull(taskInstances.assignedToUserId),
-          ),
+          or(eq(taskInstances.assignedToUserId, userId), openToMe),
         ),
       )
     : and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId))
@@ -1260,6 +1422,7 @@ export async function listTodayInstances(
       createdAt: tasks.createdAt,
       householdId: taskInstances.householdId,
       assignedToUserId: taskInstances.assignedToUserId,
+      assigneeGroup: taskInstances.assigneeGroup,
     })
     .from(taskInstances)
     .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
@@ -1312,6 +1475,7 @@ export async function listTodayInstances(
     dueKind: r.dueKind as 'hard' | 'week_target',
     householdId: r.householdId,
     assignedToUserId: r.assignedToUserId,
+    assigneeGroup: r.assigneeGroup as 'adults' | 'kids' | null,
   }))
 }
 
@@ -1326,6 +1490,7 @@ export interface HouseholdChoreRow {
   assignedToUserId: string | null
   assignedToHandle: string | null
   assignedToName: string | null
+  assigneeGroup: 'adults' | 'kids' | null
   createdByUserId: string
   categorySlug: string | null
   recurring: boolean
@@ -1361,6 +1526,7 @@ export async function listHouseholdChores(
       assignedToUserId: taskInstances.assignedToUserId,
       assignedToHandle: userTable.handle,
       assignedToName: userTable.name,
+      assigneeGroup: taskInstances.assigneeGroup,
       createdByUserId: tasks.userId,
       categorySlug: tasks.categorySlug,
       recurrence: tasks.recurrence,
@@ -1392,6 +1558,7 @@ export async function listHouseholdChores(
     assignedToUserId: r.assignedToUserId,
     assignedToHandle: r.assignedToHandle,
     assignedToName: r.assignedToName,
+    assigneeGroup: r.assigneeGroup as 'adults' | 'kids' | null,
     createdByUserId: r.createdByUserId,
     categorySlug: r.categorySlug,
     recurring: r.recurrence !== null,
@@ -1694,6 +1861,7 @@ export async function approveClaim(
           snoozedUntil,
           householdId: task.householdId,
           assignedToUserId: nextAssignee,
+          assigneeGroup: task.assigneeGroup,
         })
         .returning()
       materialized = { instanceId: inst.id, dueAt: nextDue }
@@ -1789,6 +1957,7 @@ export interface WeekChoreOccurrence {
   assignedToUserId: string | null
   assignedToHandle: string | null
   assignedToName: string | null
+  assigneeGroup: 'adults' | 'kids' | null
   recurring: boolean
   // null for projections and open instances; set to the completer's id
   // for instances that were already done in-window.
@@ -1837,6 +2006,7 @@ export async function listHouseholdChoresWeek(
       timeByWeekday: tasks.timeByWeekday,
       recurrence: tasks.recurrence,
       assignedToUserId: tasks.assignedToUserId,
+      assigneeGroup: tasks.assigneeGroup,
     })
     .from(tasks)
     .where(
@@ -1935,6 +2105,7 @@ export async function listHouseholdChoresWeek(
       assignedToUserId: assigneeId,
       assignedToHandle: assignee?.handle ?? null,
       assignedToName: assignee?.name ?? null,
+      assigneeGroup: t.assigneeGroup,
       recurring: t.recurrence !== null,
       completedAt: inst.completedAt?.toISOString() ?? null,
       completedByUserId: inst.completedByUserId,
@@ -2093,6 +2264,7 @@ function buildProjection(
     timeOfDay: string | null
     recurrence: Recurrence | null
     assignedToUserId: string | null
+    assigneeGroup: 'adults' | 'kids' | null
   },
   dueAt: Date,
   assigneeById: Map<string, { id: string; handle: string; name: string }>,
@@ -2113,6 +2285,7 @@ function buildProjection(
     assignedToUserId: t.assignedToUserId,
     assignedToHandle: assignee?.handle ?? null,
     assignedToName: assignee?.name ?? null,
+    assigneeGroup: t.assigneeGroup,
     recurring: t.recurrence !== null,
     completedAt: null,
     completedByUserId: null,
@@ -2609,6 +2782,13 @@ export async function completeInstance(
         columns: { role: true },
       })
       if (!membership) throw new Error('not a household member')
+      // Group-targeted chores are a free-for-all restricted to a role.
+      // An "any adult" chore is off-limits to kids; an "any kid" chore
+      // stays open to everyone (a kid completes via the claim queue
+      // below; an adult may still complete on a kid's behalf).
+      if (instance.assigneeGroup === 'adults' && membership.role === 'kid') {
+        throw new Error('This chore is for adults.')
+      }
       const isAssigneeOrFFA =
         !instance.assignedToUserId ||
         instance.assignedToUserId === userId
@@ -2897,6 +3077,7 @@ export async function completeInstance(
           snoozedUntil,
           householdId: task.householdId,
           assignedToUserId: nextAssignee,
+          assigneeGroup: task.assigneeGroup,
         })
         .returning()
       materialized = { instanceId: inst.id, dueAt: nextDue }
@@ -3023,6 +3204,7 @@ export async function skipInstance(
           snoozedUntil,
           householdId: task.householdId,
           assignedToUserId: nextAssignee,
+          assigneeGroup: task.assigneeGroup,
         })
         .returning()
       materialized = { instanceId: inst.id, dueAt: nextDue }

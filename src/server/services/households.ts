@@ -21,7 +21,7 @@ import {
   normalizeHandle,
 } from './handles'
 import { getMemberStatus } from './membership'
-import { areFriends } from './social'
+import { areFriends, ensureAcceptedFriendship } from './social'
 
 export type Role = 'admin' | 'member' | 'kid' | 'kiosk'
 
@@ -229,6 +229,31 @@ export async function listHouseholdMembers(
   }))
 }
 
+// Kids are auto-friended with the rest of their household so they show
+// up on family surfaces (leaderboard, activity, friends list) without
+// going through the friend-request flow — which is blocked for kids.
+// Idempotent: for every pair of members where at least one side is a
+// kid, ensure an accepted friendship exists. Kiosk accounts are
+// excluded — a kiosk is a shared device, not a person. Best-effort:
+// called after membership changes; safe to call repeatedly.
+export async function syncHouseholdKidFriendships(
+  householdId: string,
+): Promise<void> {
+  const members = await db
+    .select({ userId: householdMembers.userId, role: householdMembers.role })
+    .from(householdMembers)
+    .where(eq(householdMembers.householdId, householdId))
+  const eligible = members.filter((m) => m.role !== 'kiosk')
+  for (let i = 0; i < eligible.length; i++) {
+    for (let j = i + 1; j < eligible.length; j++) {
+      const a = eligible[i]
+      const b = eligible[j]
+      if (a.role !== 'kid' && b.role !== 'kid') continue
+      await ensureAcceptedFriendship(a.userId, b.userId)
+    }
+  }
+}
+
 // Update one member's color. Permission: the member themselves OR a
 // household admin. Color must be a 6-digit hex string (#rrggbb).
 export async function updateMemberColor(
@@ -390,7 +415,7 @@ export async function acceptInvite(
   userId: string,
   inviteId: string,
 ): Promise<{ householdId: string }> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const invite = await tx.query.householdInvites.findFirst({
       where: and(
         eq(householdInvites.id, inviteId),
@@ -441,6 +466,11 @@ export async function acceptInvite(
       .where(eq(householdInvites.id, inviteId))
     return { householdId: invite.householdId }
   })
+  // Wire up auto-friendships once the membership row is committed. A kid
+  // joining (or a member joining a household that already has kids) gets
+  // auto-friended with the family.
+  await syncHouseholdKidFriendships(result.householdId)
+  return result
 }
 
 export async function declineInvite(
@@ -598,6 +628,12 @@ export async function changeRole(
         eq(householdMembers.userId, targetUserId),
       ),
     )
+  // Promoting someone to kid should auto-friend them with the family.
+  // (Demotions don't tear friendships down — leaving stale auto-friend
+  // edges is harmless and avoids clobbering anything intentional.)
+  if (role === 'kid') {
+    await syncHouseholdKidFriendships(m.householdId)
+  }
 }
 
 export async function renameHousehold(
@@ -765,6 +801,10 @@ export async function createManagedMember(
     payload: { householdId, role: input.role },
     occurredAt: new Date(),
   })
+
+  // A newly-provisioned kid is auto-friended with the rest of the
+  // household. (Kiosk accounts are excluded inside the helper.)
+  await syncHouseholdKidFriendships(householdId)
 
   return {
     userId,

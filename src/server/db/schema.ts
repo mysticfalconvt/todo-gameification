@@ -144,6 +144,14 @@ export const tasks = pgTable('tasks', {
   assignedToUserId: text('assigned_to_user_id').references(() => user.id, {
     onDelete: 'set null',
   }),
+  // Group-targeted chore: a free-for-all restricted to a role.
+  //   'adults' — any adult (admin/member) may complete; kids cannot.
+  //   'kids'   — requested of the kids (a kid completes via the claim
+  //              queue; an adult may still mark it done on a kid's behalf).
+  // Mutually exclusive with a specific `assignedToUserId` and with
+  // round-robin. Null = no group (specific assignee, or plain
+  // free-for-all when assignedToUserId is also null).
+  assigneeGroup: text('assignee_group', { enum: ['adults', 'kids'] }),
   // Rotation for recurring chores. 'fixed' = stick to assignedToUserId
   // across recurrences (default). 'round_robin' = cycle through
   // rotationPool; the next materialization picks the user immediately
@@ -188,6 +196,10 @@ export const taskInstances = pgTable(
     // events to delete, which user's progression to rebuild).
     householdId: uuid('household_id'),
     assignedToUserId: text('assigned_to_user_id'),
+    // Mirrors tasks.assignee_group; carried on the instance so the
+    // completion gate and today/chore queries don't have to join the
+    // parent task. See tasks.assignee_group for semantics.
+    assigneeGroup: text('assignee_group', { enum: ['adults', 'kids'] }),
     completedByUserId: text('completed_by_user_id'),
     // Pending-approval state. When a kid (or future kiosk user) marks
     // a chore done, we stamp claimedAt + claimedByUserId instead of

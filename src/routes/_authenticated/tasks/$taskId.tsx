@@ -10,6 +10,7 @@ import {
   deleteTask,
   getTask,
   moveTaskToHousehold,
+  reassignHouseholdTask,
   reanalyzeTask,
   reopenLastCompletion,
   repeatTask,
@@ -320,16 +321,21 @@ function EditTaskPage() {
     myMembershipRole !== 'kid' &&
     myMembershipRole !== 'kiosk'
 
-  // Sentinels: 'ffa' = free-for-all (null), 'self' = me, else a member userId.
+  // Sentinels: 'ffa' = free-for-all (null), 'self' = me,
+  // 'group:adults' / 'group:kids' = role group, else a member userId.
   const [moveAssigneeChoice, setMoveAssigneeChoice] = useState<string>('ffa')
 
   const moveToHousehold = useMutation({
-    mutationFn: (input: { assignedToUserId: string | null }) =>
+    mutationFn: (input: {
+      assignedToUserId: string | null
+      assigneeGroup: 'adults' | 'kids' | null
+    }) =>
       moveTaskToHousehold({
         data: {
           taskId,
           householdId: myHousehold!.household.id,
           assignedToUserId: input.assignedToUserId,
+          assigneeGroup: input.assigneeGroup,
         },
       }),
     onSuccess: async () => {
@@ -343,6 +349,46 @@ function EditTaskPage() {
     onError: (err) => {
       toast.error(
         err instanceof Error ? err.message : 'Failed to move to household',
+      )
+    },
+  })
+
+  // Reassign an existing household chore. Same sentinel scheme as the
+  // move picker. Seeded from the task's current assignment below.
+  const [reassignChoice, setReassignChoice] = useState<string>('ffa')
+  useEffect(() => {
+    const t = taskQuery.data
+    if (!t || !t.householdId) return
+    if (t.assigneeGroup === 'adults') setReassignChoice('group:adults')
+    else if (t.assigneeGroup === 'kids') setReassignChoice('group:kids')
+    else if (t.assignedToUserId === null) setReassignChoice('ffa')
+    else if (t.assignedToUserId === myUserId) setReassignChoice('self')
+    else setReassignChoice(t.assignedToUserId)
+  }, [taskQuery.data, myUserId])
+
+  const reassign = useMutation({
+    mutationFn: (input: {
+      assignedToUserId: string | null
+      assigneeGroup: 'adults' | 'kids' | null
+    }) =>
+      reassignHouseholdTask({
+        data: {
+          taskId,
+          assignedToUserId: input.assignedToUserId,
+          assigneeGroup: input.assigneeGroup,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success('Assignee updated.')
+      await qc.invalidateQueries({ queryKey: ['task', taskId] })
+      await qc.invalidateQueries({ queryKey: ['tasks'] })
+      await qc.invalidateQueries({ queryKey: ['today'] })
+      await qc.invalidateQueries({ queryKey: ['household-chores'] })
+      await qc.invalidateQueries({ queryKey: ['household-chores-week'] })
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to update assignee',
       )
     },
   })
@@ -798,6 +844,10 @@ function EditTaskPage() {
                   className="field-input"
                 >
                   <option value="ffa">Free-for-all — anyone can complete</option>
+                  <option value="group:adults">Any adult — no specific person</option>
+                  {myHousehold.members.some((m) => m.role === 'kid') ? (
+                    <option value="group:kids">Any kid — no specific person</option>
+                  ) : null}
                   <option value="self">Assign to me</option>
                   {myMembershipRole === 'admin'
                     ? myHousehold.members
@@ -816,14 +866,21 @@ function EditTaskPage() {
                 type="button"
                 onClick={() => {
                   let assignedToUserId: string | null = null
+                  let assigneeGroup: 'adults' | 'kids' | null = null
                   if (moveAssigneeChoice === 'ffa') {
                     assignedToUserId = null
+                  } else if (
+                    moveAssigneeChoice === 'group:adults' ||
+                    moveAssigneeChoice === 'group:kids'
+                  ) {
+                    assigneeGroup =
+                      moveAssigneeChoice === 'group:adults' ? 'adults' : 'kids'
                   } else if (moveAssigneeChoice === 'self') {
                     assignedToUserId = myUserId
                   } else {
                     assignedToUserId = moveAssigneeChoice
                   }
-                  moveToHousehold.mutate({ assignedToUserId })
+                  moveToHousehold.mutate({ assignedToUserId, assigneeGroup })
                 }}
                 disabled={moveToHousehold.isPending}
                 className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
@@ -837,15 +894,92 @@ function EditTaskPage() {
         {task.householdId ? (
           <fieldset className="rounded-xl border border-[var(--line)] p-3">
             <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Household
+              Household chore
             </legend>
-            <p className="text-sm text-[var(--sea-ink-soft)]">
-              This task lives in your household. Manage it from the{' '}
-              <a href="/household" className="underline">
-                household page
-              </a>
-              .
-            </p>
+            {task.rotationStrategy === 'round_robin' ? (
+              <p className="text-sm text-[var(--sea-ink-soft)]">
+                This chore rotates automatically through its round-robin
+                pool, so it can&rsquo;t be reassigned to one person here.
+              </p>
+            ) : myHousehold &&
+              myHousehold.household.id === task.householdId ? (
+              <>
+                <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
+                  Change who&rsquo;s responsible for this chore. New
+                  completions count toward whoever does it.
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                      Assignee
+                    </span>
+                    <select
+                      value={reassignChoice}
+                      onChange={(e) => setReassignChoice(e.target.value)}
+                      className="field-input"
+                    >
+                      <option value="ffa">Free-for-all — anyone can complete</option>
+                      <option value="group:adults">Any adult — no specific person</option>
+                      {myHousehold.members.some((m) => m.role === 'kid') ? (
+                        <option value="group:kids">Any kid — no specific person</option>
+                      ) : null}
+                      <option value="self">Assign to me</option>
+                      {myMembershipRole === 'admin'
+                        ? myHousehold.members
+                            .filter(
+                              (m) => m.role !== 'kiosk' && m.userId !== myUserId,
+                            )
+                            .map((m) => (
+                              <option key={m.userId} value={m.userId}>
+                                Assign to {m.name} (@{m.handle})
+                              </option>
+                            ))
+                        : null}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      let assignedToUserId: string | null = null
+                      let assigneeGroup: 'adults' | 'kids' | null = null
+                      if (reassignChoice === 'ffa') {
+                        assignedToUserId = null
+                      } else if (
+                        reassignChoice === 'group:adults' ||
+                        reassignChoice === 'group:kids'
+                      ) {
+                        assigneeGroup =
+                          reassignChoice === 'group:adults' ? 'adults' : 'kids'
+                      } else if (reassignChoice === 'self') {
+                        assignedToUserId = myUserId
+                      } else {
+                        assignedToUserId = reassignChoice
+                      }
+                      reassign.mutate({ assignedToUserId, assigneeGroup })
+                    }}
+                    disabled={reassign.isPending}
+                    className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+                  >
+                    {reassign.isPending ? 'Updating…' : 'Update assignee'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+                  More options on the{' '}
+                  <a href="/household" className="underline">
+                    household page
+                  </a>
+                  .
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-[var(--sea-ink-soft)]">
+                This task lives in your household. Manage it from the{' '}
+                <a href="/household" className="underline">
+                  household page
+                </a>
+                .
+              </p>
+            )}
           </fieldset>
         ) : null}
 

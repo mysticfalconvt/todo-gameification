@@ -1,7 +1,7 @@
 // Friendship + privacy core. Server functions in src/server/functions/social.ts
 // wrap these so business logic stays testable and reusable for leaderboard /
 // activity services that also need the privacy gate.
-import { and, desc, eq, gt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   events,
@@ -198,6 +198,32 @@ async function findFriendshipEitherDirection(
   return rows[0] ?? null
 }
 
+// Idempotently create an *accepted* friendship between two users in
+// either direction. Used to auto-friend household kids with their
+// family — kids can't use the request flow, so we wire the edges
+// directly. No XP is awarded and no push fires: these aren't earned
+// social connections, just household plumbing so kids appear on family
+// surfaces (leaderboard, activity). No-op if any friendship row
+// (pending / accepted / blocked) already exists in either direction, so
+// an existing real friendship or a block is never clobbered.
+export async function ensureAcceptedFriendship(
+  a: string,
+  b: string,
+): Promise<void> {
+  if (a === b) return
+  const existing = await findFriendshipEitherDirection(a, b)
+  if (existing) return
+  await db
+    .insert(friendships)
+    .values({
+      requesterId: a,
+      addresseeId: b,
+      status: 'accepted',
+      respondedAt: new Date(),
+    })
+    .onConflictDoNothing()
+}
+
 export interface SendRequestResult {
   status: 'sent' | 'accepted' | 'already_pending' | 'already_friends'
   otherUserId: string
@@ -211,15 +237,21 @@ export async function sendFriendRequest(
   if (!target) throw new Error('No user with that handle.')
   if (target.id === meId) throw new Error("You can't friend yourself.")
 
-  // Block friending managed accounts (kid/kiosk). They're a household-
-  // internal concept; the friend system is between real adult users.
-  // Generic error to avoid leaking that the handle is a managed account.
-  const targetMembership = await db
-    .select({ role: householdMembers.role })
+  // The friend system is between real adult users. Managed accounts
+  // (kid/kiosk) are a household-internal concept: they can't *send*
+  // requests and can't *be* targeted. Kids are auto-friended with their
+  // household instead (see syncHouseholdKidFriendships in households.ts).
+  // Fetch both sides' roles in one query. Generic errors avoid leaking
+  // that a handle belongs to a managed account.
+  const roles = await db
+    .select({ userId: householdMembers.userId, role: householdMembers.role })
     .from(householdMembers)
-    .where(eq(householdMembers.userId, target.id))
-    .limit(1)
-  const targetRole = targetMembership[0]?.role
+    .where(inArray(householdMembers.userId, [meId, target.id]))
+  const myRole = roles.find((r) => r.userId === meId)?.role
+  const targetRole = roles.find((r) => r.userId === target.id)?.role
+  if (myRole === 'kid' || myRole === 'kiosk') {
+    throw new Error("Managed accounts can't send friend requests.")
+  }
   if (targetRole === 'kid' || targetRole === 'kiosk') {
     throw new Error('Unable to send a request to this user.')
   }

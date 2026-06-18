@@ -117,10 +117,24 @@ export const moveTaskToHousehold = createServerFn({ method: 'POST' })
       taskId: string
       householdId: string
       assignedToUserId?: string | null
+      assigneeGroup?: 'adults' | 'kids' | null
     }) => data,
   )
   .handler(({ data, context }) =>
     service.moveTaskToHousehold(context.userId, data),
+  )
+
+export const reassignHouseholdTask = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: {
+      taskId: string
+      assignedToUserId?: string | null
+      assigneeGroup?: 'adults' | 'kids' | null
+    }) => data,
+  )
+  .handler(({ data, context }) =>
+    service.reassignHouseholdTask(context.userId, data),
   )
 
 export const reopenLastCompletion = createServerFn({ method: 'POST' })
