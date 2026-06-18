@@ -1,4 +1,5 @@
 import type { GameDefinition } from './types'
+import { boggle } from './boggle'
 import { memoryFlip } from './memory-flip'
 import { slidingPuzzle } from './sliding-puzzle'
 import { sudoku } from './sudoku'
@@ -13,6 +14,7 @@ export const GAMES: readonly GameDefinition[] = [
   slidingPuzzle,
   wordSearch,
   sudoku,
+  boggle,
 ]
 
 export function findGame(id: string): GameDefinition | null {

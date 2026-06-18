@@ -14,6 +14,7 @@ import { db } from '../db/client'
 import {
   events,
   friendships,
+  householdMembers,
   user as userTable,
   userPrefs,
 } from '../db/schema'
@@ -35,6 +36,7 @@ const SCORE_DIRECTION: Record<string, 'lower' | 'higher'> = {
   sudoku: 'lower',
   'sudoku:easy': 'lower',
   'sudoku:hard': 'lower',
+  boggle: 'higher',
 }
 
 // Most games only have a meaningful score on a win — losing Wordle by
@@ -51,6 +53,7 @@ const SCORE_NEEDS_WIN: Record<string, boolean> = {
   sudoku: true,
   'sudoku:easy': true,
   'sudoku:hard': true,
+  boggle: false,
 }
 
 function scoreCounts(gameId: string, won: boolean): boolean {
@@ -79,6 +82,18 @@ export interface FriendBest {
   name: string
   bestScore: number
   bestAt: string
+}
+
+// One ranked row in a per-game leaderboard. Includes the viewer (isViewer),
+// every visible friend, and every household member (households bypass the
+// friend privacy filter — see loadHouseholdMembers).
+export interface LeaderboardEntry {
+  userId: string
+  handle: string
+  name: string
+  bestScore: number
+  bestAt: string
+  isViewer: boolean
 }
 
 export interface WordleDetails {
@@ -110,6 +125,9 @@ export interface SudokuDetails {
 export interface ArcadeStats {
   personal: PersonalGameStats[]
   friendBests: FriendBest[]
+  // Full ranked leaderboard per (synthetic) gameId: viewer + friends +
+  // household, best-first. Keyed by gameId, plus `sudoku:easy`/`sudoku:hard`.
+  leaderboards: Record<string, LeaderboardEntry[]>
   wordle: WordleDetails | null
   sudoku: SudokuDetails | null
 }
@@ -217,6 +235,33 @@ async function loadVisibleFriends(viewerId: string): Promise<FriendCandidate[]> 
     .map((r) => ({ id: r.id, handle: r.handle, name: r.name }))
 }
 
+// Household members (excluding the viewer and shared kiosk devices). Unlike
+// the friends list, this intentionally IGNORES profileVisibility /
+// shareProgression — a household is a tighter shared circle, so members
+// always appear on each other's arcade leaderboards (mirrors the `household`
+// scope in leaderboard.ts). This also catches adult↔adult members, who are
+// not auto-friended like kid↔parent pairs are.
+async function loadHouseholdMembers(userId: string): Promise<FriendCandidate[]> {
+  const mine = await db.query.householdMembers.findFirst({
+    where: eq(householdMembers.userId, userId),
+    columns: { householdId: true },
+  })
+  if (!mine) return []
+  const rows = await db
+    .select({
+      id: userTable.id,
+      handle: userTable.handle,
+      name: userTable.name,
+      role: householdMembers.role,
+    })
+    .from(householdMembers)
+    .innerJoin(userTable, eq(userTable.id, householdMembers.userId))
+    .where(eq(householdMembers.householdId, mine.householdId))
+  return rows
+    .filter((r) => r.id !== userId && r.role !== 'kiosk')
+    .map((r) => ({ id: r.id, handle: r.handle, name: r.name }))
+}
+
 function aggregatePersonal(
   plays: ReturnType<typeof readPlay>[],
 ): PersonalGameStats[] {
@@ -317,6 +362,55 @@ function aggregateFriendBests(
       bestScore: top.score,
       bestAt: top.occurredAt.toISOString(),
     })
+  }
+  return out
+}
+
+// Full ranked leaderboard per game. `plays` carries qualifying plays from the
+// viewer AND every candidate (friends + household). `participants` maps every
+// included userId → display handle/name. Sorted best-first via isBetter, with
+// ties broken by who reached that score earliest.
+function aggregateLeaderboards(
+  participants: Map<string, { handle: string; name: string }>,
+  viewerId: string,
+  plays: FriendPlay[],
+): Record<string, LeaderboardEntry[]> {
+  const bestByGameByUser = new Map<string, Map<string, FriendPlay>>()
+  for (const p of plays) {
+    const inner = bestByGameByUser.get(p.gameId) ?? new Map<string, FriendPlay>()
+    const existing = inner.get(p.userId)
+    if (
+      !existing ||
+      isBetter(p.gameId, p.score, existing.score) ||
+      (p.score === existing.score && p.occurredAt < existing.occurredAt)
+    ) {
+      inner.set(p.userId, p)
+    }
+    bestByGameByUser.set(p.gameId, inner)
+  }
+
+  const out: Record<string, LeaderboardEntry[]> = {}
+  for (const [gameId, byUser] of bestByGameByUser) {
+    const entries: LeaderboardEntry[] = []
+    for (const [uid, play] of byUser) {
+      const meta = participants.get(uid)
+      if (!meta) continue
+      entries.push({
+        userId: uid,
+        handle: meta.handle,
+        name: meta.name,
+        bestScore: play.score,
+        bestAt: play.occurredAt.toISOString(),
+        isViewer: uid === viewerId,
+      })
+    }
+    entries.sort((a, b) => {
+      if (a.bestScore !== b.bestScore) {
+        return isBetter(gameId, a.bestScore, b.bestScore) ? -1 : 1
+      }
+      return a.bestAt < b.bestAt ? -1 : a.bestAt > b.bestAt ? 1 : 0
+    })
+    out[gameId] = entries
   }
   return out
 }
@@ -444,12 +538,32 @@ function buildWordleDetails(
 }
 
 export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
-  // Pull viewer's plays + visible friends' plays in parallel. Same query
-  // shape both times — `inArray(userId, [...ids])` so a single events
-  // sweep covers everyone.
-  const friends = await loadVisibleFriends(userId)
-  const friendIds = friends.map((f) => f.id)
-  const allUserIds = friendIds.length > 0 ? [userId, ...friendIds] : [userId]
+  // Candidate set for the leaderboards = visible friends ∪ household members
+  // (deduped). Household members are added regardless of privacy (see
+  // loadHouseholdMembers). One events sweep covers the viewer + everyone.
+  const [friends, household, viewerRow] = await Promise.all([
+    loadVisibleFriends(userId),
+    loadHouseholdMembers(userId),
+    db.query.user.findFirst({
+      where: eq(userTable.id, userId),
+      columns: { handle: true, name: true },
+    }),
+  ])
+
+  const friendIdSet = new Set(friends.map((f) => f.id))
+
+  // Participants carry display handle/name for leaderboard rows. Friends
+  // first, household layered on top (same person → one entry), plus the viewer.
+  const participants = new Map<string, { handle: string; name: string }>()
+  for (const f of friends) participants.set(f.id, { handle: f.handle, name: f.name })
+  for (const h of household) participants.set(h.id, { handle: h.handle, name: h.name })
+  participants.set(userId, {
+    handle: viewerRow?.handle ?? 'you',
+    name: viewerRow?.name ?? 'You',
+  })
+
+  const candidateIds = Array.from(participants.keys()).filter((id) => id !== userId)
+  const allUserIds = candidateIds.length > 0 ? [userId, ...candidateIds] : [userId]
 
   const rows = await db
     .select({
@@ -463,7 +577,8 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
     )
 
   const myPlays: ReturnType<typeof readPlay>[] = []
-  const friendPlays: FriendPlay[] = []
+  const friendPlays: FriendPlay[] = [] // friends only, single-best → friendBests
+  const rankPlays: FriendPlay[] = [] // viewer + all candidates → leaderboards
   for (const r of rows) {
     const play = readPlay({
       userId: r.userId,
@@ -471,35 +586,35 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
       occurredAt: r.occurredAt,
     })
     if (!play) continue
-    if (r.userId === userId) {
-      myPlays.push(play)
-    } else if (
-      typeof play.score === 'number' &&
-      scoreCounts(play.gameId, play.won)
-    ) {
-      // Friend "best" mirrors the personal rule: wins always count, losses
-      // count only for games where the score is meaningful regardless
-      // (e.g. 2048's highest tile). Sudoku is keyed per-difficulty so the
-      // two ladders don't get conflated — SudokuPanel looks them up via
-      // `sudoku:easy` / `sudoku:hard`.
-      const aggregateGameId =
-        play.gameId === 'sudoku' && play.difficulty
-          ? `sudoku:${play.difficulty}`
-          : play.gameId
-      if (play.gameId !== 'sudoku' || play.difficulty) {
-        friendPlays.push({
-          userId: r.userId,
-          gameId: aggregateGameId,
-          score: play.score,
-          occurredAt: play.occurredAt,
-        })
-      }
+    if (r.userId === userId) myPlays.push(play)
+
+    // Qualifying rule mirrors the personal best: wins always count, losses
+    // count only for games where the raw score is meaningful regardless
+    // (e.g. 2048's highest tile). Sudoku is keyed per-difficulty so the two
+    // ladders don't get conflated — the UI looks them up via
+    // `sudoku:easy` / `sudoku:hard`.
+    if (typeof play.score !== 'number' || !scoreCounts(play.gameId, play.won)) {
+      continue
     }
+    if (play.gameId === 'sudoku' && !play.difficulty) continue
+    const aggregateGameId =
+      play.gameId === 'sudoku' && play.difficulty
+        ? `sudoku:${play.difficulty}`
+        : play.gameId
+    const ranked: FriendPlay = {
+      userId: r.userId,
+      gameId: aggregateGameId,
+      score: play.score,
+      occurredAt: play.occurredAt,
+    }
+    rankPlays.push(ranked)
+    if (friendIdSet.has(r.userId)) friendPlays.push(ranked)
   }
 
   return {
     personal: aggregatePersonal(myPlays),
     friendBests: aggregateFriendBests(friends, friendPlays),
+    leaderboards: aggregateLeaderboards(participants, userId, rankPlays),
     wordle: buildWordleDetails(myPlays),
     sudoku: buildSudokuDetails(myPlays),
   }

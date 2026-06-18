@@ -330,6 +330,13 @@
       "when": 1777200000000,
       "tag": "0046_household_weekly_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1777210000000,
+      "tag": "0047_arcade_onboarding_boggle",
+      "breakpoints": true
     }
   ]
 }

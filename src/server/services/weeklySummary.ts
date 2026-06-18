@@ -461,7 +461,13 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummary> {
     try {
       return await getArcadeStats(userId)
     } catch {
-      return { personal: [], friendBests: [], wordle: null, sudoku: null }
+      return {
+        personal: [],
+        friendBests: [],
+        leaderboards: {},
+        wordle: null,
+        sudoku: null,
+      }
     }
   }
 

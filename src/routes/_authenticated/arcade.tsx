@@ -22,12 +22,17 @@ interface PersonalGameStats {
   lastPlayedAt: string | null
 }
 
-interface FriendBest {
-  gameId: string
+function classNames(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(' ')
+}
+
+interface LeaderboardEntry {
+  userId: string
   handle: string
   name: string
   bestScore: number
   bestAt: string
+  isViewer: boolean
 }
 
 interface WordleDetails {
@@ -71,6 +76,8 @@ function formatScore(gameId: string, score: number): string {
     case 'sliding-puzzle':
     case 'memory-flip':
       return `${score} ${score === 1 ? 'move' : 'moves'}`
+    case 'boggle':
+      return `${score} ${score === 1 ? 'point' : 'points'}`
     default:
       return `${score}`
   }
@@ -182,9 +189,9 @@ function ArcadePage() {
           const personal = statsQuery.data?.personal.find(
             (p) => p.gameId === g.id,
           ) as PersonalGameStats | undefined
-          const friendBest = statsQuery.data?.friendBests.find(
-            (f) => f.gameId === g.id,
-          ) as FriendBest | undefined
+          const leaderboard = statsQuery.data?.leaderboards?.[g.id] as
+            | LeaderboardEntry[]
+            | undefined
           const wordle =
             g.id === 'wordle'
               ? (statsQuery.data?.wordle as WordleDetails | null | undefined)
@@ -193,15 +200,15 @@ function ArcadePage() {
             g.id === 'sudoku'
               ? (statsQuery.data?.sudoku as SudokuDetails | null | undefined)
               : null
-          const sudokuFriendBests =
+          const sudokuLeaderboards =
             g.id === 'sudoku'
               ? {
-                  easy: statsQuery.data?.friendBests.find(
-                    (f) => f.gameId === 'sudoku:easy',
-                  ) as FriendBest | undefined,
-                  hard: statsQuery.data?.friendBests.find(
-                    (f) => f.gameId === 'sudoku:hard',
-                  ) as FriendBest | undefined,
+                  easy: statsQuery.data?.leaderboards?.['sudoku:easy'] as
+                    | LeaderboardEntry[]
+                    | undefined,
+                  hard: statsQuery.data?.leaderboards?.['sudoku:hard'] as
+                    | LeaderboardEntry[]
+                    | undefined,
                 }
               : null
           return (
@@ -242,16 +249,15 @@ function ArcadePage() {
                   </button>
                 )}
               </div>
-              <GameStatsRow
-                personal={personal}
-                friendBest={friendBest}
-                gameId={g.id}
-              />
+              <GameStatsRow personal={personal} gameId={g.id} />
+              {g.id !== 'sudoku' ? (
+                <GameLeaderboard gameId={g.id} entries={leaderboard} />
+              ) : null}
               {wordle && !locked ? <WordlePanel details={wordle} /> : null}
               {sudoku && !locked ? (
                 <SudokuPanel
                   details={sudoku}
-                  friendBests={sudokuFriendBests}
+                  leaderboards={sudokuLeaderboards}
                 />
               ) : null}
             </li>
@@ -277,51 +283,93 @@ function ArcadePage() {
 
 function GameStatsRow({
   personal,
-  friendBest,
   gameId,
 }: {
   personal: PersonalGameStats | undefined
-  friendBest: FriendBest | undefined
   gameId: string
 }) {
-  // Show nothing if we have neither a personal play nor a visible friend
-  // record. Avoids dead pixels for fresh users.
+  // Show nothing until the viewer has played. Avoids dead pixels for fresh
+  // users; the leaderboard renders separately below.
   const hasPersonal = personal && personal.played > 0
-  if (!hasPersonal && !friendBest) return null
+  if (!hasPersonal) return null
 
   return (
     <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-[var(--line)] pt-2 text-xs text-[var(--sea-ink-soft)]">
-      {hasPersonal ? (
-        <>
-          {personal!.bestScore !== null ? (
-            <span>
-              <span aria-hidden>🏆 </span>
-              Best: {formatScore(gameId, personal!.bestScore)}
-            </span>
-          ) : null}
-          <span>
-            {personal!.played} {personal!.played === 1 ? 'play' : 'plays'}
-            {personal!.won > 0
-              ? ` · ${personal!.won} won (${formatWinRate(
-                  personal!.played,
-                  personal!.won,
-                )})`
-              : null}
-          </span>
-        </>
-      ) : (
-        <span>No plays yet.</span>
-      )}
-      {friendBest ? (
+      {personal!.bestScore !== null ? (
         <span>
-          <span aria-hidden>👥 </span>
-          Friends' best: {formatScore(gameId, friendBest.bestScore)} —{' '}
-          <span className="font-semibold text-[var(--sea-ink)]">
-            @{friendBest.handle}
-          </span>
+          <span aria-hidden>🏆 </span>
+          Best: {formatScore(gameId, personal!.bestScore)}
         </span>
       ) : null}
+      <span>
+        {personal!.played} {personal!.played === 1 ? 'play' : 'plays'}
+        {personal!.won > 0
+          ? ` · ${personal!.won} won (${formatWinRate(
+              personal!.played,
+              personal!.won,
+            )})`
+          : null}
+      </span>
     </div>
+  )
+}
+
+// Full ranked leaderboard for one game: viewer + friends + household, best
+// first. Collapsed by default; the summary shows the leader and the viewer's
+// rank. `entries` is already sorted best-first by the server.
+function GameLeaderboard({
+  gameId,
+  entries,
+}: {
+  gameId: string
+  entries: LeaderboardEntry[] | undefined
+}) {
+  if (!entries || entries.length === 0) return null
+  const viewerRank = entries.findIndex((e) => e.isViewer) // -1 if not present
+  // Only the viewer is on the board → not a real comparison yet.
+  if (entries.length === 1 && viewerRank === 0) {
+    return (
+      <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+        <span aria-hidden>👥 </span>No friends or household on the board yet.
+      </p>
+    )
+  }
+  const leader = entries[0]
+  const summary =
+    viewerRank >= 0
+      ? `You're #${viewerRank + 1} of ${entries.length}`
+      : `${entries.length} on the board`
+
+  return (
+    <details className="mt-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] p-3 text-xs">
+      <summary className="cursor-pointer font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        Leaderboard · <span aria-hidden>🏆</span> @{leader.handle} · {summary}
+      </summary>
+      <ol className="mt-3 space-y-1">
+        {entries.map((e, i) => (
+          <li
+            key={e.userId}
+            className={classNames(
+              'flex items-baseline justify-between gap-2 rounded px-2 py-1',
+              e.isViewer
+                ? 'bg-[rgba(79,184,178,0.18)] font-semibold text-[var(--sea-ink)]'
+                : 'text-[var(--sea-ink-soft)]',
+            )}
+          >
+            <span className="min-w-0 truncate">
+              <span className="tabular-nums">#{i + 1}</span>{' '}
+              <span className={e.isViewer ? '' : 'text-[var(--sea-ink)]'}>
+                @{e.handle}
+              </span>
+              {e.isViewer ? ' (you)' : ''}
+            </span>
+            <span className="tabular-nums">
+              {formatScore(gameId, e.bestScore)}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </details>
   )
 }
 
@@ -360,10 +408,13 @@ function WordlePanel({ details }: { details: WordleDetails }) {
 
 function SudokuPanel({
   details,
-  friendBests,
+  leaderboards,
 }: {
   details: SudokuDetails
-  friendBests: { easy: FriendBest | undefined; hard: FriendBest | undefined } | null
+  leaderboards: {
+    easy: LeaderboardEntry[] | undefined
+    hard: LeaderboardEntry[] | undefined
+  } | null
 }) {
   if (details.easy.played === 0 && details.hard.played === 0) return null
   return (
@@ -375,12 +426,12 @@ function SudokuPanel({
         <SudokuDifficultyColumn
           label="Easy"
           stats={details.easy}
-          friendBest={friendBests?.easy}
+          leaderboard={leaderboards?.easy}
         />
         <SudokuDifficultyColumn
           label="Hard"
           stats={details.hard}
-          friendBest={friendBests?.hard}
+          leaderboard={leaderboards?.hard}
         />
       </div>
     </details>
@@ -390,11 +441,11 @@ function SudokuPanel({
 function SudokuDifficultyColumn({
   label,
   stats,
-  friendBest,
+  leaderboard,
 }: {
   label: string
   stats: SudokuDifficultyStats
-  friendBest: FriendBest | undefined
+  leaderboard: LeaderboardEntry[] | undefined
 }) {
   return (
     <div className="rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-3">
@@ -425,15 +476,39 @@ function SudokuDifficultyColumn({
           <Stat label="Best streak" value={`${stats.longestWinStreak}`} />
         </dl>
       )}
-      {friendBest ? (
-        <p className="mt-3 border-t border-[var(--line)] pt-2 text-[var(--sea-ink-soft)]">
-          <span aria-hidden>👥 </span>
-          Friends' best: {formatSeconds(friendBest.bestScore)} —{' '}
-          <span className="font-semibold text-[var(--sea-ink)]">
-            @{friendBest.handle}
-          </span>
-        </p>
-      ) : null}
+      <SudokuLeaderboard entries={leaderboard} />
+    </div>
+  )
+}
+
+// Mini ranked list for one sudoku difficulty (time-based, lower is better).
+function SudokuLeaderboard({ entries }: { entries: LeaderboardEntry[] | undefined }) {
+  if (!entries || entries.length === 0) return null
+  if (entries.length === 1 && entries[0].isViewer) return null
+  return (
+    <div className="mt-3 border-t border-[var(--line)] pt-2">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
+        <span aria-hidden>👥 </span>Leaderboard
+      </p>
+      <ol className="space-y-0.5">
+        {entries.map((e, i) => (
+          <li
+            key={e.userId}
+            className={classNames(
+              'flex items-baseline justify-between gap-2',
+              e.isViewer
+                ? 'font-semibold text-[var(--sea-ink)]'
+                : 'text-[var(--sea-ink-soft)]',
+            )}
+          >
+            <span className="min-w-0 truncate">
+              <span className="tabular-nums">#{i + 1}</span> @{e.handle}
+              {e.isViewer ? ' (you)' : ''}
+            </span>
+            <span className="tabular-nums">{formatSeconds(e.bestScore)}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
