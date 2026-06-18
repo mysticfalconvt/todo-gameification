@@ -26,6 +26,20 @@ export const assignKidXp = createServerFn({ method: 'POST' })
   )
   .handler(({ data, context }) => service.assignKidXp(context.userId, data))
 
+export const setKidCompletionXp = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { eventId: string; xp: number }) => data)
+  .handler(({ data, context }) =>
+    service.setKidCompletionXp(context.userId, data),
+  )
+
+export const setHouseholdChoreXp = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { taskId: string; xp: number | null }) => data)
+  .handler(({ data, context }) =>
+    service.setHouseholdChoreXp(context.userId, data),
+  )
+
 export const listTodayInstances = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.listTodayInstances(context.userId))

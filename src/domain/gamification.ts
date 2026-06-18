@@ -158,12 +158,17 @@ export function applyEvent(
               timeZone: options.timeZone,
             })
 
-      const xpGain = computeXp({
-        difficulty: event.difficulty,
-        xpOverride: event.xpOverride,
-        currentStreak,
-        punctuality,
-      })
+      // A parent-set exact value wins outright (no multipliers) so siblings
+      // doing the same chore can be equalized. Streak still advances above.
+      const xpGain =
+        typeof event.xpFinal === 'number'
+          ? event.xpFinal
+          : computeXp({
+              difficulty: event.difficulty,
+              xpOverride: event.xpOverride,
+              currentStreak,
+              punctuality,
+            })
       const xp = state.xp + xpGain
 
       return {

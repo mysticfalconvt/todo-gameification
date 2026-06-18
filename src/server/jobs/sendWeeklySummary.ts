@@ -14,6 +14,7 @@ import { user as userTable, userPrefs, weeklyEmailLog } from '../db/schema'
 import { isEmailConfigured, sendMail } from '../email'
 import { getEffectiveMemberStatus } from '../services/membership'
 import {
+  generateHouseholdAnalysis,
   generateWeeklyAnalysis,
   getWeeklySummary,
 } from '../services/weeklySummary'
@@ -67,10 +68,14 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
       if (claimed.length === 0) continue
 
       try {
-        const analysis = await generateWeeklyAnalysis(u.id, summary)
+        const [analysis, householdAnalysis] = await Promise.all([
+          generateWeeklyAnalysis(u.id, summary),
+          generateHouseholdAnalysis(u.id, summary),
+        ])
         const { subject, text, html } = renderWeeklyEmail(
           summary,
           analysis?.analysis ?? null,
+          householdAnalysis?.analysis ?? null,
         )
         await sendMail({ to: u.email, subject, text, html })
       } catch (sendErr) {

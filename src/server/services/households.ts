@@ -965,11 +965,14 @@ export async function listHouseholdStats(
       r.payload && typeof r.payload === 'object'
         ? (r.payload as Record<string, unknown>)
         : {}
+    const xpFinal =
+      typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
     const xpOverride =
       typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
     const difficulty =
       typeof p['difficulty'] === 'string' ? (p['difficulty'] as string) : null
     const xp =
+      xpFinal ??
       xpOverride ??
       (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     bucket.daily[idx] += xp
@@ -1097,11 +1100,14 @@ export async function listHouseholdActivity(
       r.payload && typeof r.payload === 'object'
         ? (r.payload as Record<string, unknown>)
         : {}
+    const xpFinal =
+      typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
     const xpOverride =
       typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
     const difficulty =
       typeof p['difficulty'] === 'string' ? (p['difficulty'] as string) : null
     const xp =
+      xpFinal ??
       xpOverride ??
       (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     const completedAs =

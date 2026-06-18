@@ -37,7 +37,12 @@ import type {
   LeaderboardWindow,
 } from '../../../server/services/leaderboard'
 import { listFriendsFn } from '../../../server/functions/social'
-import { assignKidXp, completeInstance } from '../../../server/functions/tasks'
+import {
+  assignKidXp,
+  completeInstance,
+  setHouseholdChoreXp,
+  setKidCompletionXp,
+} from '../../../server/functions/tasks'
 import { listCategories } from '../../../server/functions/categories'
 
 export const Route = createFileRoute('/_authenticated/household/')({
@@ -272,7 +277,11 @@ function HouseholdPage() {
       ) : tab === 'leaderboard' ? (
         <LeaderboardTab householdId={household.id} />
       ) : tab === 'activity' ? (
-        <ActivityTab householdId={household.id} members={members} />
+        <ActivityTab
+          householdId={household.id}
+          members={members}
+          viewerRole={role}
+        />
       ) : (
         <MembersTab
           householdId={household.id}
@@ -338,6 +347,16 @@ const WEEKDAY_LABEL = [
   'Friday',
   'Saturday',
 ] as const
+
+// Effective points a chore is worth: the explicit override, else the
+// difficulty default (matches domain/gamification BASE_XP).
+function choreXp(c: {
+  xpOverride: number | null
+  difficulty: 'small' | 'medium' | 'large'
+}): number {
+  if (typeof c.xpOverride === 'number') return c.xpOverride
+  return c.difficulty === 'small' ? 10 : c.difficulty === 'large' ? 60 : 25
+}
 
 function ChoresTab({
   householdId,
@@ -412,6 +431,24 @@ function ChoresTab({
 
   // null = no dialog open; an object = pick-who-gets-credit dialog open.
   const [creditPicker, setCreditPicker] = useState<CreditPicker | null>(null)
+
+  // Inline chore-XP editing (admins/members). Keyed by taskId so editing
+  // one chore equally applies to every future instance of it.
+  const isAdult = viewerRole === 'admin' || viewerRole === 'member'
+  const [editingXpTaskId, setEditingXpTaskId] = useState<string | null>(null)
+  const [xpDraft, setXpDraft] = useState('')
+  const editChoreXp = useMutation({
+    mutationFn: (vars: { taskId: string; xp: number }) =>
+      setHouseholdChoreXp({ data: vars }),
+    onSuccess: () => {
+      setEditingXpTaskId(null)
+      qc.invalidateQueries({ queryKey: ['household-chores', householdId] })
+      qc.invalidateQueries({ queryKey: ['household-chores-week', householdId] })
+      toast.success('Chore points updated for future completions.')
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to update points.'),
+  })
 
   const chores = choresQuery.data ?? []
   const weekRows = weekQuery.data ?? []
@@ -528,6 +565,52 @@ function ChoresTab({
             )}
           </div>
         </div>
+        {isAdult &&
+          (editingXpTaskId === c.taskId ? (
+            <span className="flex flex-shrink-0 items-center gap-1">
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                autoFocus
+                value={xpDraft}
+                onChange={(e) => setXpDraft(e.target.value)}
+                className="w-16 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-xs tabular-nums"
+              />
+              <button
+                type="button"
+                disabled={editChoreXp.isPending}
+                onClick={() =>
+                  editChoreXp.mutate({
+                    taskId: c.taskId,
+                    xp: Math.trunc(Number(xpDraft)),
+                  })
+                }
+                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingXpTaskId(null)}
+                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)]"
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              title="Edit points (applies to future completions)"
+              onClick={() => {
+                setEditingXpTaskId(c.taskId)
+                setXpDraft(String(choreXp(c)))
+              }}
+              className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]"
+            >
+              {choreXp(c)} XP ✎
+            </button>
+          ))}
         {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
           <button
             type="button"
@@ -2137,15 +2220,25 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
 function ActivityTab({
   householdId,
   members,
+  viewerRole,
 }: {
   householdId: string
   members: HouseholdMemberRow[]
+  viewerRole: 'admin' | 'member' | 'kid' | 'kiosk'
 }) {
+  const qc = useQueryClient()
   const [days, setDays] = useState<number>(30)
   const [eventType, setEventType] = useState<
     'all' | 'completions' | 'membership'
   >('all')
   const [memberFilter, setMemberFilter] = useState<string>('all')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const isAdult = viewerRole === 'admin' || viewerRole === 'member'
+  const kidIds = new Set(
+    members.filter((m) => m.role === 'kid').map((m) => m.userId),
+  )
 
   const query = useQuery({
     queryKey: ['household-activity', householdId, days],
@@ -2153,6 +2246,21 @@ function ActivityTab({
       listHouseholdActivityFn({
         data: { householdId, days, limit: 200 },
       }),
+  })
+
+  const editXp = useMutation({
+    mutationFn: (vars: { eventId: string; xp: number }) =>
+      setKidCompletionXp({ data: vars }),
+    onSuccess: () => {
+      setEditingId(null)
+      qc.invalidateQueries({ queryKey: ['household-activity', householdId] })
+      qc.invalidateQueries({ queryKey: ['household-stats', householdId] })
+      qc.invalidateQueries({ queryKey: ['household-leaderboard', householdId] })
+      qc.invalidateQueries({ queryKey: ['progression'] })
+      toast.success('Points updated.')
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not update points.'),
   })
 
   const allRows = query.data ?? []
@@ -2265,11 +2373,59 @@ function ActivityTab({
                     {new Date(r.occurredAt).toLocaleString()}
                   </p>
                 </div>
-                {r.type === 'task.completed' && r.xp != null && (
-                  <span className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]">
-                    +{r.xp} XP
-                  </span>
-                )}
+                {r.type === 'task.completed' && r.xp != null ? (
+                  isAdult && kidIds.has(r.userId) ? (
+                    editingId === r.eventId ? (
+                      <span className="flex flex-shrink-0 items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          max={1000}
+                          autoFocus
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          className="w-16 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-xs tabular-nums"
+                        />
+                        <button
+                          type="button"
+                          disabled={editXp.isPending}
+                          onClick={() =>
+                            editXp.mutate({
+                              eventId: r.eventId,
+                              xp: Math.trunc(Number(draft)),
+                            })
+                          }
+                          className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)]"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(r.eventId)
+                          setDraft(String(r.xp))
+                        }}
+                        title="Edit points"
+                        className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]"
+                      >
+                        +{r.xp} XP ✎
+                      </button>
+                    )
+                  ) : (
+                    <span className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]">
+                      +{r.xp} XP
+                    </span>
+                  )
+                ) : null}
               </li>
             ))}
           </ul>

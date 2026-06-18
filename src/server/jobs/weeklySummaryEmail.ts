@@ -34,6 +34,7 @@ export interface RenderedEmail {
 export function renderWeeklyEmail(
   summary: WeeklySummary,
   analysis: string | null,
+  householdAnalysis: string | null = null,
 ): RenderedEmail {
   const k = summary.kpis
   const base = appUrl()
@@ -78,6 +79,22 @@ export function renderWeeklyEmail(
     textLines.push(
       `Friends leaderboard: rank ${me.rank} of ${summary.leaderboard.length} (${me.value} XP this week)`,
     )
+  }
+  if (summary.household) {
+    const h = summary.household
+    textLines.push('')
+    textLines.push(`${h.name} — your family's week:`)
+    if (householdAnalysis) {
+      textLines.push(householdAnalysis)
+    }
+    textLines.push(
+      `  Family total: ${h.totalThisWeekCount} chores · ${h.totalThisWeekXp} XP this week (last week ${h.totalLastWeekCount} chores · ${h.totalLastWeekXp} XP)`,
+    )
+    for (const m of h.members) {
+      textLines.push(
+        `  - ${m.isMe ? `${m.name} (you)` : m.name}${m.role === 'kid' ? ' [kid]' : ''}: ${m.thisWeekCount} chores / ${m.thisWeekXp} XP this week (was ${m.lastWeekCount} / ${m.lastWeekXp})`,
+      )
+    }
   }
   textLines.push('')
   textLines.push(`See the full summary: ${base}/weekly-summary`)
@@ -140,6 +157,43 @@ export function renderWeeklyEmail(
              .join('')}
          </ol>`
       : ''
+
+  // Household recap: the LLM family blurb + a per-member this-vs-last-week
+  // table. Up/down arrows colored by direction. Absent for solo users.
+  const householdHtml = (() => {
+    const h = summary.household
+    if (!h) return ''
+    const dirSpan = (now: number, prev: number) => {
+      const d = now - prev
+      if (d === 0) return `<span style="color:${soft};">·</span>`
+      const up = d > 0
+      return `<span style="color:${up ? lagoon : soft};">${up ? '▲' : '▼'}${Math.abs(d)}</span>`
+    }
+    const blurb = householdAnalysis
+      ? `<div style="background:#ffffff;border:1px solid ${line};border-radius:12px;padding:14px;margin:8px 0 12px;font-size:14px;line-height:1.6;color:${ink};white-space:pre-line;">${esc(householdAnalysis)}</div>`
+      : ''
+    const rows = h.members
+      .map(
+        (m) => `<tr>
+          <td style="padding:4px 8px 4px 0;color:${ink};">${esc(m.isMe ? `${m.name} (you)` : m.name)}${m.role === 'kid' ? ` <span style="color:${soft};font-size:11px;">kid</span>` : ''}</td>
+          <td style="padding:4px 0;text-align:right;white-space:nowrap;color:${soft};">${m.thisWeekCount} ${dirSpan(m.thisWeekCount, m.lastWeekCount)}</td>
+          <td style="padding:4px 0 4px 12px;text-align:right;white-space:nowrap;color:${soft};">${m.thisWeekXp} XP ${dirSpan(m.thisWeekXp, m.lastWeekXp)}</td>
+        </tr>`,
+      )
+      .join('')
+    return `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">${esc(h.name)} — your family's week</h3>
+      ${blurb}
+      <p style="font-size:12px;color:${soft};margin:0 0 6px;">Family total: ${h.totalThisWeekCount} chores · ${h.totalThisWeekXp} XP this week (last week ${h.totalLastWeekCount} · ${h.totalLastWeekXp} XP).</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr style="color:${soft};font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">
+          <td style="padding:0 8px 4px 0;">Member</td>
+          <td style="padding:0 0 4px;text-align:right;">Chores</td>
+          <td style="padding:0 0 4px 12px;text-align:right;">XP</td>
+        </tr>
+        ${rows}
+      </table>
+      <p style="font-size:11px;color:${soft};margin:6px 0 0;">▲/▼ vs last week.</p>`
+  })()
 
   // Per-weekday bars: XP (lagoon) and chores (green), each scaled to its
   // own max so both stay legible. Email-safe — table layout + div bars
@@ -206,6 +260,7 @@ export function renderWeeklyEmail(
     ${repeatingHtml}
     ${arcadeHtml}
     ${lbHtml}
+    ${householdHtml}
 
     <div style="margin:28px 0 8px;">
       <a href="${base}/weekly-summary" style="display:inline-block;background:${lagoon};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:999px;">See your full summary →</a>

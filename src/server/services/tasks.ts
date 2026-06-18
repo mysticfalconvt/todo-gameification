@@ -2583,6 +2583,8 @@ async function rebuildProgression(
             typeof p['xpOverride'] === 'number'
               ? (p['xpOverride'] as number)
               : null,
+          xpFinal:
+            typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null,
           dueAt:
             typeof p['dueAt'] === 'string'
               ? new Date(p['dueAt'] as string)
@@ -2962,6 +2964,117 @@ export async function assignKidXp(
       tokensEarned,
       newXp: next.xp,
       newLevel: next.level,
+    }
+  })
+}
+
+// Set the XP a household chore is worth, going forward. Writes the parent
+// task's xpOverride; since instances inherit it (effectiveXpOverride =
+// instance.xpOverride ?? task.xpOverride) every future completion — and the
+// currently open instance, unless it carries its own per-instance override —
+// uses the new value. Lets a parent fix a recurring chore that LLM-scored
+// differently across each kid's copy. Pass xp = null to clear the override
+// and fall back to the difficulty default. Past completions are untouched
+// (use setKidCompletionXp for those).
+export async function setHouseholdChoreXp(
+  userId: string,
+  input: { taskId: string; xp: number | null },
+): Promise<{ xp: number | null }> {
+  if (!input.taskId) throw new Error('taskId required')
+  let xp: number | null = null
+  if (input.xp !== null && input.xp !== undefined) {
+    xp = Math.trunc(input.xp)
+    if (!Number.isFinite(xp) || xp < 1 || xp > 1000) {
+      throw new Error('XP must be a whole number between 1 and 1000.')
+    }
+  }
+
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, input.taskId),
+    columns: { id: true, householdId: true },
+  })
+  if (!task || !task.householdId) {
+    throw new Error('Household chore not found.')
+  }
+  await assertHouseholdRole(userId, task.householdId, ['admin', 'member'])
+
+  await db
+    .update(tasks)
+    .set({ xpOverride: xp, updatedAt: new Date() })
+    .where(eq(tasks.id, input.taskId))
+  return { xp }
+}
+
+export interface SetKidCompletionXpResult {
+  xp: number
+  newXp: number
+  newLevel: number
+}
+
+// Parent edits the points a kid earned for a specific completion. Stamps an
+// exact `xpFinal` on that `task.completed` event (overriding the streak /
+// punctuality multipliers) and replays the kid's events so progression,
+// leaderboard, and stats all reflect the new value. Lets a parent equalize
+// two kids who did the same chore but landed on different numbers.
+export async function setKidCompletionXp(
+  parentId: string,
+  input: { eventId: string; xp: number },
+): Promise<SetKidCompletionXpResult> {
+  const xp = Math.trunc(input.xp)
+  if (!Number.isFinite(xp) || xp < 0 || xp > 1000) {
+    throw new Error('XP must be a whole number between 0 and 1000.')
+  }
+  if (!input.eventId) throw new Error('eventId required')
+
+  const mine = await getMyMembership(parentId)
+  if (!mine || (mine.role !== 'admin' && mine.role !== 'member')) {
+    throw new Error('Only household admins and members can edit points.')
+  }
+  const householdId = mine.householdId
+
+  return db.transaction(async (tx) => {
+    const row = await tx.query.events.findFirst({
+      where: eq(events.id, input.eventId),
+    })
+    if (!row || row.type !== 'task.completed') {
+      throw new Error('Completion not found.')
+    }
+    const recipientId = row.userId
+    const payload =
+      row.payload && typeof row.payload === 'object'
+        ? (row.payload as Record<string, unknown>)
+        : {}
+    if (payload['householdId'] !== householdId) {
+      throw new Error('That completion is not in your household.')
+    }
+
+    // Only kid completions are editable (matches the assign-points scope).
+    const recipient = await tx.query.householdMembers.findFirst({
+      where: and(
+        eq(householdMembers.userId, recipientId),
+        eq(householdMembers.householdId, householdId),
+      ),
+      columns: { role: true },
+    })
+    if (recipient?.role !== 'kid') {
+      throw new Error('Points can only be edited for kids.')
+    }
+
+    await tx
+      .update(events)
+      .set({ payload: { ...payload, xpFinal: xp } })
+      .where(eq(events.id, input.eventId))
+
+    const recipientTimeZone = await getUserTimeZone(recipientId)
+    await rebuildProgression(tx, recipientId, recipientTimeZone)
+
+    const updated = await tx.query.progression.findFirst({
+      where: eq(progression.userId, recipientId),
+    })
+    return {
+      xp,
+      newXp: updated?.xp ?? 0,
+      newLevel: updated?.level ?? 1,
     }
   })
 }

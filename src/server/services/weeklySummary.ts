@@ -14,7 +14,7 @@
 // Week semantics: the summary always covers the most recently *completed*
 // calendar week (last Mon–Sun) in the user's timezone, regardless of when
 // it's viewed — so the page is a faithful preview of the Monday email.
-import { and, eq, gte, inArray, isNotNull } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import { formatInTimeZone } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
@@ -35,6 +35,7 @@ import { getArcadeStats, type ArcadeStats } from './arcadeStats'
 import { getLeaderboard, type LeaderboardRow } from './leaderboard'
 import {
   getMyHousehold,
+  listHouseholdMembers,
   listHouseholdStats,
   type HouseholdStatsResult,
 } from './households'
@@ -71,6 +72,34 @@ export interface WeeklyTopTask {
   count: number
 }
 
+// Per-member family recap: this week vs last week, for the same subject /
+// prior week windows the personal summary uses. Feeds the household LLM
+// digest and the expanded household section in the page + email.
+export interface HouseholdMemberWeekly {
+  userId: string
+  name: string
+  handle: string
+  role: string
+  color: string | null
+  isMe: boolean
+  thisWeekXp: number
+  thisWeekCount: number
+  lastWeekXp: number
+  lastWeekCount: number
+}
+
+export interface HouseholdWeekly {
+  name: string
+  // Rolling per-day series for the existing charts (this-week view).
+  stats: HouseholdStatsResult
+  // This-week-vs-last-week comparison per member, sorted by this-week XP.
+  members: HouseholdMemberWeekly[]
+  totalThisWeekCount: number
+  totalThisWeekXp: number
+  totalLastWeekCount: number
+  totalLastWeekXp: number
+}
+
 export interface WeeklySummary {
   // ISO yyyy-MM-dd of the subject week's Monday, in the user's tz. Stable
   // per week — used as the cache key and the email dedup key.
@@ -85,7 +114,7 @@ export interface WeeklySummary {
   repeatingTasks: RepeatingTaskTotal[]
   arcade: ArcadeStats
   leaderboard: LeaderboardRow[]
-  household: { name: string; stats: HouseholdStatsResult } | null
+  household: HouseholdWeekly | null
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +173,10 @@ function payloadObj(payload: unknown): Record<string, unknown> {
 // (leaderboard/households/stats): explicit xpOverride, else the difficulty
 // default. Bare numbers only — punctuality multipliers aren't replayed here.
 function xpOf(payload: Record<string, unknown>): number {
+  // A parent-set exact value (household "edit points") wins over the
+  // base xpOverride / difficulty default.
+  const final = payload['xpFinal']
+  if (typeof final === 'number') return final
   const override = payload['xpOverride']
   if (typeof override === 'number') return override
   const difficulty = payload['difficulty']
@@ -303,6 +336,96 @@ async function loadRepeatingTaskTotals(
     .slice(0, 12)
 }
 
+// Per-member this-week-vs-last-week totals for the household, bucketed by
+// the same subject/prior week windows the personal summary uses (not the
+// rolling window listHouseholdStats charts use). Reads household completion
+// events straight from the log so it stays consistent with the leaderboard
+// / stats derivations. Kiosk accounts are excluded (shared devices).
+async function loadHouseholdWeekly(
+  viewerId: string,
+  householdId: string,
+  tz: string,
+  windows: ReturnType<typeof computeWeekWindows>,
+): Promise<{
+  members: HouseholdMemberWeekly[]
+  totalThisWeekCount: number
+  totalThisWeekXp: number
+  totalLastWeekCount: number
+  totalLastWeekXp: number
+}> {
+  const allMembers = await listHouseholdMembers(viewerId, householdId)
+  const members = allMembers.filter((m) => m.role !== 'kiosk')
+
+  const acc = new Map<
+    string,
+    { thisCount: number; thisXp: number; lastCount: number; lastXp: number }
+  >()
+  for (const m of members) {
+    acc.set(m.userId, { thisCount: 0, thisXp: 0, lastCount: 0, lastXp: 0 })
+  }
+
+  const since = new Date(Date.now() - 22 * DAY_MS)
+  const rows = await db
+    .select({
+      userId: events.userId,
+      payload: events.payload,
+      occurredAt: events.occurredAt,
+    })
+    .from(events)
+    .where(
+      and(
+        eq(events.type, 'task.completed'),
+        isNotNull(events.occurredAt),
+        gte(events.occurredAt, since),
+        sql`${events.payload}->>'householdId' = ${householdId}`,
+      ),
+    )
+
+  for (const r of rows) {
+    if (!r.occurredAt) continue
+    const bucket = acc.get(r.userId)
+    if (!bucket) continue
+    const key = dayKey(r.occurredAt, tz)
+    const inThis = windows.thisWeekSet.has(key)
+    const inLast = windows.lastWeekSet.has(key)
+    if (!inThis && !inLast) continue
+    const xp = xpOf(payloadObj(r.payload))
+    if (inThis) {
+      bucket.thisCount += 1
+      bucket.thisXp += xp
+    } else {
+      bucket.lastCount += 1
+      bucket.lastXp += xp
+    }
+  }
+
+  const weekly: HouseholdMemberWeekly[] = members
+    .map((m) => {
+      const b = acc.get(m.userId)!
+      return {
+        userId: m.userId,
+        name: m.name,
+        handle: m.handle,
+        role: m.role,
+        color: m.color,
+        isMe: m.userId === viewerId,
+        thisWeekXp: b.thisXp,
+        thisWeekCount: b.thisCount,
+        lastWeekXp: b.lastXp,
+        lastWeekCount: b.lastCount,
+      }
+    })
+    .sort((a, b) => b.thisWeekXp - a.thisWeekXp || b.thisWeekCount - a.thisWeekCount)
+
+  return {
+    members: weekly,
+    totalThisWeekCount: weekly.reduce((s, m) => s + m.thisWeekCount, 0),
+    totalThisWeekXp: weekly.reduce((s, m) => s + m.thisWeekXp, 0),
+    totalLastWeekCount: weekly.reduce((s, m) => s + m.lastWeekCount, 0),
+    totalLastWeekXp: weekly.reduce((s, m) => s + m.lastWeekXp, 0),
+  }
+}
+
 export async function getWeeklySummary(userId: string): Promise<WeeklySummary> {
   const now = new Date()
   const tz = await getUserTimeZone(userId)
@@ -325,8 +448,11 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummary> {
     try {
       const hh = await getMyHousehold(userId)
       if (!hh) return null
-      const stats = await listHouseholdStats(userId, hh.household.id, 7)
-      return { name: hh.household.name, stats }
+      const [stats, weekly] = await Promise.all([
+        listHouseholdStats(userId, hh.household.id, 7),
+        loadHouseholdWeekly(userId, hh.household.id, tz, windows),
+      ])
+      return { name: hh.household.name, stats, ...weekly }
     } catch {
       return null
     }
@@ -397,7 +523,7 @@ OUTPUT RULES — STRICT:
 - Return ONLY the finished sentences the user should see. No preamble, no headers, no quotes, no markdown, no bullet points.
 - The first character must be a regular letter or digit.`
 
-function buildAnalysisDigest(s: WeeklySummary, userId: string): string {
+function buildAnalysisDigest(s: WeeklySummary): string {
   const k = s.kpis
   const parts: string[] = []
   parts.push(`Week of ${s.weekStartLabel}–${s.weekEndLabel} (${s.timeZone}).`)
@@ -450,15 +576,123 @@ function buildAnalysisDigest(s: WeeklySummary, userId: string): string {
     )
   }
 
-  if (s.household) {
-    const mine = s.household.stats.members.find((m) => m.userId === userId)
-    parts.push(
-      `Household "${s.household.name}": ${s.household.stats.totalCompletions} chores done across the family this week${mine ? `, ${mine.totalCount} of them yours` : ''}.`,
-    )
-  }
+  // Household gets its own dedicated review (buildHouseholdDigest /
+  // generateHouseholdAnalysis), so the personal digest stays personal.
 
   parts.push('Write the weekly review now.')
   return parts.join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// Household LLM analysis (cached per week, separate from the personal one)
+// ---------------------------------------------------------------------------
+
+const HOUSEHOLD_SYSTEM_PROMPT = `You are writing a weekly family recap for the household of a gamified chore app. One family member will read it, but it is about the WHOLE family. Be warm, fair, and honest, and aware that some members are kids.
+
+STYLE:
+- Open with one sentence on how the family did overall this week vs last week (chores and XP up, down, or flat) — be honest.
+- Then give EVERY family member their own one-to-two sentence mention, by their real name, in turn. Say how their week went compared to last week and call out something specific and true for each person. Do not skip anyone and do not lump people together.
+- Be especially encouraging to kids; never shame anyone for a low number — frame a quiet week gently.
+- The reader is marked in the data; address them as "you" in their part. Don't rank-shame or pit members against each other.
+- Close with one small, concrete suggestion for the family next week, then an encouraging, earned note.
+- Keep each person's mention tight — warm but not flowery. Plain, friendly, second person. No emojis, no hashtags, no all-caps, no markdown.
+- Never invent numbers or names. Only use the members and figures in the data block.
+
+OUTPUT RULES — STRICT:
+- Return ONLY the finished prose the reader should see. No preamble, no headers, no quotes, no markdown, no bullet points — flowing sentences/short paragraphs only.
+- The first character must be a regular letter or digit.`
+
+function buildHouseholdDigest(h: HouseholdWeekly): string {
+  const dir = (n: number) =>
+    n > 0 ? `up ${n}` : n < 0 ? `down ${Math.abs(n)}` : 'flat'
+  const parts: string[] = []
+  parts.push(`Family "${h.name}" weekly recap.`)
+  parts.push(
+    `Household totals — chores this week: ${h.totalThisWeekCount}, last week: ${h.totalLastWeekCount} (${dir(h.totalThisWeekCount - h.totalLastWeekCount)}); XP this week: ${h.totalThisWeekXp}, last week: ${h.totalLastWeekXp} (${dir(h.totalThisWeekXp - h.totalLastWeekXp)}).`,
+  )
+  parts.push('Per member (this week vs last week):')
+  for (const m of h.members) {
+    const who = `${m.name}${m.isMe ? ' (the reader)' : ''}${m.role === 'kid' ? ' [kid]' : ''}`
+    parts.push(
+      `- ${who}: ${m.thisWeekCount} chores / ${m.thisWeekXp} XP this week, ${m.lastWeekCount} chores / ${m.lastWeekXp} XP last week (chores ${dir(m.thisWeekCount - m.lastWeekCount)}).`,
+    )
+  }
+  parts.push('Write the family recap now.')
+  return parts.join('\n')
+}
+
+// Read-through cache for the household blurb, stored in the same row as the
+// personal analysis (household_analysis / household_generated_at columns).
+// Returns null when there's no household, the LLM isn't configured, or it
+// produced nothing usable.
+export async function generateHouseholdAnalysis(
+  userId: string,
+  summary: WeeklySummary,
+  opts: { force?: boolean } = {},
+): Promise<{ analysis: string; generatedAt: string } | null> {
+  if (!summary.household) return null
+  const attitude = await currentAttitude(userId)
+  const digest = buildHouseholdDigest(summary.household)
+
+  if (!opts.force) {
+    const cached = await db.query.weeklySummaries.findFirst({
+      where: and(
+        eq(weeklySummaries.userId, userId),
+        eq(weeklySummaries.weekKey, summary.weekKey),
+      ),
+    })
+    if (
+      cached &&
+      cached.householdAnalysis &&
+      cached.householdGeneratedAt &&
+      cached.attitude === attitude
+    ) {
+      return {
+        analysis: cached.householdAnalysis,
+        generatedAt: cached.householdGeneratedAt.toISOString(),
+      }
+    }
+  }
+
+  // Scale the budget with family size — every member gets their own mention.
+  const memberCount = summary.household.members.length
+  const raw = await callLlmChat({
+    messages: [
+      { role: 'system', content: HOUSEHOLD_SYSTEM_PROMPT },
+      { role: 'user', content: digest },
+    ],
+    temperature: 0.7,
+    maxTokens: Math.min(1500, 400 + memberCount * 150),
+    timeoutMs: 20_000,
+    track: { kind: 'weekly', userId },
+  })
+  const cleaned = sanitizeCoachOutput(raw)
+  if (!cleaned) return null
+
+  const generatedAt = new Date()
+  // The personal analysis owns the row's analysis/attitude/generatedAt
+  // columns. Insert needs a non-null analysis, so seed empty on first write
+  // (the personal pass fills it); on conflict only touch household columns
+  // + attitude so we don't clobber an existing personal blurb.
+  await db
+    .insert(weeklySummaries)
+    .values({
+      userId,
+      weekKey: summary.weekKey,
+      analysis: '',
+      attitude,
+      householdAnalysis: cleaned,
+      householdGeneratedAt: generatedAt,
+    })
+    .onConflictDoUpdate({
+      target: [weeklySummaries.userId, weeklySummaries.weekKey],
+      set: {
+        householdAnalysis: cleaned,
+        householdGeneratedAt: generatedAt,
+        attitude,
+      },
+    })
+  return { analysis: cleaned, generatedAt: generatedAt.toISOString() }
 }
 
 async function currentAttitude(userId: string): Promise<string> {
@@ -478,7 +712,7 @@ export async function generateWeeklyAnalysis(
   opts: { force?: boolean } = {},
 ): Promise<{ analysis: string; generatedAt: string } | null> {
   const attitude = await currentAttitude(userId)
-  const digest = buildAnalysisDigest(summary, userId)
+  const digest = buildAnalysisDigest(summary)
 
   if (!opts.force) {
     const cached = await db.query.weeklySummaries.findFirst({

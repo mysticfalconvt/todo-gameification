@@ -323,6 +323,13 @@
       "when": 1777190000000,
       "tag": "0045_weekly_email_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0046_household_weekly_analysis",
+      "breakpoints": true
     }
   ]
 }

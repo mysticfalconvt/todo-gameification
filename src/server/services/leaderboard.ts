@@ -236,6 +236,8 @@ function computeMetric(
         r.payload && typeof r.payload === 'object'
           ? (r.payload as Record<string, unknown>)
           : {}
+      const xpFinal =
+        typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
       const xpOverride =
         typeof p['xpOverride'] === 'number'
           ? (p['xpOverride'] as number)
@@ -243,6 +245,7 @@ function computeMetric(
       const difficulty =
         typeof p['difficulty'] === 'string' ? p['difficulty'] : null
       const xp =
+        xpFinal ??
         xpOverride ??
         (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
       values.set(r.userId, (values.get(r.userId) ?? 0) + xp)

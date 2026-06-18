@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
-import { events, households, householdMembers } from '../db/schema'
+import { events, households, householdMembers, tasks } from '../db/schema'
 import { withTestUser, withTestUsers } from '../../test/helpers'
 import {
   assignKidXp,
@@ -11,6 +11,8 @@ import {
   getProgression,
   listAllTasks,
   listTodayInstances,
+  setHouseholdChoreXp,
+  setKidCompletionXp,
   updateTask,
 } from './tasks'
 
@@ -273,6 +275,103 @@ describe('assignKidXp', () => {
       await expect(
         assignKidXp(admin.id, { kidUserId: kid.id, xp: 5000 }),
       ).rejects.toThrow(/between 1 and 1000/)
+    })
+  })
+})
+
+describe('setKidCompletionXp', () => {
+  async function seedKidCompletion(adminId: string, kidId: string) {
+    await assignKidXp(adminId, { kidUserId: kidId, xp: 25 })
+    const [evt] = await db
+      .select()
+      .from(events)
+      .where(
+        and(eq(events.userId, kidId), eq(events.type, 'task.completed')),
+      )
+    return evt
+  }
+
+  it('sets an exact XP and replays progression', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
+      const evt = await seedKidCompletion(admin.id, kid.id)
+      const res = await setKidCompletionXp(admin.id, {
+        eventId: evt.id,
+        xp: 100,
+      })
+      expect(res.xp).toBe(100)
+      // Only one completion, xpFinal overrides multipliers → exactly 100.
+      const after = await getProgression(kid.id)
+      expect(after.xp).toBe(100)
+    })
+  })
+
+  it('rejects edits from a kid', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
+      const evt = await seedKidCompletion(admin.id, kid.id)
+      await expect(
+        setKidCompletionXp(kid.id, { eventId: evt.id, xp: 50 }),
+      ).rejects.toThrow(/admins and members/)
+    })
+  })
+
+  it('rejects a completion from another household', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
+      const evt = await seedKidCompletion(admin.id, kid.id)
+      await withHousehold(['admin', 'kid'], async ([outsider]) => {
+        await expect(
+          setKidCompletionXp(outsider.id, { eventId: evt.id, xp: 50 }),
+        ).rejects.toThrow(/not in your household/)
+      })
+    })
+  })
+})
+
+describe('setHouseholdChoreXp', () => {
+  async function seedChore(ownerId: string, householdId: string) {
+    const [t] = await db
+      .insert(tasks)
+      .values({
+        userId: ownerId,
+        title: 'Read for 20 min',
+        difficulty: 'medium',
+        householdId,
+      })
+      .returning({ id: tasks.id })
+    return t.id
+  }
+
+  it('sets the parent task xpOverride (future instances inherit it)', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin], householdId) => {
+      const taskId = await seedChore(admin.id, householdId)
+      const res = await setHouseholdChoreXp(admin.id, { taskId, xp: 40 })
+      expect(res.xp).toBe(40)
+      const row = await db.query.tasks.findFirst({
+        where: eq(tasks.id, taskId),
+        columns: { xpOverride: true },
+      })
+      expect(row?.xpOverride).toBe(40)
+    })
+  })
+
+  it('clears the override when given null', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin], householdId) => {
+      const taskId = await seedChore(admin.id, householdId)
+      await setHouseholdChoreXp(admin.id, { taskId, xp: 40 })
+      await setHouseholdChoreXp(admin.id, { taskId, xp: null })
+      const row = await db.query.tasks.findFirst({
+        where: eq(tasks.id, taskId),
+        columns: { xpOverride: true },
+      })
+      expect(row?.xpOverride).toBeNull()
+    })
+  })
+
+  it('rejects edits from a kid', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid], householdId) => {
+      const taskId = await seedChore(admin.id, householdId)
+      await expect(
+        setHouseholdChoreXp(kid.id, { taskId, xp: 40 }),
+      ).rejects.toThrow(/permission|do not have/i)
     })
   })
 })

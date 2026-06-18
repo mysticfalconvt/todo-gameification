@@ -491,6 +491,14 @@ export const weeklySummaries = pgTable(
     generatedAt: timestamp('generated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Optional second blurb: a household-focused recap (this week vs last
+    // week across all family members). NULL for users with no household or
+    // before it's first generated. Tracked alongside the personal analysis
+    // so a coach-attitude change regenerates both.
+    householdAnalysis: text('household_analysis'),
+    householdGeneratedAt: timestamp('household_generated_at', {
+      withTimezone: true,
+    }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.weekKey] })],
 )

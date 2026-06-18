@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   getWeeklySummaryFn,
+  regenerateHouseholdAnalysisFn,
   regenerateWeeklyAnalysisFn,
 } from '../../../server/functions/weeklySummary'
 import { getProfile, updatePrefs } from '../../../server/functions/user'
@@ -131,7 +132,10 @@ function SummaryBody({ data }: { data: SummaryData }) {
       <ArcadeSection arcade={summary.arcade} />
       <LeaderboardSection rows={summary.leaderboard} />
       {summary.household ? (
-        <HouseholdSection household={summary.household} />
+        <HouseholdSection
+          household={summary.household}
+          analysis={data.householdAnalysis}
+        />
       ) : null}
     </>
   )
@@ -670,9 +674,19 @@ function LeaderboardSection({
 
 function HouseholdSection({
   household,
+  analysis,
 }: {
   household: NonNullable<SummaryData['summary']['household']>
+  analysis: SummaryData['householdAnalysis']
 }) {
+  const qc = useQueryClient()
+  const regenerate = useMutation({
+    mutationFn: () => regenerateHouseholdAnalysisFn(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['weekly-summary'] }),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Could not regenerate'),
+  })
+
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
@@ -686,6 +700,27 @@ function HouseholdSection({
           Open →
         </Link>
       </header>
+
+      {analysis || regenerate.isPending ? (
+        <section className="island-shell rounded-2xl p-5">
+          <header className="mb-2 flex items-baseline justify-between gap-3">
+            <h3 className="text-sm font-bold text-[var(--sea-ink)]">
+              Your family's week
+            </h3>
+            <RegenerateButton regenerate={regenerate} />
+          </header>
+          {regenerate.isPending ? (
+            <p className="text-sm text-[var(--sea-ink-soft)]">Thinking…</p>
+          ) : (
+            <p className="whitespace-pre-line text-[15px] leading-relaxed text-[var(--sea-ink)]">
+              {analysis?.analysis}
+            </p>
+          )}
+        </section>
+      ) : null}
+
+      <HouseholdWeeklyCompare household={household} />
+
       <HouseholdCompletionBar
         members={household.stats.members}
         totalCompletions={household.stats.totalCompletions}
@@ -696,6 +731,85 @@ function HouseholdSection({
         dateKeys={household.stats.dateKeys}
         label="XP this week per family member"
       />
+    </section>
+  )
+}
+
+// Per-member this-week-vs-last-week table. Each row shows the member's
+// chores + XP this week with a small up/down delta vs last week.
+function HouseholdWeeklyCompare({
+  household,
+}: {
+  household: NonNullable<SummaryData['summary']['household']>
+}) {
+  // Tolerate an older cached payload (pre this-vs-last-week shape) that a
+  // persisted react-query store may rehydrate before the fresh fetch lands.
+  const members = household.members ?? []
+  if (members.length === 0) return null
+  const totalThisWeekCount = household.totalThisWeekCount ?? 0
+  const totalThisWeekXp = household.totalThisWeekXp ?? 0
+  const totalLastWeekCount = household.totalLastWeekCount ?? 0
+  const totalLastWeekXp = household.totalLastWeekXp ?? 0
+  const delta = (now: number, prev: number) => {
+    const d = now - prev
+    if (d === 0) return { label: 'same', tone: 'text-[var(--sea-ink-soft)]' }
+    return d > 0
+      ? { label: `▲ ${d}`, tone: 'text-[var(--lagoon-deep)]' }
+      : { label: `▼ ${Math.abs(d)}`, tone: 'text-[var(--sea-ink-soft)]' }
+  }
+  const totalDelta = delta(totalThisWeekXp, totalLastWeekXp)
+  return (
+    <section className="island-shell rounded-2xl p-4">
+      <header className="mb-3 flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-bold text-[var(--sea-ink)]">
+          This week vs last week
+        </h3>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          Family: {totalThisWeekCount} chores · {totalThisWeekXp} XP{' '}
+          <span className={totalDelta.tone}>({totalDelta.label} XP)</span>
+        </p>
+      </header>
+      <ul className="space-y-2">
+        {members.map((m) => {
+          const choreDelta = delta(m.thisWeekCount, m.lastWeekCount)
+          const xpDelta = delta(m.thisWeekXp, m.lastWeekXp)
+          return (
+            <li
+              key={m.userId}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: m.color ?? '#4fb8b2' }}
+                />
+                <span className="truncate font-semibold text-[var(--sea-ink)]">
+                  {m.isMe ? `${m.name} (you)` : m.name}
+                  {m.role === 'kid' ? (
+                    <span className="ml-1 text-xs font-normal text-[var(--sea-ink-soft)]">
+                      kid
+                    </span>
+                  ) : null}
+                </span>
+              </span>
+              <span className="flex flex-shrink-0 items-center gap-3 tabular-nums text-[var(--sea-ink-soft)]">
+                <span>
+                  {m.thisWeekCount} chores{' '}
+                  <span className={choreDelta.tone}>{choreDelta.label}</span>
+                </span>
+                <span>
+                  {m.thisWeekXp} XP{' '}
+                  <span className={xpDelta.tone}>{xpDelta.label}</span>
+                </span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="mt-2 text-[11px] text-[var(--sea-ink-soft)]">
+        Last week: {totalLastWeekCount} chores · {totalLastWeekXp} XP
+      </p>
     </section>
   )
 }

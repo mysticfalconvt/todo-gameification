@@ -16,6 +16,11 @@ export type DomainEvent =
       instanceId: string
       difficulty: Difficulty
       xpOverride: number | null
+      // Exact, final XP a parent set for this completion via the household
+      // "edit points" tool. When present, the projection awards exactly this
+      // many XP (bypassing the streak/punctuality multipliers) so siblings
+      // doing the same chore can be made equal. Absent on normal completions.
+      xpFinal?: number | null
       dueAt: Date | null
       timeOfDay: string | null
       // Discriminator picked at completion time. Defaults to 'hard' when
