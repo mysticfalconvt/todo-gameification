@@ -1,7 +1,7 @@
-// Hourly cron that, at each opted-in member's local Monday 08:00, emails
-// them a recap of the week just finished. Mirrors checkPlantRisk: the
-// queue fires every hour and the handler filters users to those whose
-// local time is Monday 8am right now.
+// Hourly cron that emails each opted-in member a recap of the week just
+// finished at their chosen local weekday + hour (defaults Monday 08:00).
+// Mirrors checkPlantRisk: the queue fires every hour and the handler
+// filters users to those whose local time matches their configured slot.
 //
 // Idempotency: a (user, weekKey) row in weekly_email_log is inserted
 // onConflictDoNothing before sending — we only send when the insert took
@@ -19,10 +19,6 @@ import {
 } from '../services/weeklySummary'
 import { renderWeeklyEmail } from './weeklySummaryEmail'
 
-// Local hour at which the email fires. Monday is ISO weekday 1.
-const SEND_HOUR_LOCAL = 8
-const SEND_ISO_DOW = 1
-
 export async function sendWeeklySummaryHandler(): Promise<void> {
   if (!isEmailConfigured()) return
   const now = new Date()
@@ -33,6 +29,10 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
       email: userTable.email,
       emailVerified: userTable.emailVerified,
       timezone: userTable.timezone,
+      // Per-user delivery time (ISO weekday 1..7, local hour 0..23).
+      // Defaults are Monday/08:00 — see migration 0045.
+      dow: userPrefs.weeklyEmailDow,
+      hour: userPrefs.weeklyEmailHour,
     })
     .from(userPrefs)
     .innerJoin(userTable, eq(userTable.id, userPrefs.userId))
@@ -49,7 +49,7 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
     } catch {
       continue
     }
-    if (localDow !== SEND_ISO_DOW || localHour !== SEND_HOUR_LOCAL) continue
+    if (localDow !== u.dow || localHour !== u.hour) continue
 
     try {
       const member = await getEffectiveMemberStatus(u.id)

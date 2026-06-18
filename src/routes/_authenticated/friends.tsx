@@ -46,12 +46,15 @@ const TAB_HEADING: Record<Tab, string> = {
 
 const METRIC_LABEL: Record<LeaderboardMetric, string> = {
   xp: 'XP earned',
+  'avg-xp-day': 'Avg XP/day',
   streak: 'Longest streak',
   'showed-up': 'Days shown up',
 }
 
 const METRIC_HINT: Record<LeaderboardMetric, string> = {
   xp: 'Sum of XP from completed tasks in the window.',
+  'avg-xp-day':
+    'Average XP per day — total XP divided by the number of days in the window.',
   streak: 'Longest run of consecutive days with a completion, in the window.',
   'showed-up': 'Distinct days with at least one completion.',
 }
@@ -558,7 +561,9 @@ function LeaderboardTab() {
           role="radiogroup"
           aria-label="Metric"
         >
-          {(['xp', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
+          {(
+            ['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]
+          ).map((m) => (
             <button
               key={m}
               type="button"

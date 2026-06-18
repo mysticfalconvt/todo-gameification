@@ -6,6 +6,7 @@ import {
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -444,10 +445,15 @@ export const userPrefs = pgTable('user_prefs', {
   mergeHouseholdIntoToday: boolean('merge_household_into_today')
     .notNull()
     .default(true),
-  // Opt-in to the Monday-morning weekly summary email. Defaults off for
-  // everyone — the user turns it on in Settings (members only). The page
-  // at /weekly-summary is viewable regardless of this flag.
+  // Opt-in to the weekly summary email. Defaults off for everyone — the
+  // user turns it on in Settings (members only). The page at
+  // /weekly-summary is viewable regardless of this flag.
   weeklyEmailOptIn: boolean('weekly_email_opt_in').notNull().default(false),
+  // When the weekly email fires, in the user's local time. weeklyEmailDow
+  // is ISO weekday (1 = Monday … 7 = Sunday); weeklyEmailHour is 0..23.
+  // Defaults reproduce the old hardcoded Monday-08:00 behavior.
+  weeklyEmailDow: smallint('weekly_email_dow').notNull().default(1),
+  weeklyEmailHour: smallint('weekly_email_hour').notNull().default(8),
 })
 
 // Per-user cache for the coach blurb. One row per user; upserted by

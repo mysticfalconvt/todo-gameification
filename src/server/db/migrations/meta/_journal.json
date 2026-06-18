@@ -316,6 +316,13 @@
       "when": 1777180000000,
       "tag": "0044_task_assignee_group",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1777190000000,
+      "tag": "0045_weekly_email_schedule",
+      "breakpoints": true
     }
   ]
 }

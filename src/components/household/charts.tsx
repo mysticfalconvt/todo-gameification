@@ -37,6 +37,7 @@ export function HouseholdCompletionBar({
   const total = Math.max(totalCompletions, 1)
   const sorted = [...members].sort((a, b) => b.totalCount - a.totalCount)
   const compact = variant === 'compact'
+  const totalXp = members.reduce((sum, m) => sum + m.totalXp, 0)
 
   return (
     <section
@@ -47,7 +48,7 @@ export function HouseholdCompletionBar({
         <p className="text-xs text-[var(--sea-ink-soft)]">
           {totalCompletions === 0
             ? 'No chores done yet.'
-            : `${totalCompletions} total`}
+            : `${totalCompletions} chores · ${totalXp} XP`}
         </p>
       </header>
       {totalCompletions === 0 ? (
@@ -72,7 +73,7 @@ export function HouseholdCompletionBar({
                     </span>
                   </span>
                   <span className="flex-shrink-0 tabular-nums text-[var(--sea-ink-soft)]">
-                    {m.totalCount} · {pct}%
+                    {m.totalCount} chores · {m.totalXp} XP · {pct}%
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-[var(--option-bg)]">

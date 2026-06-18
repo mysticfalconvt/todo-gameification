@@ -62,6 +62,16 @@ export function renderWeeklyEmail(
       textLines.push(`  - ${t.title} (${t.count}×)`)
     }
   }
+  const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  if (summary.xpByDay.some((d) => d.xp > 0 || d.count > 0)) {
+    textLines.push('')
+    textLines.push('By weekday:')
+    summary.xpByDay.forEach((d, i) => {
+      textLines.push(
+        `  ${weekdayLabels[i] ?? `Day ${i + 1}`}: ${d.count} chores · ${d.xp} XP`,
+      )
+    })
+  }
   const me = summary.leaderboard.find((r) => r.isMe)
   if (me && summary.leaderboard.length > 1) {
     textLines.push('')
@@ -131,6 +141,38 @@ export function renderWeeklyEmail(
          </ol>`
       : ''
 
+  // Per-weekday bars: XP (lagoon) and chores (green), each scaled to its
+  // own max so both stay legible. Email-safe — table layout + div bars
+  // sized with inline width percentages; no SVG.
+  const palm = '#3f9d6b'
+  const maxXpDay = summary.xpByDay.reduce((a, d) => Math.max(a, d.xp), 0) || 1
+  const maxCountDay =
+    summary.xpByDay.reduce((a, d) => Math.max(a, d.count), 0) || 1
+  const byDayHtml = summary.xpByDay.some((d) => d.xp > 0 || d.count > 0)
+    ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">By weekday</h3>
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;color:${soft};">
+         ${summary.xpByDay
+           .map((d, i) => {
+             const xpW = Math.round((d.xp / maxXpDay) * 100)
+             const countW = Math.round((d.count / maxCountDay) * 100)
+             return `<tr>
+               <td style="padding:3px 8px 3px 0;width:34px;color:${ink};font-weight:600;">${esc(weekdayLabels[i] ?? '')}</td>
+               <td style="padding:3px 0;">
+                 <div style="background:${line};border-radius:6px;height:8px;margin-bottom:3px;"><div style="background:${lagoon};width:${xpW}%;height:8px;border-radius:6px;"></div></div>
+                 <div style="background:${line};border-radius:6px;height:8px;"><div style="background:${palm};width:${countW}%;height:8px;border-radius:6px;"></div></div>
+               </td>
+               <td style="padding:3px 0 3px 10px;white-space:nowrap;text-align:right;">${d.count} chores · ${d.xp} XP</td>
+             </tr>`
+           })
+           .join('')}
+       </table>
+       <p style="font-size:11px;color:${soft};margin:6px 0 0;">
+         <span style="display:inline-block;width:8px;height:8px;background:${lagoon};border-radius:2px;"></span> XP
+         &nbsp;&nbsp;
+         <span style="display:inline-block;width:8px;height:8px;background:${palm};border-radius:2px;"></span> Chores
+       </p>`
+    : ''
+
   const analysisHtml = analysis
     ? `<div style="background:#ffffff;border:1px solid ${line};border-radius:12px;padding:16px;margin:16px 0;">
          <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:${soft};margin-bottom:6px;">Your week in review</div>
@@ -159,6 +201,7 @@ export function renderWeeklyEmail(
       </tr>
     </table>
 
+    ${byDayHtml}
     ${topTasksHtml}
     ${repeatingHtml}
     ${arcadeHtml}

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { withTestUser } from '../../test/helpers'
+import { and, eq } from 'drizzle-orm'
+import { db } from '../db/client'
+import { events, households, householdMembers } from '../db/schema'
+import { withTestUser, withTestUsers } from '../../test/helpers'
 import {
+  assignKidXp,
   completeInstance,
   createTask,
   deleteTask,
@@ -191,6 +195,84 @@ describe('tasks service', () => {
         expect(aToday).toHaveLength(1)
         expect(bToday).toHaveLength(0)
       })
+    })
+  })
+})
+
+// Set up a household with the given roles and run `fn`. Tears down the
+// household (cascades to members) before user cleanup, since
+// households.created_by_user_id is ON DELETE RESTRICT.
+async function withHousehold(
+  roles: Array<'admin' | 'member' | 'kid'>,
+  fn: (
+    users: { id: string; handle: string }[],
+    householdId: string,
+  ) => Promise<void>,
+): Promise<void> {
+  await withTestUsers(roles.length, async (users) => {
+    const [hh] = await db
+      .insert(households)
+      .values({ name: 'Test House', createdByUserId: users[0].id })
+      .returning({ id: households.id })
+    await db.insert(householdMembers).values(
+      users.map((u, i) => ({
+        householdId: hh.id,
+        userId: u.id,
+        role: roles[i],
+      })),
+    )
+    try {
+      await fn(users, hh.id)
+    } finally {
+      await db.delete(households).where(eq(households.id, hh.id))
+    }
+  })
+}
+
+describe('assignKidXp', () => {
+  it('awards XP to a kid as a completed-chore event', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
+      const res = await assignKidXp(admin.id, { kidUserId: kid.id, xp: 25 })
+      expect(res.xpAwarded).toBeGreaterThanOrEqual(25)
+      expect(res.newXp).toBe(res.xpAwarded)
+
+      const prog = await getProgression(kid.id)
+      expect(prog.xp).toBe(res.newXp)
+
+      const rows = await db
+        .select()
+        .from(events)
+        .where(
+          and(eq(events.userId, kid.id), eq(events.type, 'task.completed')),
+        )
+      expect(rows).toHaveLength(1)
+    })
+  })
+
+  it('rejects assignment by a kid', async () => {
+    await withHousehold(['admin', 'kid'], async ([, kid]) => {
+      await expect(
+        assignKidXp(kid.id, { kidUserId: kid.id, xp: 10 }),
+      ).rejects.toThrow(/admins and members/)
+    })
+  })
+
+  it('rejects assigning to a non-kid member', async () => {
+    await withHousehold(['admin', 'member'], async ([admin, member]) => {
+      await expect(
+        assignKidXp(admin.id, { kidUserId: member.id, xp: 10 }),
+      ).rejects.toThrow(/only be assigned to kids/i)
+    })
+  })
+
+  it('rejects out-of-range XP', async () => {
+    await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
+      await expect(
+        assignKidXp(admin.id, { kidUserId: kid.id, xp: 0 }),
+      ).rejects.toThrow(/between 1 and 1000/)
+      await expect(
+        assignKidXp(admin.id, { kidUserId: kid.id, xp: 5000 }),
+      ).rejects.toThrow(/between 1 and 1000/)
     })
   })
 })

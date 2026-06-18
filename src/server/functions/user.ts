@@ -76,6 +76,8 @@ export const getProfile = createServerFn({ method: 'GET' })
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
       mergeHouseholdIntoToday: prefsRow?.mergeHouseholdIntoToday ?? true,
       weeklyEmailOptIn: prefsRow?.weeklyEmailOptIn ?? false,
+      weeklyEmailDow: prefsRow?.weeklyEmailDow ?? 1,
+      weeklyEmailHour: prefsRow?.weeklyEmailHour ?? 8,
     }
   })
 
@@ -187,8 +189,22 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       bio?: string
       mergeHouseholdIntoToday?: boolean
       weeklyEmailOptIn?: boolean
+      weeklyEmailDow?: number
+      weeklyEmailHour?: number
     }) => {
       let coachAttitude: CoachAttitude | undefined
+      let weeklyEmailDow: number | undefined
+      if (typeof data.weeklyEmailDow === 'number') {
+        const dow = Math.trunc(data.weeklyEmailDow)
+        if (dow < 1 || dow > 7) throw new Error('invalid weekly email weekday')
+        weeklyEmailDow = dow
+      }
+      let weeklyEmailHour: number | undefined
+      if (typeof data.weeklyEmailHour === 'number') {
+        const hour = Math.trunc(data.weeklyEmailHour)
+        if (hour < 0 || hour > 23) throw new Error('invalid weekly email hour')
+        weeklyEmailHour = hour
+      }
       if (typeof data.coachAttitude === 'string') {
         if (!(COACH_ATTITUDES as readonly string[]).includes(data.coachAttitude)) {
           throw new Error('invalid coach attitude')
@@ -230,6 +246,8 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           typeof data.weeklyEmailOptIn === 'boolean'
             ? data.weeklyEmailOptIn
             : undefined,
+        weeklyEmailDow,
+        weeklyEmailHour,
       }
     },
   )
@@ -254,6 +272,10 @@ export const updatePrefs = createServerFn({ method: 'POST' })
         true,
       weeklyEmailOptIn:
         data.weeklyEmailOptIn ?? existing?.weeklyEmailOptIn ?? false,
+      weeklyEmailDow:
+        data.weeklyEmailDow ?? existing?.weeklyEmailDow ?? 1,
+      weeklyEmailHour:
+        data.weeklyEmailHour ?? existing?.weeklyEmailHour ?? 8,
     }
     if (existing) {
       await db

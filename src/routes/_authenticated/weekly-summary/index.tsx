@@ -124,7 +124,7 @@ function SummaryBody({ data }: { data: SummaryData }) {
       </div>
 
       <XpLineSection data={summary.xpByDay} label="XP this week" />
-      <WeekdayBar counts={k.byWeekday} />
+      <WeekdayBar days={summary.xpByDay} />
 
       <TopTasksSection tasks={summary.topTasks} />
       <RepeatingSection rows={summary.repeatingTasks} />
@@ -137,6 +137,21 @@ function SummaryBody({ data }: { data: SummaryData }) {
   )
 }
 
+const WEEKLY_WEEKDAYS = [
+  { dow: 1, label: 'Monday' },
+  { dow: 2, label: 'Tuesday' },
+  { dow: 3, label: 'Wednesday' },
+  { dow: 4, label: 'Thursday' },
+  { dow: 5, label: 'Friday' },
+  { dow: 6, label: 'Saturday' },
+  { dow: 7, label: 'Sunday' },
+]
+function weeklyHourLabel(h: number): string {
+  const period = h < 12 ? 'am' : 'pm'
+  const twelve = h % 12 === 0 ? 12 : h % 12
+  return `${twelve}${period}`
+}
+
 function EmailToggleCard() {
   const qc = useQueryClient()
   const profileQuery = useQuery({
@@ -144,48 +159,98 @@ function EmailToggleCard() {
     queryFn: () => getProfile(),
   })
   const optedIn = profileQuery.data?.weeklyEmailOptIn ?? false
-  const setOptIn = useMutation({
-    mutationFn: (weeklyEmailOptIn: boolean) =>
-      updatePrefs({ data: { weeklyEmailOptIn } }),
-    onSuccess: (_d, v) => {
+  const dow = profileQuery.data?.weeklyEmailDow ?? 1
+  const hour = profileQuery.data?.weeklyEmailHour ?? 8
+  const setPref = useMutation({
+    mutationFn: (patch: {
+      weeklyEmailOptIn?: boolean
+      weeklyEmailDow?: number
+      weeklyEmailHour?: number
+    }) => updatePrefs({ data: patch }),
+    onSuccess: (_d, patch) => {
       qc.invalidateQueries({ queryKey: ['profile'] })
-      toast.success(v ? 'Weekly email on.' : 'Weekly email off.')
+      if (typeof patch.weeklyEmailOptIn === 'boolean') {
+        toast.success(patch.weeklyEmailOptIn ? 'Weekly email on.' : 'Weekly email off.')
+      } else {
+        toast.success('Schedule updated.')
+      }
     },
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   return (
-    <label className="island-shell flex cursor-pointer items-center justify-between gap-3 rounded-2xl p-4">
-      <span className="flex-1">
-        <span className="block text-sm font-semibold text-[var(--sea-ink)]">
-          Email me this every Monday
+    <section className="island-shell rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex-1">
+          <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+            Email me this weekly recap
+          </span>
+          <span className="block text-xs text-[var(--sea-ink-soft)]">
+            Delivered at the day and time you pick, in your local timezone.
+          </span>
         </span>
-        <span className="block text-xs text-[var(--sea-ink-soft)]">
-          Sent around 8am your time. You can also manage this in settings.
-        </span>
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={optedIn}
-        aria-label="Email me the weekly summary"
-        disabled={setOptIn.isPending || profileQuery.isLoading}
-        onClick={() => setOptIn.mutate(!optedIn)}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition disabled:opacity-60 ${
-          optedIn
-            ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.5)]'
-            : 'border-[var(--line)] bg-[var(--option-bg)]'
-        }`}
-      >
-        <span
-          aria-hidden
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-            optedIn ? 'translate-x-6' : 'translate-x-1'
+        <button
+          type="button"
+          role="switch"
+          aria-checked={optedIn}
+          aria-label="Email me the weekly summary"
+          disabled={setPref.isPending || profileQuery.isLoading}
+          onClick={() => setPref.mutate({ weeklyEmailOptIn: !optedIn })}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition disabled:opacity-60 ${
+            optedIn
+              ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.5)]'
+              : 'border-[var(--line)] bg-[var(--option-bg)]'
           }`}
-        />
-      </button>
-    </label>
+        >
+          <span
+            aria-hidden
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+              optedIn ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
+      {optedIn ? (
+        <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-[var(--line)] pt-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-semibold text-[var(--sea-ink)]">Day</span>
+            <select
+              value={dow}
+              disabled={setPref.isPending}
+              onChange={(e) =>
+                setPref.mutate({ weeklyEmailDow: Number(e.target.value) })
+              }
+              className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
+            >
+              {WEEKLY_WEEKDAYS.map((w) => (
+                <option key={w.dow} value={w.dow}>
+                  {w.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-semibold text-[var(--sea-ink)]">Time</span>
+            <select
+              value={hour}
+              disabled={setPref.isPending}
+              onChange={(e) =>
+                setPref.mutate({ weeklyEmailHour: Number(e.target.value) })
+              }
+              className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {weeklyHourLabel(h)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+    </section>
   )
 }
 
@@ -314,32 +379,62 @@ function StatCard({
   )
 }
 
-// Mon..Sun bar chart for the subject week (kpis.byWeekday is Mon-first).
-function WeekdayBar({ counts }: { counts: number[] }) {
+// Mon..Sun grouped bar chart for the subject week. Two bars per day — XP
+// and chores completed — each scaled to its own max so both stay readable
+// when their magnitudes differ. xpByDay is Mon-first.
+function WeekdayBar({
+  days,
+}: {
+  days: Array<{ date: string; xp: number; count: number }>
+}) {
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
   const full = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const max = counts.reduce((a, b) => Math.max(a, b), 0) || 1
+  const maxXp = days.reduce((a, d) => Math.max(a, d.xp), 0) || 1
+  const maxCount = days.reduce((a, d) => Math.max(a, d.count), 0) || 1
   return (
     <section className="island-shell rounded-2xl p-4">
-      <header className="mb-3">
+      <header className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-bold text-[var(--sea-ink)]">By weekday</h2>
+        <div className="flex items-center gap-3 text-[10px] text-[var(--sea-ink-soft)]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-sm bg-[var(--lagoon-deep)]" />
+            XP
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-sm bg-[var(--palm)]" />
+            Chores
+          </span>
+        </div>
       </header>
       <div className="flex items-end gap-1.5">
-        {counts.map((count, i) => {
-          const h = Math.max(6, (count / max) * 96)
+        {days.map((d, i) => {
+          const hXp = Math.max(d.xp > 0 ? 6 : 2, (d.xp / maxXp) * 96)
+          const hCount = Math.max(
+            d.count > 0 ? 6 : 2,
+            (d.count / maxCount) * 96,
+          )
           return (
             <div
-              key={i}
+              key={d.date || i}
               className="flex min-w-0 flex-1 flex-col items-center gap-1"
-              title={`${full[i]}: ${count}`}
+              title={`${full[i]}: ${d.xp} XP · ${d.count} chores`}
             >
-              <span className="text-[10px] font-semibold text-[var(--sea-ink-soft)]">
-                {count}
+              <span className="text-[10px] font-semibold tabular-nums text-[var(--sea-ink-soft)]">
+                {d.xp}
               </span>
-              <div
-                className="w-full rounded-t-md bg-[var(--lagoon-deep)]"
-                style={{ height: `${h}px` }}
-              />
+              <div className="flex h-24 w-full items-end justify-center gap-0.5">
+                <div
+                  className="w-1/2 rounded-t-md bg-[var(--lagoon-deep)]"
+                  style={{ height: `${hXp}px` }}
+                />
+                <div
+                  className="w-1/2 rounded-t-md bg-[var(--palm)]"
+                  style={{ height: `${hCount}px` }}
+                />
+              </div>
+              <span className="text-[10px] tabular-nums text-[var(--sea-ink-soft)]">
+                {d.count}
+              </span>
               <span className="text-[10px] text-[var(--sea-ink-soft)]">
                 {labels[i]}
               </span>

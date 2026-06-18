@@ -37,7 +37,8 @@ import type {
   LeaderboardWindow,
 } from '../../../server/services/leaderboard'
 import { listFriendsFn } from '../../../server/functions/social'
-import { completeInstance } from '../../../server/functions/tasks'
+import { assignKidXp, completeInstance } from '../../../server/functions/tasks'
+import { listCategories } from '../../../server/functions/categories'
 
 export const Route = createFileRoute('/_authenticated/household/')({
   component: HouseholdPage,
@@ -97,6 +98,7 @@ function HouseholdPage() {
   })
 
   const [tab, setTab] = useState<Tab>('chores')
+  const [assignOpen, setAssignOpen] = useState(false)
 
   // Treat "no valid data yet AND a fetch is in flight" as loading too,
   // not just the initial `isLoading`. This covers the case where a
@@ -193,7 +195,34 @@ function HouseholdPage() {
           {members.length} {members.length === 1 ? 'member' : 'members'} ·
           You are {role === 'admin' ? 'an' : 'a'} {role}
         </p>
+        {isAdult && members.some((m) => m.role === 'kid') ? (
+          <button
+            type="button"
+            onClick={() => setAssignOpen(true)}
+            className="mt-3 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)]"
+          >
+            + Assign points
+          </button>
+        ) : null}
       </header>
+
+      {isAdult ? (
+        <AssignPointsDialog
+          open={assignOpen}
+          members={members}
+          onClose={() => setAssignOpen(false)}
+          onAssigned={() => {
+            qc.invalidateQueries({ queryKey: ['household-stats', household.id] })
+            qc.invalidateQueries({
+              queryKey: ['household-leaderboard', household.id],
+            })
+            qc.invalidateQueries({
+              queryKey: ['household-activity', household.id],
+            })
+            qc.invalidateQueries({ queryKey: ['progression'] })
+          }}
+        />
+      ) : null}
 
       <div
         className="flex flex-wrap gap-1.5 rounded-2xl border border-[var(--line)] bg-[var(--option-bg)] p-1.5"
@@ -354,9 +383,13 @@ function ChoresTab({
     enabled: viewMode === 'week',
   })
   const complete = useMutation({
-    mutationFn: (vars: { instanceId: string; creditUserId?: string }) =>
+    mutationFn: (vars: { instanceId: string; creditUserIds?: string[] }) =>
       completeInstance({
-        data: { instanceId: vars.instanceId, force: true, creditUserId: vars.creditUserId },
+        data: {
+          instanceId: vars.instanceId,
+          force: true,
+          creditUserIds: vars.creditUserIds,
+        },
       }),
     onSuccess: (res) => {
       if ('alreadyHandled' in res && res.alreadyHandled) {
@@ -526,19 +559,12 @@ function ChoresTab({
     assignedToHandle: string | null
     assignedToName: string | null
   }): void {
-    const isMine =
-      c.assignedToUserId !== null && c.assignedToUserId === viewerUserId
-    const isForSomeoneElse = c.assignedToUserId !== null && !isMine
-    // Kiosks ALWAYS open the credit picker — the iPad doesn't know
-    // who's tapping, so every completion needs an explicit "who did
-    // this?" pick. Admins skip the picker only on their own chores.
-    // Members open it only when crediting on behalf.
-    const opensDialog =
-      viewerRole === 'kiosk'
-        ? true
-        : viewerRole === 'admin'
-          ? !isMine
-          : viewerRole === 'member' && isForSomeoneElse
+    // Everyone except kids goes through the credit picker, so any
+    // completion can be shared across the people who pitched in. The
+    // dialog pre-checks the natural recipient, so a solo completion is
+    // still just "tap Complete → Complete". Kids never see the dialog —
+    // their tap drops into the approval queue instead.
+    const opensDialog = viewerRole !== 'kid'
     const assigneeLabel = c.assignedToName ?? `@${c.assignedToHandle ?? ''}`
     if (opensDialog) {
       setCreditPicker({
@@ -709,11 +735,11 @@ function ChoresTab({
         viewerUserId={viewerUserId}
         members={members}
         onCancel={() => setCreditPicker(null)}
-        onConfirm={(creditUserId) => {
+        onConfirm={(creditUserIds) => {
           if (!creditPicker) return
           complete.mutate({
             instanceId: creditPicker.instanceId,
-            creditUserId,
+            creditUserIds,
           })
           setCreditPicker(null)
         }}
@@ -1401,45 +1427,44 @@ function CreditPickerDialog({
   viewerUserId: string | undefined
   members: HouseholdMemberRow[]
   onCancel: () => void
-  onConfirm: (creditUserId: string) => void
+  onConfirm: (creditUserIds: string[]) => void
 }) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
-  // Default the radio to the assignee — that's the most common
-  // intent: "credit the person the chore is for."
-  const [pickedUserId, setPickedUserId] = useState<string | null>(null)
+  // Multi-select: a chore can be credited to everyone who pitched in,
+  // and each person earns the full reward. Pre-checked to the natural
+  // recipient so the common solo case is still one extra tap.
+  const [pickedUserIds, setPickedUserIds] = useState<string[]>([])
 
   useEffect(() => {
     const el = dialogRef.current
     if (!el) return
     if (pending && !el.open) {
-      // Default: the assignee on assigned chores. For kiosks on
-      // free-for-all chores there's no good default (the "kiosk"
-      // didn't do it), so leave the radio empty and force a choice.
+      // Default-check the assignee on assigned chores, else the viewer.
+      // For kiosks on free-for-all chores there's no good default (the
+      // "kiosk" didn't do it), so leave it empty and force a choice.
       const fallback = viewerRole === 'kiosk' ? null : (viewerUserId ?? null)
-      setPickedUserId(pending.assignedToUserId ?? fallback)
+      const initial = pending.assignedToUserId ?? fallback
+      setPickedUserIds(initial ? [initial] : [])
       el.showModal()
     } else if (!pending && el.open) {
       el.close()
     }
   }, [pending, viewerUserId, viewerRole])
 
-  // Build the list of options the viewer is allowed to credit.
-  //  - admin / kiosk: all household members (kiosk = shared family
-  //    device; admin = manager). Both can credit anyone.
-  //  - member: themselves + the chore's assignee (if any)
-  //  - kid: shouldn't see this dialog at all (button hidden upstream)
-  const options: HouseholdMemberRow[] = (() => {
-    if (!pending) return []
-    if (viewerRole === 'admin' || viewerRole === 'kiosk') {
-      // Hide other kiosks from the picker (you wouldn't credit "the
-      // iPad" with a chore completion).
-      return members.filter((m) => m.role !== 'kiosk')
-    }
-    const allowedIds = new Set<string>()
-    if (viewerUserId) allowedIds.add(viewerUserId)
-    if (pending.assignedToUserId) allowedIds.add(pending.assignedToUserId)
-    return members.filter((m) => allowedIds.has(m.userId))
-  })()
+  const toggleUser = (userId: string) =>
+    setPickedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    )
+
+  // Any adult (admin / member / kiosk) may credit any combination of
+  // household members — the doer vouches for everyone who pitched in.
+  // Kiosks are hidden from the list (you wouldn't credit "the iPad"
+  // with a chore). Kids never reach this dialog (button hidden upstream).
+  const options: HouseholdMemberRow[] = pending
+    ? members.filter((m) => m.role !== 'kiosk')
+    : []
 
   return (
     <dialog
@@ -1457,29 +1482,31 @@ function CreditPickerDialog({
               Who gets credit?
             </h3>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              Completing &ldquo;{pending.title}&rdquo; — pick who earns the XP
-              and streak for this chore.
+              Completing &ldquo;{pending.title}&rdquo; — check everyone who
+              pitched in. Each person earns the full XP and a streak.
             </p>
           </div>
           <fieldset className="flex flex-col gap-2">
             {options.map((m) => {
               const isAssignee = m.userId === pending.assignedToUserId
               const isMe = m.userId === viewerUserId
+              const checked = pickedUserIds.includes(m.userId)
               return (
                 <label
                   key={m.userId}
                   className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${
-                    pickedUserId === m.userId
+                    checked
                       ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
                       : 'border-[var(--line)] bg-[var(--option-bg)]'
                   }`}
                 >
                   <input
-                    type="radio"
+                    type="checkbox"
                     name="credit-user"
                     value={m.userId}
-                    checked={pickedUserId === m.userId}
-                    onChange={() => setPickedUserId(m.userId)}
+                    checked={checked}
+                    onChange={() => toggleUser(m.userId)}
+                    className="accent-[var(--lagoon-deep)]"
                   />
                   <span className="flex-1">
                     <span className="block font-semibold text-[var(--sea-ink)]">
@@ -1505,9 +1532,9 @@ function CreditPickerDialog({
             <button
               type="button"
               onClick={() => {
-                if (pickedUserId) onConfirm(pickedUserId)
+                if (pickedUserIds.length > 0) onConfirm(pickedUserIds)
               }}
-              disabled={!pickedUserId}
+              disabled={pickedUserIds.length === 0}
               className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
             >
               Complete
@@ -1515,6 +1542,212 @@ function CreditPickerDialog({
           </div>
         </div>
       ) : null}
+    </dialog>
+  )
+}
+
+// Quick "reward a kid" dialog for parents (admin/member). Awards a chosen
+// amount of XP to a kid as an instant completed chore via assignKidXp.
+// Categories are the assigner's own list (used purely as a label).
+const XP_PRESETS = [
+  { label: 'Small', xp: 10 },
+  { label: 'Medium', xp: 25 },
+  { label: 'Large', xp: 60 },
+]
+
+function AssignPointsDialog({
+  open,
+  members,
+  onClose,
+  onAssigned,
+}: {
+  open: boolean
+  members: HouseholdMemberRow[]
+  onClose: () => void
+  onAssigned: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
+  const kids = members.filter((m) => m.role === 'kid')
+  const [kidUserId, setKidUserId] = useState<string | null>(null)
+  const [xp, setXp] = useState<number>(25)
+  const [title, setTitle] = useState('')
+  const [categorySlug, setCategorySlug] = useState<string>('')
+
+  const categoriesQuery = useQuery({
+    queryKey: ['my-categories'],
+    queryFn: () => listCategories(),
+    enabled: open,
+  })
+  const categories = categoriesQuery.data ?? []
+
+  useEffect(() => {
+    const el = dialogRef.current
+    if (!el) return
+    if (open && !el.open) {
+      setKidUserId(kids[0]?.userId ?? null)
+      setXp(25)
+      setTitle('')
+      setCategorySlug('')
+      el.showModal()
+    } else if (!open && el.open) {
+      el.close()
+    }
+  }, [open, kids])
+
+  const assign = useMutation({
+    mutationFn: () =>
+      assignKidXp({
+        data: {
+          kidUserId: kidUserId as string,
+          xp,
+          categorySlug: categorySlug || null,
+          title: title.trim() || null,
+        },
+      }),
+    onSuccess: (res) => {
+      const kid = kids.find((k) => k.userId === kidUserId)
+      toast.success(
+        `Awarded ${res.xpAwarded} XP to ${kid?.name ?? 'them'}` +
+          (res.tokensEarned ? ' · +1 token' : ''),
+      )
+      onAssigned()
+      onClose()
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Could not assign points.')
+    },
+  })
+
+  const valid = Boolean(kidUserId) && Number.isFinite(xp) && xp >= 1 && xp <= 1000
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose()
+      }}
+      className="m-auto w-[min(420px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+    >
+      <div className="flex flex-col gap-4 p-5">
+        <div>
+          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
+            Assign points
+          </h3>
+          <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+            Reward a kid with XP. It counts as an instant completed chore.
+          </p>
+        </div>
+
+        {kids.length === 0 ? (
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            No kids in this household yet.
+          </p>
+        ) : (
+          <>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-semibold text-[var(--sea-ink)]">Kid</span>
+              <select
+                value={kidUserId ?? ''}
+                onChange={(e) => setKidUserId(e.target.value)}
+                className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2"
+              >
+                {kids.map((k) => (
+                  <option key={k.userId} value={k.userId}>
+                    {k.name} (@{k.handle})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex flex-col gap-1 text-sm">
+              <span className="font-semibold text-[var(--sea-ink)]">XP</span>
+              <div className="flex flex-wrap gap-1.5">
+                {XP_PRESETS.map((p) => (
+                  <button
+                    key={p.xp}
+                    type="button"
+                    onClick={() => setXp(p.xp)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      xp === p.xp
+                        ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]'
+                        : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
+                    }`}
+                  >
+                    {p.label} · {p.xp}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={Number.isFinite(xp) ? xp : ''}
+                onChange={(e) => setXp(Math.trunc(Number(e.target.value)))}
+                className="mt-1 w-28 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2 tabular-nums"
+              />
+            </div>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-semibold text-[var(--sea-ink)]">
+                Reason{' '}
+                <span className="font-normal text-[var(--sea-ink-soft)]">
+                  (optional)
+                </span>
+              </span>
+              <input
+                type="text"
+                value={title}
+                maxLength={200}
+                placeholder="Bonus points"
+                onChange={(e) => setTitle(e.target.value)}
+                className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2"
+              />
+            </label>
+
+            {categories.length > 0 ? (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold text-[var(--sea-ink)]">
+                  Category{' '}
+                  <span className="font-normal text-[var(--sea-ink-soft)]">
+                    (optional)
+                  </span>
+                </span>
+                <select
+                  value={categorySlug}
+                  onChange={(e) => setCategorySlug(e.target.value)}
+                  className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2"
+                >
+                  <option value="">None</option>
+                  {categories.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => assign.mutate()}
+            disabled={!valid || assign.isPending || kids.length === 0}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+          >
+            {assign.isPending ? 'Assigning…' : 'Assign'}
+          </button>
+        </div>
+      </div>
     </dialog>
   )
 }
@@ -1675,7 +1908,7 @@ function StatsTab({ householdId }: { householdId: string }) {
     queryFn: () =>
       listHouseholdStatsFn({ data: { householdId, days } }),
   })
-  const ranges: number[] = [7, 30, 90]
+  const ranges: number[] = [1, 7, 30, 90]
   const stats = statsQuery.data
 
   return (
@@ -1785,11 +2018,14 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
 
   const metricLabel: Record<LeaderboardMetric, string> = {
     xp: 'XP earned',
+    'avg-xp-day': 'Avg XP/day',
     streak: 'Longest streak',
     'showed-up': 'Days shown up',
   }
   const metricHint: Record<LeaderboardMetric, string> = {
     xp: 'Sum of XP from chore completions in the window.',
+    'avg-xp-day':
+      'Average XP per day — total XP divided by the number of days in the window.',
     streak: 'Longest run of consecutive days with a completion in the window.',
     'showed-up': 'Distinct days with at least one completion.',
   }
@@ -1832,7 +2068,9 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
         role="radiogroup"
         aria-label="Metric"
       >
-        {(['xp', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
+        {(
+          ['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]
+        ).map((m) => (
           <button
             key={m}
             type="button"

@@ -906,7 +906,7 @@ function WeeklySummarySection() {
           </span>
           <span className="block text-xs text-[var(--sea-ink-soft)]">
             {isMember
-              ? 'Sent Monday around 8am your time. Off by default — flip this on to receive it.'
+              ? 'Off by default — flip this on to receive it. Pick the delivery day and time on the weekly summary page.'
               : 'The weekly email is a membership feature. Scroll up to Membership to upgrade.'}
           </span>
         </span>

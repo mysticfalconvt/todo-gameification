@@ -14,6 +14,18 @@ export const createTask = createServerFn({ method: 'POST' })
   .inputValidator((data: service.CreateTaskInput) => data)
   .handler(({ data, context }) => service.createTask(context.userId, data))
 
+export const assignKidXp = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: {
+      kidUserId: string
+      xp: number
+      categorySlug?: string | null
+      title?: string | null
+    }) => data,
+  )
+  .handler(({ data, context }) => service.assignKidXp(context.userId, data))
+
 export const listTodayInstances = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.listTodayInstances(context.userId))
@@ -28,13 +40,13 @@ export const completeInstance = createServerFn({ method: 'POST' })
     (data: {
       instanceId: string
       force?: boolean
-      creditUserId?: string
+      creditUserIds?: string[]
     }) => data,
   )
   .handler(({ data, context }) =>
     service.completeInstance(context.userId, data.instanceId, {
       force: data.force,
-      creditUserId: data.creditUserId,
+      creditUserIds: data.creditUserIds,
     }),
   )
 

@@ -8,7 +8,12 @@ import {
 } from '../services/leaderboard'
 
 const SCOPES: LeaderboardScope[] = ['friends', 'global', 'household']
-const METRICS: LeaderboardMetric[] = ['xp', 'streak', 'showed-up']
+const METRICS: LeaderboardMetric[] = [
+  'xp',
+  'avg-xp-day',
+  'streak',
+  'showed-up',
+]
 const WINDOWS: LeaderboardWindow[] = [7, 30, 90, 'all']
 
 export const getLeaderboardFn = createServerFn({ method: 'POST' })

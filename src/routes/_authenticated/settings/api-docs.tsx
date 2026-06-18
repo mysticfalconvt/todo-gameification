@@ -152,7 +152,7 @@ function ApiDocsPage() {
 
       <Section
         title="POST /api/v1/instances/:instanceId/complete"
-        purpose="Mark an instance done. Writes a task.completed event, applies streak + punctuality multipliers, materializes the next instance if the task recurs. Returns the updated progression. For household chores, an optional `creditUserId` body redirects XP to another household member (admins → any member; members → self or assignee; kids → self only)."
+        purpose="Mark an instance done. Writes a task.completed event, applies streak + punctuality multipliers, materializes the next instance if the task recurs. Returns the updated progression. For household chores, an optional `creditUserId` body redirects XP to another household member (any adult may credit any member; kids complete via the approval queue)."
         request={`curl -X POST -H 'Authorization: Bearer tgx_xxxx' \\
      -H 'Content-Type: application/json' \\
      -d '{ "creditUserId": "kid-user-id" }' \\

@@ -12,7 +12,7 @@ import {
 } from '../db/schema'
 
 export type LeaderboardScope = 'friends' | 'global' | 'household'
-export type LeaderboardMetric = 'xp' | 'streak' | 'showed-up'
+export type LeaderboardMetric = 'xp' | 'avg-xp-day' | 'streak' | 'showed-up'
 export type LeaderboardWindow = 7 | 30 | 90 | 'all'
 
 export interface LeaderboardRow {
@@ -30,6 +30,11 @@ interface CandidateUser {
   handle: string
   name: string
   timezone: string
+  // Date this user started accumulating in the relevant context: their
+  // household join date for the household scope, else account creation.
+  // Used as the denominator floor for the avg-xp-day metric on the
+  // 'all' window.
+  sinceDate: Date
 }
 
 async function friendIdsFor(userId: string): Promise<string[]> {
@@ -66,6 +71,10 @@ async function loadCandidates(
 ): Promise<CandidateUser[]> {
   let ids: string[]
   let respectShareProgression = true
+  // For the household scope, the per-user "since" date is their household
+  // join date (used as the avg-xp-day denominator floor); other scopes
+  // fall back to account creation below.
+  const joinedAtByUser = new Map<string, Date>()
   if (scope === 'friends') {
     ids = [viewerId, ...(await friendIdsFor(viewerId))]
   } else if (scope === 'household') {
@@ -80,7 +89,10 @@ async function loadCandidates(
     // and they accumulate no XP themselves (every kiosk completion
     // credits a real family member).
     const rows = await db
-      .select({ userId: householdMembers.userId })
+      .select({
+        userId: householdMembers.userId,
+        joinedAt: householdMembers.joinedAt,
+      })
       .from(householdMembers)
       .where(
         and(
@@ -89,6 +101,7 @@ async function loadCandidates(
         ),
       )
     ids = rows.map((r) => r.userId)
+    for (const r of rows) joinedAtByUser.set(r.userId, r.joinedAt)
     respectShareProgression = false
   } else {
     const publicUsers = await db
@@ -105,6 +118,7 @@ async function loadCandidates(
       handle: userTable.handle,
       name: userTable.name,
       timezone: userTable.timezone,
+      createdAt: userTable.createdAt,
       shareProgression: userPrefs.shareProgression,
     })
     .from(userTable)
@@ -123,6 +137,7 @@ async function loadCandidates(
       handle: r.handle,
       name: r.name,
       timezone: r.timezone,
+      sinceDate: joinedAtByUser.get(r.id) ?? r.createdAt,
     }))
 }
 
@@ -160,7 +175,7 @@ export async function getLeaderboard(
       ),
     )
 
-  const valueByUser = computeMetric(metric, candidates, rows)
+  const valueByUser = computeMetric(metric, days, candidates, rows)
 
   // Batch-fetch membership tiers so the leaderboard shows the founder
   // pill next to lifetime/annual members. Free is the default for
@@ -203,6 +218,7 @@ export async function getLeaderboard(
 
 function computeMetric(
   metric: LeaderboardMetric,
+  days: LeaderboardWindow,
   candidates: CandidateUser[],
   rows: Array<{
     userId: string
@@ -213,7 +229,7 @@ function computeMetric(
   const tzByUser = new Map(candidates.map((c) => [c.id, c.timezone]))
   const values = new Map<string, number>()
 
-  if (metric === 'xp') {
+  if (metric === 'xp' || metric === 'avg-xp-day') {
     for (const r of rows) {
       if (!r.occurredAt) continue
       const p =
@@ -230,6 +246,20 @@ function computeMetric(
         xpOverride ??
         (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
       values.set(r.userId, (values.get(r.userId) ?? 0) + xp)
+    }
+    if (metric === 'xp') return values
+    // avg-xp-day: divide total XP by the number of calendar days in the
+    // window. For a fixed window that's the window length; for 'all' it's
+    // the days since the user started (household join / account creation),
+    // floored at 1 so a brand-new account doesn't divide by zero.
+    const now = Date.now()
+    for (const c of candidates) {
+      const total = values.get(c.id) ?? 0
+      const windowDays =
+        days === 'all'
+          ? Math.max(1, Math.ceil((now - c.sinceDate.getTime()) / 86_400_000))
+          : (days as number)
+      values.set(c.id, Math.round((total / windowDays) * 10) / 10)
     }
     return values
   }

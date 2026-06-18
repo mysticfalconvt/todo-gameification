@@ -42,7 +42,11 @@ import {
   expectedCompletionsPerWeek,
   firstDueAt,
 } from '../../domain/recurrence'
-import { assertHouseholdRole, listHouseholdMembers } from './households'
+import {
+  assertHouseholdRole,
+  getMyMembership,
+  listHouseholdMembers,
+} from './households'
 import {
   assertValidTimeOfDay,
   assertValidWeekdayTimes,
@@ -60,6 +64,7 @@ import {
   computeStepXp,
   parentBonusBaseXp,
   punctualityMultiplier,
+  type Progression,
 } from '../../domain/gamification'
 import { scheduleReminder } from '../boss'
 import { scoreTask } from '../llm/scoreTask'
@@ -2370,14 +2375,30 @@ export async function reopenLastCompletion(
     })
     if (!latest) throw new Error('no completed instance to reopen')
 
-    // Whose progression rolls back? The actual completer. Older
-    // completions written before completedByUserId existed fall back
-    // to instance.userId, which was always the completer pre-household.
+    // Whose progression rolls back? Every credited recipient — one chore
+    // can grant XP to several people ("we did it together"), so there may
+    // be multiple task.completed events for this instance, each on a
+    // different user. The events are the source of truth; the
+    // completedByUserId stamp is just the primary anchor / legacy
+    // fallback (older completions predate multi-credit and that column).
+    const completionRows = await tx
+      .select({ userId: events.userId })
+      .from(events)
+      .where(
+        and(
+          eq(events.type, 'task.completed'),
+          sql`${events.payload}->>'instanceId' = ${latest.id}`,
+        ),
+      )
     const completerUserId = latest.completedByUserId ?? latest.userId
+    const recipientIds =
+      completionRows.length > 0
+        ? Array.from(new Set(completionRows.map((r) => r.userId)))
+        : [completerUserId]
 
     // Permission gate.
     //  - Personal task: only the task owner may reopen (existing rule).
-    //  - Household chore: the completer may reopen their own, AND any
+    //  - Household chore: any credited recipient may reopen, AND any
     //    household admin may reopen (e.g. fixing a kid's accidental
     //    completion). The task creator is also allowed if they're a
     //    household admin via that path.
@@ -2385,7 +2406,7 @@ export async function reopenLastCompletion(
     if (!task.householdId) {
       allowed = task.userId === userId
     } else {
-      if (userId === completerUserId) {
+      if (recipientIds.includes(userId)) {
         allowed = true
       } else {
         const m = await tx.query.householdMembers.findFirst({
@@ -2400,33 +2421,34 @@ export async function reopenLastCompletion(
     }
     if (!allowed) throw new Error('not authorized')
 
-    // Drop the corresponding task.completed event so the event log
-    // stays the source of truth for progression. Scoped to the
-    // completer's events.
-    await tx
-      .delete(events)
-      .where(
-        and(
-          eq(events.userId, completerUserId),
-          eq(events.type, 'task.completed'),
-          sql`${events.payload}->>'instanceId' = ${latest.id}`,
-        ),
-      )
-    // Also revoke any cheer events that landed on this completion so
-    // XP from cheers doesn't linger after the original is gone.
-    await tx
-      .delete(events)
-      .where(
-        and(
-          eq(events.userId, completerUserId),
-          eq(events.type, 'task.cheered'),
-          sql`${events.payload}->>'completionEventId' IN (
-            SELECT id FROM ${events} WHERE ${events.userId} = ${completerUserId}
-              AND ${events.type} = 'task.completed'
-              AND ${events.payload}->>'instanceId' = ${latest.id}
-          )`,
-        ),
-      )
+    // Drop the task.completed event for each recipient so the event log
+    // stays the source of truth for progression, plus any cheer events
+    // that landed on those completions (so cheer XP doesn't linger after
+    // the original is gone).
+    for (const recipientId of recipientIds) {
+      await tx
+        .delete(events)
+        .where(
+          and(
+            eq(events.userId, recipientId),
+            eq(events.type, 'task.cheered'),
+            sql`${events.payload}->>'completionEventId' IN (
+              SELECT id FROM ${events} WHERE ${events.userId} = ${recipientId}
+                AND ${events.type} = 'task.completed'
+                AND ${events.payload}->>'instanceId' = ${latest.id}
+            )`,
+          ),
+        )
+      await tx
+        .delete(events)
+        .where(
+          and(
+            eq(events.userId, recipientId),
+            eq(events.type, 'task.completed'),
+            sql`${events.payload}->>'instanceId' = ${latest.id}`,
+          ),
+        )
+    }
 
     await tx
       .update(taskInstances)
@@ -2450,8 +2472,10 @@ export async function reopenLastCompletion(
         )
     }
 
-    const completerTimeZone = await getUserTimeZone(completerUserId)
-    await rebuildProgression(tx, completerUserId, completerTimeZone)
+    for (const recipientId of recipientIds) {
+      const recipientTimeZone = await getUserTimeZone(recipientId)
+      await rebuildProgression(tx, recipientId, recipientTimeZone)
+    }
     return { instanceId: latest.id }
   })
 }
@@ -2770,14 +2794,202 @@ async function kidCompletionTokens(
   return completionNumber % KID_TOKENS_EVERY_N_COMPLETIONS === 0 ? 1 : 0
 }
 
+export interface AssignKidXpResult {
+  xpAwarded: number
+  tokensEarned: number
+  newXp: number
+  newLevel: number
+}
+
+// Manually grant a kid XP. Parents (admin/member) use this to reward
+// off-app effort — it's modelled as an instant, already-completed chore so
+// it reuses the whole event-sourced completion path: a `task.completed`
+// event is written for the kid (events.userId = kid) and applied to their
+// progression. The chosen amount is the *base* XP; like every completion it
+// flows through the kid's streak multiplier (and counts toward their streak
+// + arcade-token cadence). dueAt is null so punctuality is neutral (1.0).
+export async function assignKidXp(
+  assignerId: string,
+  input: {
+    kidUserId: string
+    xp: number
+    categorySlug?: string | null
+    title?: string | null
+  },
+): Promise<AssignKidXpResult> {
+  const xp = Math.trunc(input.xp)
+  if (!Number.isFinite(xp) || xp < 1 || xp > 1000) {
+    throw new Error('XP must be a whole number between 1 and 1000.')
+  }
+  if (!input.kidUserId) throw new Error('kidUserId required')
+
+  // Assigner must be an adult (admin/member) in a household.
+  const mine = await getMyMembership(assignerId)
+  if (!mine || (mine.role !== 'admin' && mine.role !== 'member')) {
+    throw new Error('Only household admins and members can assign points.')
+  }
+  const householdId = mine.householdId
+
+  // Recipient must be a kid in the *same* household.
+  const recipient = await db.query.householdMembers.findFirst({
+    where: and(
+      eq(householdMembers.userId, input.kidUserId),
+      eq(householdMembers.householdId, householdId),
+    ),
+    columns: { role: true },
+  })
+  if (!recipient) throw new Error('Recipient is not in your household.')
+  if (recipient.role !== 'kid') {
+    throw new Error('Points can only be assigned to kids.')
+  }
+
+  const title = (input.title?.trim() || 'Bonus points').slice(0, 200)
+  const categorySlug = input.categorySlug?.trim() || null
+  const now = new Date()
+  const recipientTimeZone = await getUserTimeZone(input.kidUserId)
+
+  return db.transaction(async (tx) => {
+    const [task] = await tx
+      .insert(tasks)
+      .values({
+        userId: input.kidUserId,
+        title,
+        difficulty: 'medium',
+        xpOverride: xp,
+        categorySlug,
+        active: false,
+        householdId,
+        assignedToUserId: input.kidUserId,
+      })
+      .returning({ id: tasks.id })
+
+    const [instance] = await tx
+      .insert(taskInstances)
+      .values({
+        taskId: task.id,
+        userId: input.kidUserId,
+        dueAt: null,
+        completedAt: now,
+        completedByUserId: input.kidUserId,
+        householdId,
+        assignedToUserId: input.kidUserId,
+      })
+      .returning({ id: taskInstances.id })
+
+    const tokensEarned = await kidCompletionTokens(
+      tx,
+      input.kidUserId,
+      householdId,
+    )
+
+    const event: DomainEvent = {
+      type: 'task.completed',
+      taskId: task.id,
+      instanceId: instance.id,
+      difficulty: 'medium',
+      xpOverride: xp,
+      dueAt: null,
+      timeOfDay: null,
+      dueKind: 'hard',
+      householdId,
+      assignedToUserId: input.kidUserId,
+      completedAs: 'assigned',
+      tokensEarned,
+      occurredAt: now,
+    }
+
+    await tx.insert(events).values({
+      userId: input.kidUserId,
+      type: event.type,
+      payload: {
+        taskId: event.taskId,
+        instanceId: event.instanceId,
+        difficulty: event.difficulty,
+        xpOverride: event.xpOverride,
+        dueAt: null,
+        timeOfDay: null,
+        dueKind: 'hard',
+        householdId,
+        assignedToUserId: input.kidUserId,
+        completedAs: 'assigned',
+        tokensEarned,
+      },
+      occurredAt: now,
+    })
+
+    const current = await tx.query.progression.findFirst({
+      where: eq(progression.userId, input.kidUserId),
+    })
+    const prevState = current
+      ? {
+          xp: current.xp,
+          level: current.level,
+          currentStreak: current.currentStreak,
+          longestStreak: current.longestStreak,
+          tokens: current.tokens,
+          lastCompletionAt: current.lastCompletionAt,
+        }
+      : INITIAL_PROGRESSION
+
+    const next = applyEvent(prevState, event, { timeZone: recipientTimeZone })
+
+    await tx
+      .insert(progression)
+      .values({
+        userId: input.kidUserId,
+        xp: next.xp,
+        level: next.level,
+        currentStreak: next.currentStreak,
+        longestStreak: next.longestStreak,
+        tokens: next.tokens,
+        lastCompletionAt: next.lastCompletionAt,
+      })
+      .onConflictDoUpdate({
+        target: progression.userId,
+        set: {
+          xp: next.xp,
+          level: next.level,
+          currentStreak: next.currentStreak,
+          longestStreak: next.longestStreak,
+          tokens: next.tokens,
+          lastCompletionAt: next.lastCompletionAt,
+          updatedAt: now,
+        },
+      })
+
+    return {
+      xpAwarded: next.xp - prevState.xp,
+      tokensEarned,
+      newXp: next.xp,
+      newLevel: next.level,
+    }
+  })
+}
+
 export async function completeInstance(
   userId: string,
   instanceId: string,
-  options: { force?: boolean; creditUserId?: string } = {},
+  options: {
+    force?: boolean
+    // `creditUserIds` (plural) credits several household members for one
+    // chore — "we did this together, so we both earn it." `creditUserId`
+    // (singular) is kept for the public REST API / older callers and is
+    // folded into the list below. Empty/absent → the natural recipient.
+    creditUserId?: string
+    creditUserIds?: string[]
+  } = {},
 ): Promise<CompleteInstanceResult> {
   if (!instanceId) throw new Error('instanceId required')
   const now = new Date()
   const timeZone = await getUserTimeZone(userId)
+
+  // Normalize singular + plural credit inputs into a deduped list.
+  const requestedCredits =
+    options.creditUserIds && options.creditUserIds.length > 0
+      ? Array.from(new Set(options.creditUserIds))
+      : options.creditUserId
+        ? [options.creditUserId]
+        : []
 
   const txResult = await db.transaction(async (tx) => {
     // Fetch without a user filter so household chores can be completed
@@ -2797,23 +3009,24 @@ export async function completeInstance(
       return { alreadyHandled: true as const }
     }
 
-    // Permission gate + XP recipient.
+    // Permission gate + XP recipient(s).
     //  - Personal task: only the owner may complete; XP goes to them.
     //  - Household chore assigned to viewer (or free-for-all): viewer
     //    must be a member; XP goes to the viewer (the completer) by
-    //    default, OR to `creditUserId` if specified (e.g. the user
-    //    explicitly chose someone else from the dialog).
+    //    default, OR to the explicitly chosen recipient(s) from the
+    //    dialog. Several people can be credited for one chore — each
+    //    earns the full reward.
     //  - Household chore assigned to *someone else*: only adults
     //    (admin/member) may complete "on behalf"; kids are blocked.
     //    Default credit goes to the assignee; the caller can override
-    //    via `creditUserId` (admins may pick any member; members may
-    //    pick themselves or the assignee only).
-    let xpRecipientId = userId
+    //    with any combination of household members.
+    let recipients: string[]
     if (!instance.householdId) {
       if (instance.userId !== userId) throw new Error('not authorized')
-      if (options.creditUserId && options.creditUserId !== userId) {
+      if (requestedCredits.some((id) => id !== userId)) {
         throw new Error('Cannot reassign credit on a personal task.')
       }
+      recipients = [userId]
     } else {
       const membership = await tx.query.householdMembers.findFirst({
         where: and(
@@ -2845,11 +3058,11 @@ export async function completeInstance(
       //
       //   kiosk  — credit-picker on every tap. The kiosk IS the
       //            shared device; anyone in the family uses it.
-      //            `creditUserId` is mandatory (UI dialog enforces),
-      //            and the completion happens immediately with that
-      //            user as the XP recipient. No review queue, since
-      //            an adult is presumably at the iPad picking the
-      //            actual doer.
+      //            At least one recipient is mandatory (UI dialog
+      //            enforces), and the completion happens immediately
+      //            with those users as the XP recipients. No review
+      //            queue, since an adult is presumably at the iPad
+      //            picking the actual doer(s).
       if (membership.role === 'kid') {
         const claimed = await tx
           .update(taskInstances)
@@ -2869,46 +3082,38 @@ export async function completeInstance(
         return { pendingApproval: true as const }
       }
 
-      if (membership.role === 'kiosk' && !options.creditUserId) {
+      if (membership.role === 'kiosk' && requestedCredits.length === 0) {
         throw new Error(
           'Pick who did this chore from the dialog before completing.',
         )
       }
 
-      // Default natural recipient: viewer for FFA / own; assignee
-      // when an adult completes on behalf.
-      xpRecipientId =
-        instance.assignedToUserId && instance.assignedToUserId !== userId
-          ? instance.assignedToUserId
-          : userId
-      if (options.creditUserId) {
-        // Validate the requested credit recipient.
-        if (membership.role === 'member') {
-          // Members may credit themselves or the chore's assignee.
-          const allowed = new Set<string>([userId])
-          if (instance.assignedToUserId) {
-            allowed.add(instance.assignedToUserId)
-          }
-          if (!allowed.has(options.creditUserId)) {
-            throw new Error(
-              'Members can credit only themselves or the chore assignee.',
-            )
-          }
-        } else {
-          // Admin OR kiosk — both may credit any household member.
-          // Kid is handled above (returns early into the claim path).
-          const target = await tx.query.householdMembers.findFirst({
-            where: and(
-              eq(householdMembers.userId, options.creditUserId),
-              eq(householdMembers.householdId, instance.householdId),
-            ),
-            columns: { userId: true },
-          })
-          if (!target) {
-            throw new Error('Credit recipient is not in this household.')
-          }
+      if (requestedCredits.length > 0) {
+        // Any adult (admin / member / kiosk) may credit any combination
+        // of household members — the doer vouches for everyone who
+        // pitched in (same trust model as completing "on behalf"). We
+        // only verify each recipient actually belongs to this household.
+        const memberRows = await tx.query.householdMembers.findMany({
+          where: and(
+            eq(householdMembers.householdId, instance.householdId),
+            inArray(householdMembers.userId, requestedCredits),
+          ),
+          columns: { userId: true },
+        })
+        const found = new Set(memberRows.map((m) => m.userId))
+        const missing = requestedCredits.find((id) => !found.has(id))
+        if (missing) {
+          throw new Error('Credit recipient is not in this household.')
         }
-        xpRecipientId = options.creditUserId
+        recipients = requestedCredits
+      } else {
+        // Default natural recipient: viewer for FFA / own; assignee
+        // when an adult completes on behalf.
+        recipients = [
+          instance.assignedToUserId && instance.assignedToUserId !== userId
+            ? instance.assignedToUserId
+            : userId,
+        ]
       }
     }
 
@@ -2942,13 +3147,14 @@ export async function completeInstance(
     // Race-safe completion: only the first updater wins. For free-for-
     // all chores, two clients can hit this simultaneously; the predicate
     // `completed_at IS NULL` ensures exactly one succeeds. We stamp the
-    // XP recipient onto the instance (NOT necessarily the physical
-    // clicker) so the reopen flow can find the right user's events and
-    // progression to roll back — keeping `completed_by_user_id` aligned
-    // with `events.user_id`.
+    // primary recipient onto the instance (NOT necessarily the physical
+    // clicker) as a convenience anchor for reopen's permission check.
+    // When several people are credited, reopen finds the full set from
+    // the events themselves (one task.completed per recipient).
+    const primaryRecipientId = recipients[0]
     const updated = await tx
       .update(taskInstances)
-      .set({ completedAt: now, completedByUserId: xpRecipientId })
+      .set({ completedAt: now, completedByUserId: primaryRecipientId })
       .where(
         and(
           eq(taskInstances.id, instance.id),
@@ -2987,112 +3193,124 @@ export async function completeInstance(
           ? 'assigned'
           : 'free_for_all'
 
-    // Read the recipient's timezone for the punctuality curve. For
-    // self-completion this matches `timeZone` (loaded earlier). For
-    // on-behalf-of, it could differ (e.g. parent in PST completing a
-    // chore for a kid traveling in EST); pull the assignee's tz so the
-    // streak boundary is computed in *their* day.
-    const recipientTimeZone =
-      xpRecipientId === userId
-        ? timeZone
-        : await getUserTimeZone(xpRecipientId)
+    // One task.completed event per credited recipient — each earns the
+    // full reward and advances their own streak independently. For a
+    // solo completion `recipients` is a single id, so this is the same
+    // single insert/upsert as before. We keep the primary recipient's
+    // resulting progression to return for the completion toast.
+    let primaryNext: Progression | null = null
+    for (const recipientId of recipients) {
+      // Read the recipient's timezone for the punctuality curve. For
+      // self-completion this matches `timeZone` (loaded earlier). For
+      // on-behalf-of, it could differ (e.g. parent in PST completing a
+      // chore for a kid traveling in EST); pull the recipient's tz so the
+      // streak boundary is computed in *their* day.
+      const recipientTimeZone =
+        recipientId === userId
+          ? timeZone
+          : await getUserTimeZone(recipientId)
 
-    // The clock time that applied to this occurrence's weekday (per-weekday
-    // schedules vary it), so punctuality + timing stats use the right target.
-    const scheduledTimeOfDay = task.timeOfDay
-      ? resolveTimeOfDay(
-          dayOfWeekInTz(instance.dueAt ?? now, recipientTimeZone),
-          task.timeOfDay,
-          task.timeByWeekday,
-        )
-      : null
+      // The clock time that applied to this occurrence's weekday (per-weekday
+      // schedules vary it), so punctuality + timing stats use the right target.
+      const scheduledTimeOfDay = task.timeOfDay
+        ? resolveTimeOfDay(
+            dayOfWeekInTz(instance.dueAt ?? now, recipientTimeZone),
+            task.timeOfDay,
+            task.timeByWeekday,
+          )
+        : null
 
-    // Kid recipients earn an arcade token every Nth completion (adults: 0).
-    const tokensEarned = await kidCompletionTokens(
-      tx,
-      xpRecipientId,
-      instance.householdId,
-    )
+      // Kid recipients earn an arcade token every Nth completion (adults: 0).
+      const tokensEarned = await kidCompletionTokens(
+        tx,
+        recipientId,
+        instance.householdId,
+      )
 
-    const event: DomainEvent = {
-      type: 'task.completed',
-      taskId: task.id,
-      instanceId: instance.id,
-      difficulty: task.difficulty as Difficulty,
-      xpOverride: parentXpOverride,
-      dueAt: instance.dueAt,
-      timeOfDay: scheduledTimeOfDay,
-      dueKind,
-      householdId: instance.householdId,
-      assignedToUserId: instance.assignedToUserId,
-      completedAs,
-      tokensEarned,
-      occurredAt: now,
-    }
-
-    // event.userId = the XP recipient. For personal tasks and most
-    // household completions, this equals the clicking user. For
-    // "complete on behalf" (an adult clicking a chore assigned to
-    // someone else), it's the assignee. applyEvent operates on whoever
-    // is in event.userId, so XP/streak land on the right account.
-    await tx.insert(events).values({
-      userId: xpRecipientId,
-      type: event.type,
-      payload: {
-        taskId: event.taskId,
-        instanceId: event.instanceId,
-        difficulty: event.difficulty,
-        xpOverride: event.xpOverride,
-        dueAt: event.dueAt?.toISOString() ?? null,
-        timeOfDay: event.timeOfDay,
+      const event: DomainEvent = {
+        type: 'task.completed',
+        taskId: task.id,
+        instanceId: instance.id,
+        difficulty: task.difficulty as Difficulty,
+        xpOverride: parentXpOverride,
+        dueAt: instance.dueAt,
+        timeOfDay: scheduledTimeOfDay,
         dueKind,
-        householdId: event.householdId ?? null,
-        assignedToUserId: event.assignedToUserId ?? null,
-        completedAs: event.completedAs,
-        tokensEarned: event.tokensEarned ?? 0,
-      },
-      occurredAt: now,
-    })
+        householdId: instance.householdId,
+        assignedToUserId: instance.assignedToUserId,
+        completedAs,
+        tokensEarned,
+        occurredAt: now,
+      }
 
-    const current = await tx.query.progression.findFirst({
-      where: eq(progression.userId, xpRecipientId),
-    })
-    const prevState = current
-      ? {
-          xp: current.xp,
-          level: current.level,
-          currentStreak: current.currentStreak,
-          longestStreak: current.longestStreak,
-          tokens: current.tokens,
-          lastCompletionAt: current.lastCompletionAt,
-        }
-      : INITIAL_PROGRESSION
-
-    const next = applyEvent(prevState, event, { timeZone: recipientTimeZone })
-
-    await tx
-      .insert(progression)
-      .values({
-        userId: xpRecipientId,
-        xp: next.xp,
-        level: next.level,
-        currentStreak: next.currentStreak,
-        longestStreak: next.longestStreak,
-        tokens: next.tokens,
-        lastCompletionAt: next.lastCompletionAt,
+      // event.userId = the XP recipient. For personal tasks and most
+      // household completions, this equals the clicking user. For
+      // "complete on behalf" (an adult clicking a chore assigned to
+      // someone else), it's the assignee. applyEvent operates on whoever
+      // is in event.userId, so XP/streak land on the right account.
+      await tx.insert(events).values({
+        userId: recipientId,
+        type: event.type,
+        payload: {
+          taskId: event.taskId,
+          instanceId: event.instanceId,
+          difficulty: event.difficulty,
+          xpOverride: event.xpOverride,
+          dueAt: event.dueAt?.toISOString() ?? null,
+          timeOfDay: event.timeOfDay,
+          dueKind,
+          householdId: event.householdId ?? null,
+          assignedToUserId: event.assignedToUserId ?? null,
+          completedAs: event.completedAs,
+          tokensEarned: event.tokensEarned ?? 0,
+        },
+        occurredAt: now,
       })
-      .onConflictDoUpdate({
-        target: progression.userId,
-        set: {
+
+      const current = await tx.query.progression.findFirst({
+        where: eq(progression.userId, recipientId),
+      })
+      const prevState = current
+        ? {
+            xp: current.xp,
+            level: current.level,
+            currentStreak: current.currentStreak,
+            longestStreak: current.longestStreak,
+            tokens: current.tokens,
+            lastCompletionAt: current.lastCompletionAt,
+          }
+        : INITIAL_PROGRESSION
+
+      const next = applyEvent(prevState, event, { timeZone: recipientTimeZone })
+      if (recipientId === primaryRecipientId) primaryNext = next
+
+      await tx
+        .insert(progression)
+        .values({
+          userId: recipientId,
           xp: next.xp,
           level: next.level,
           currentStreak: next.currentStreak,
           longestStreak: next.longestStreak,
           tokens: next.tokens,
           lastCompletionAt: next.lastCompletionAt,
-          updatedAt: now,
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: progression.userId,
+          set: {
+            xp: next.xp,
+            level: next.level,
+            currentStreak: next.currentStreak,
+            longestStreak: next.longestStreak,
+            tokens: next.tokens,
+            lastCompletionAt: next.lastCompletionAt,
+            updatedAt: now,
+          },
+        })
+    }
+
+    // Non-null: the primary id is always one of `recipients`.
+    const next = primaryNext!
 
     let materialized: { instanceId: string; dueAt: Date } | null = null
     if (task.recurrence && task.active && instance.dueAt) {
