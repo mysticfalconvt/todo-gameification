@@ -11,16 +11,16 @@ import { callLlmChat } from '../llm/client'
 import { getEffectiveMemberStatus } from './membership'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
+import {
+  COACH_ATTITUDES,
+  DEFAULT_COACH_ATTITUDE,
+  type CoachAttitude,
+} from '../../domain/coach'
 
-export const COACH_ATTITUDES = [
-  'warm',
-  'snarky',
-  'stoic',
-  'drill',
-  'zen',
-] as const
-export type CoachAttitude = (typeof COACH_ATTITUDES)[number]
-const DEFAULT_ATTITUDE: CoachAttitude = 'warm'
+// Re-export so existing importers (functions/user.ts, etc.) that pull
+// these from the coach service keep working unchanged.
+export { COACH_ATTITUDES, type CoachAttitude }
+const DEFAULT_ATTITUDE: CoachAttitude = DEFAULT_COACH_ATTITUDE
 
 // Common tail every prompt ends with — the user-visible output rules. Kept
 // separate so each personality only owns its own STYLE block above and we

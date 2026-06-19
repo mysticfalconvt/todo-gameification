@@ -14,6 +14,20 @@ export const createTask = createServerFn({ method: 'POST' })
   .inputValidator((data: service.CreateTaskInput) => data)
   .handler(({ data, context }) => service.createTask(context.userId, data))
 
+export const findSimilarTasks = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: service.FindSimilarTasksInput) => data)
+  .handler(({ data, context }) =>
+    service.findSimilarTasks(context.userId, data),
+  )
+
+export const readdTask = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: service.ReaddTaskInput) => data)
+  .handler(({ data, context }) =>
+    service.readdTaskInstance(context.userId, data),
+  )
+
 export const assignKidXp = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator(

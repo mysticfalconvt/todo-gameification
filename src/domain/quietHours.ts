@@ -5,6 +5,26 @@
 // wraps across midnight (e.g., 22:00–07:00 = "after 10pm through 7am").
 // start === end is treated as "no window" (nothing is ever quiet).
 
+// Validate + normalize a quiet-hours window from raw HH:MM inputs. Each
+// value must be a valid time (or null/empty for "unset"); an invalid time
+// throws. A half-set window (only one end) collapses to "no window",
+// matching the self-serve setter in functions/user.ts.
+export function normalizeQuietHours(
+  start: string | null,
+  end: string | null,
+): { start: string | null; end: string | null } {
+  const parse = (v: string | null): string | null => {
+    if (v === null || v === '') return null
+    if (toMinutes(v) === null) {
+      throw new Error('Time must be HH:MM between 00:00 and 23:59.')
+    }
+    return v
+  }
+  const s = parse(start)
+  const e = parse(end)
+  return s && e ? { start: s, end: e } : { start: null, end: null }
+}
+
 export function toMinutes(hhmm: string): number | null {
   const m = /^(\d{2}):(\d{2})$/.exec(hhmm)
   if (!m) return null

@@ -210,6 +210,42 @@ export const resetManagedMemberPasswordFn = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const getManagedMemberSettingsFn = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator((data: { targetUserId: string }) => data)
+  .handler(({ data, context }) =>
+    service.getManagedMemberSettings(context.userId, data.targetUserId),
+  )
+
+export const updateManagedMemberQuietHoursFn = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .inputValidator(
+    (data: {
+      targetUserId: string
+      start: string | null
+      end: string | null
+    }) => data,
+  )
+  .handler(({ data, context }) =>
+    service.updateManagedMemberQuietHours(context.userId, data.targetUserId, {
+      start: data.start,
+      end: data.end,
+    }),
+  )
+
+export const updateManagedMemberCoachAttitudeFn = createServerFn({
+  method: 'POST',
+})
+  .middleware([authMiddleware])
+  .inputValidator((data: { targetUserId: string; attitude: string }) => data)
+  .handler(({ data, context }) =>
+    service.updateManagedMemberCoachAttitude(
+      context.userId,
+      data.targetUserId,
+      data.attitude,
+    ),
+  )
+
 export const updateMemberColorFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator(

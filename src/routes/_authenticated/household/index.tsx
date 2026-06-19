@@ -26,7 +26,14 @@ import {
   resetManagedMemberPasswordFn,
   changeRoleFn,
   updateMemberColorFn,
+  getManagedMemberSettingsFn,
+  updateManagedMemberQuietHoursFn,
+  updateManagedMemberCoachAttitudeFn,
 } from '../../../server/functions/households'
+import {
+  COACH_ATTITUDE_OPTIONS,
+  type CoachAttitude,
+} from '../../../domain/coach'
 import {
   HouseholdCompletionBar,
   HouseholdXpMultiLine,
@@ -2651,48 +2658,70 @@ function MembersTab({
                   </div>
                 </Link>
               </div>
-              {viewerRole === 'admin' && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {m.role === 'kiosk' ? (
-                    // Kiosk role is provisioned, not changed.
-                    <span className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
-                      kiosk
-                    </span>
-                  ) : (
-                    <select
-                      value={m.role}
-                      onChange={(e) =>
-                        changeRole.mutate({
-                          targetUserId: m.userId,
-                          role: e.target.value as 'admin' | 'member' | 'kid',
-                        })
-                      }
-                      className="field-input w-auto rounded-md px-2 py-1 text-xs"
-                    >
-                      <option value="admin">admin</option>
-                      <option value="member">member</option>
-                      <option value="kid">kid</option>
-                    </select>
-                  )}
-                  {(m.role === 'kid' || m.role === 'kiosk') && (
-                    <ResetPasswordButton
-                      targetUserId={m.userId}
-                      targetName={m.name}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`Remove ${m.name}?`)) {
-                        remove.mutate(m.userId)
-                      }
-                    }}
-                    className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
+              {(() => {
+                // Adults (admin or member) can manage a kid/kiosk's quiet
+                // hours + coach attitude, since those accounts have no
+                // settings page. Role/password/remove stay admin-only.
+                const canManageKid =
+                  (viewerRole === 'admin' || viewerRole === 'member') &&
+                  (m.role === 'kid' || m.role === 'kiosk')
+                if (viewerRole !== 'admin' && !canManageKid) return null
+                return (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {viewerRole === 'admin' &&
+                      (m.role === 'kiosk' ? (
+                        // Kiosk role is provisioned, not changed.
+                        <span className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
+                          kiosk
+                        </span>
+                      ) : (
+                        <select
+                          value={m.role}
+                          onChange={(e) =>
+                            changeRole.mutate({
+                              targetUserId: m.userId,
+                              role: e.target.value as
+                                | 'admin'
+                                | 'member'
+                                | 'kid',
+                            })
+                          }
+                          className="field-input w-auto rounded-md px-2 py-1 text-xs"
+                        >
+                          <option value="admin">admin</option>
+                          <option value="member">member</option>
+                          <option value="kid">kid</option>
+                        </select>
+                      ))}
+                    {viewerRole === 'admin' &&
+                      (m.role === 'kid' || m.role === 'kiosk') && (
+                        <ResetPasswordButton
+                          targetUserId={m.userId}
+                          targetName={m.name}
+                        />
+                      )}
+                    {canManageKid && (
+                      <ManagedMemberSettingsButton
+                        targetUserId={m.userId}
+                        targetName={m.name}
+                      />
+                    )}
+                    {viewerRole === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Remove ${m.name}?`)) {
+                            remove.mutate(m.userId)
+                          }
+                        }}
+                        className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
             </li>
           ))}
         </ul>
@@ -3309,6 +3338,237 @@ function PasswordRevealDialog({
             type="button"
             onClick={onClose}
             className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)]"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </dialog>
+  )
+}
+
+// "Settings" button for a managed (kid/kiosk) member. Opens a modal where
+// an adult sets the kid's quiet hours and coach attitude on their behalf,
+// since kid/kiosk accounts have no settings page.
+function ManagedMemberSettingsButton({
+  targetUserId,
+  targetName,
+}: {
+  targetUserId: string
+  targetName: string
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
+      >
+        Settings
+      </button>
+      {open && (
+        <ManagedMemberSettingsDialog
+          targetUserId={targetUserId}
+          targetName={targetName}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  )
+}
+
+function ManagedMemberSettingsDialog({
+  targetUserId,
+  targetName,
+  onClose,
+}: {
+  targetUserId: string
+  targetName: string
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
+  useEffect(() => {
+    const el = dialogRef.current
+    if (el && !el.open) el.showModal()
+  }, [])
+
+  const settingsQuery = useQuery({
+    queryKey: ['managed-member-settings', targetUserId],
+    queryFn: () => getManagedMemberSettingsFn({ data: { targetUserId } }),
+  })
+
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  const [attitude, setAttitude] = useState<CoachAttitude>('warm')
+  // Seed the controls once the current settings load.
+  useEffect(() => {
+    if (!settingsQuery.data) return
+    setStart(settingsQuery.data.quietHoursStart ?? '')
+    setEnd(settingsQuery.data.quietHoursEnd ?? '')
+    setAttitude(settingsQuery.data.coachAttitude)
+  }, [settingsQuery.data])
+
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ['managed-member-settings', targetUserId] })
+
+  const saveQuiet = useMutation({
+    mutationFn: (vars: { start: string | null; end: string | null }) =>
+      updateManagedMemberQuietHoursFn({ data: { targetUserId, ...vars } }),
+    onSuccess: (res) => {
+      setStart(res.start ?? '')
+      setEnd(res.end ?? '')
+      invalidate()
+      toast.success('Quiet hours saved.')
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to save.'),
+  })
+
+  const saveAttitude = useMutation({
+    mutationFn: (a: CoachAttitude) =>
+      updateManagedMemberCoachAttitudeFn({
+        data: { targetUserId, attitude: a },
+      }),
+    onSuccess: (res) => {
+      setAttitude(res.coachAttitude)
+      invalidate()
+      toast.success('Coach attitude saved.')
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to save.'),
+  })
+
+  const hasWindow = start !== '' && end !== ''
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose()
+      }}
+      className="m-auto w-[min(460px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+    >
+      <div className="flex flex-col gap-5 p-5">
+        <div>
+          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
+            {targetName}&rsquo;s settings
+          </h3>
+          <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+            Manage notification and coach settings on their behalf.
+          </p>
+        </div>
+
+        {settingsQuery.isLoading ? (
+          <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
+        ) : (
+          <>
+            {/* Quiet hours */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">
+                Quiet hours
+              </h4>
+              <p className="text-xs text-[var(--sea-ink-soft)]">
+                Reminder nudges for unfinished tasks won&rsquo;t fire in this
+                window.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  From
+                  <input
+                    type="time"
+                    value={start}
+                    onChange={(e) => setStart(e.target.value)}
+                    className="field-input w-auto"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  until
+                  <input
+                    type="time"
+                    value={end}
+                    onChange={(e) => setEnd(e.target.value)}
+                    className="field-input w-auto"
+                  />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={saveQuiet.isPending}
+                  onClick={() =>
+                    saveQuiet.mutate({
+                      start: start || null,
+                      end: end || null,
+                    })
+                  }
+                  className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
+                >
+                  {saveQuiet.isPending ? 'Saving…' : 'Save quiet hours'}
+                </button>
+                {hasWindow && (
+                  <button
+                    type="button"
+                    disabled={saveQuiet.isPending}
+                    onClick={() => saveQuiet.mutate({ start: null, end: null })}
+                    className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-60"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Coach attitude */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">
+                Coach attitude
+              </h4>
+              <p className="text-xs text-[var(--sea-ink-soft)]">
+                The voice their daily coach uses on the Today page.
+              </p>
+              <div
+                className="flex flex-wrap gap-2"
+                role="radiogroup"
+                aria-label="Coach attitude"
+              >
+                {COACH_ATTITUDE_OPTIONS.map((o) => {
+                  const selected = attitude === o.value
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      disabled={saveAttitude.isPending}
+                      onClick={() => saveAttitude.mutate(o.value)}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition disabled:opacity-60 ${
+                        selected
+                          ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                          : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+                      }`}
+                    >
+                      <span aria-hidden>{o.glyph}</span>
+                      <span>{o.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-[var(--sea-ink-soft)]">
+                {COACH_ATTITUDE_OPTIONS.find((o) => o.value === attitude)
+                  ?.hint ?? ''}
+              </p>
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)]"
           >
             Done
           </button>

@@ -13,8 +13,15 @@ import {
   householdMembers,
   households,
   tasks,
+  userPrefs,
   user as userTable,
 } from '../db/schema'
+import { normalizeQuietHours } from '../../domain/quietHours'
+import {
+  DEFAULT_COACH_ATTITUDE,
+  isCoachAttitude,
+  type CoachAttitude,
+} from '../../domain/coach'
 import {
   handleExists,
   isValidHandle,
@@ -73,6 +80,9 @@ export interface MyHousehold {
     createdAt: Date
   }
   role: Role
+  // The viewer's own user id. Lets the new-task form default the
+  // assignee picker to "me" without a separate session lookup.
+  viewerUserId: string
   members: HouseholdMemberRow[]
 }
 
@@ -196,6 +206,7 @@ export async function getMyHousehold(
       createdAt: hh.createdAt,
     },
     role: m.role,
+    viewerUserId: userId,
     members,
   }
 }
@@ -227,6 +238,134 @@ export async function listHouseholdMembers(
     joinedAt: r.joinedAt,
     color: r.color,
   }))
+}
+
+// Resolve who should be notified about a household chore, based on its
+// assignment. Kiosk accounts are always excluded — a kiosk is a shared
+// device, not a person, and doesn't accumulate XP.
+//   group 'kids'   → members with role 'kid'
+//   group 'adults' → members with role 'admin' or 'member'
+//   group null     → free-for-all: everyone except kiosk
+// Returns bare user ids; the caller pairs them with push subscriptions
+// and quiet-hours settings.
+export async function listChoreRecipients(
+  householdId: string,
+  group: 'adults' | 'kids' | null,
+): Promise<string[]> {
+  const rows = await db
+    .select({
+      userId: householdMembers.userId,
+      role: householdMembers.role,
+    })
+    .from(householdMembers)
+    .where(eq(householdMembers.householdId, householdId))
+  return rows
+    .filter((r) => {
+      if (r.role === 'kiosk') return false
+      if (group === 'kids') return r.role === 'kid'
+      if (group === 'adults') return r.role === 'admin' || r.role === 'member'
+      return true
+    })
+    .map((r) => r.userId)
+}
+
+// Kid and kiosk accounts have no settings page of their own, so an adult
+// in their household manages their notification + coach settings for them.
+// Permission: actor is an adult (admin or member) and the target is a
+// kid/kiosk in the actor's household. Throws otherwise.
+async function assertCanManageManagedMember(
+  actorId: string,
+  targetUserId: string,
+): Promise<void> {
+  const actor = await getMyMembership(actorId)
+  if (!actor) throw new Error('You are not in a household.')
+  if (actor.role !== 'admin' && actor.role !== 'member') {
+    throw new Error('Only adults can manage a member’s settings.')
+  }
+  const target = await getMembership(targetUserId, actor.householdId)
+  if (!target) throw new Error('That user is not in your household.')
+  if (target.role !== 'kid' && target.role !== 'kiosk') {
+    throw new Error(
+      'Only kid and kiosk accounts can be managed this way — adults manage their own settings.',
+    )
+  }
+}
+
+export interface ManagedMemberSettings {
+  quietHoursStart: string | null
+  quietHoursEnd: string | null
+  coachAttitude: CoachAttitude
+}
+
+// Current notification + coach settings for a managed member, for the
+// admin's edit modal. Quiet hours live on the user row; coach attitude on
+// userPrefs (which a kid account may not have yet → default).
+export async function getManagedMemberSettings(
+  actorId: string,
+  targetUserId: string,
+): Promise<ManagedMemberSettings> {
+  await assertCanManageManagedMember(actorId, targetUserId)
+  const [u, prefs] = await Promise.all([
+    db.query.user.findFirst({
+      where: eq(userTable.id, targetUserId),
+      columns: { quietHoursStart: true, quietHoursEnd: true },
+    }),
+    db.query.userPrefs.findFirst({
+      where: eq(userPrefs.userId, targetUserId),
+      columns: { coachAttitude: true },
+    }),
+  ])
+  return {
+    quietHoursStart: u?.quietHoursStart ?? null,
+    quietHoursEnd: u?.quietHoursEnd ?? null,
+    coachAttitude: isCoachAttitude(prefs?.coachAttitude)
+      ? prefs.coachAttitude
+      : DEFAULT_COACH_ATTITUDE,
+  }
+}
+
+export async function updateManagedMemberQuietHours(
+  actorId: string,
+  targetUserId: string,
+  input: { start: string | null; end: string | null },
+): Promise<{ start: string | null; end: string | null }> {
+  await assertCanManageManagedMember(actorId, targetUserId)
+  const normalized = normalizeQuietHours(input.start, input.end)
+  await db
+    .update(userTable)
+    .set({
+      quietHoursStart: normalized.start,
+      quietHoursEnd: normalized.end,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, targetUserId))
+  return normalized
+}
+
+export async function updateManagedMemberCoachAttitude(
+  actorId: string,
+  targetUserId: string,
+  attitude: string,
+): Promise<{ coachAttitude: CoachAttitude }> {
+  await assertCanManageManagedMember(actorId, targetUserId)
+  if (!isCoachAttitude(attitude)) {
+    throw new Error('Invalid coach attitude.')
+  }
+  // Upsert the prefs row — a kid account may not have one yet. Setting
+  // only coachAttitude lets the other columns keep their defaults/values.
+  const existing = await db.query.userPrefs.findFirst({
+    where: eq(userPrefs.userId, targetUserId),
+    columns: { userId: true },
+  })
+  if (existing) {
+    await db
+      .update(userPrefs)
+      .set({ coachAttitude: attitude })
+      .where(eq(userPrefs.userId, targetUserId))
+  } else {
+    await db.insert(userPrefs).values({ userId: targetUserId, coachAttitude: attitude })
+  }
+  return { coachAttitude: attitude }
 }
 
 // Kids are auto-friended with the rest of their household so they show

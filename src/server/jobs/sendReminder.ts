@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
   pushSubscriptions,
@@ -7,6 +7,7 @@ import {
   user as userTable,
 } from '../db/schema'
 import { sendWebPush } from '../push/web-push'
+import { listChoreRecipients } from '../services/households'
 import { isInQuietHours } from '../../domain/quietHours'
 import type { Job } from 'pg-boss'
 
@@ -49,83 +50,115 @@ async function handleOne(data: SendReminderJobData) {
   if (!task || !task.active) return
   if (task.snoozeUntil && task.snoozeUntil > now) return
 
-  const owner = await db.query.user.findFirst({
-    where: eq(userTable.id, instance.userId),
+  // Route the reminder to whoever the task is *for*, not whoever created
+  // it. Household chores carry their assignment on the instance:
+  //   assignedToUserId → that specific person
+  //   assigneeGroup    → everyone in that role group (kids / adults)
+  //   free-for-all     → everyone in the household (kiosk excluded)
+  // Personal tasks (no householdId) still go to their owner.
+  let recipientIds: string[]
+  if (instance.assignedToUserId) {
+    recipientIds = [instance.assignedToUserId]
+  } else if (instance.householdId) {
+    recipientIds = await listChoreRecipients(
+      instance.householdId,
+      instance.assigneeGroup as 'adults' | 'kids' | null,
+    )
+  } else {
+    recipientIds = [instance.userId]
+  }
+  if (recipientIds.length === 0) return
+
+  const recipients = await db.query.user.findMany({
+    where: inArray(userTable.id, recipientIds),
     columns: {
+      id: true,
       timezone: true,
       quietHoursStart: true,
       quietHoursEnd: true,
     },
   })
-  const timezone = owner?.timezone ?? 'UTC'
 
-  // Escalations respect quiet hours. The initial reminder was scheduled by
-  // the user (they chose this timeOfDay) so we send it even in quiet hours;
-  // nudges are our idea and should stay silent at night.
-  if (
-    attempt > 1 &&
-    isInQuietHours(
-      now,
-      owner?.quietHoursStart ?? null,
-      owner?.quietHoursEnd ?? null,
-      timezone,
-    )
-  ) {
-    return
-  }
-
-  const subs = await db.query.pushSubscriptions.findMany({
-    where: eq(pushSubscriptions.userId, instance.userId),
+  const allSubs = await db.query.pushSubscriptions.findMany({
+    where: inArray(pushSubscriptions.userId, recipientIds),
   })
-  if (subs.length === 0) return
+  if (allSubs.length === 0) return
+
+  // Escalations respect each recipient's quiet hours. The initial reminder
+  // was scheduled by the user (they chose this timeOfDay) so it sends even
+  // in quiet hours; nudges are our idea and stay silent at night. Quiet
+  // hours are per-user, so we suppress recipients individually rather than
+  // dropping the whole send.
+  const activeIds = new Set(
+    recipients
+      .filter(
+        (u) =>
+          attempt <= 1 ||
+          !isInQuietHours(
+            now,
+            u.quietHoursStart ?? null,
+            u.quietHoursEnd ?? null,
+            u.timezone ?? 'UTC',
+          ),
+      )
+      .map((u) => u.id),
+  )
+  const subs = allSubs.filter((s) => activeIds.has(s.userId))
 
   const { title, body } = reminderCopy(task.title, task.timeOfDay, attempt)
 
-  await Promise.allSettled(
-    subs.map(async (sub) => {
-      const result = await sendWebPush(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        {
-          title,
-          body,
-          tag: `task-${task.id}`,
-          taskInstanceId: instance.id,
-          url: '/today',
-        },
-      )
-      if (!result.ok) {
-        if (result.gone) {
-          await db
-            .delete(pushSubscriptions)
-            .where(eq(pushSubscriptions.id, sub.id))
-        } else {
-          await db
-            .update(pushSubscriptions)
-            .set({
-              failureCount: sub.failureCount + 1,
-              lastFailureAt: new Date(),
-            })
-            .where(eq(pushSubscriptions.id, sub.id))
+  // subs can be empty when every recipient is currently in quiet hours on
+  // a nudge — skip the send but still consider rescheduling below.
+  if (subs.length > 0) {
+    await Promise.allSettled(
+      subs.map(async (sub) => {
+        const result = await sendWebPush(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          {
+            title,
+            body,
+            tag: `task-${task.id}`,
+            taskInstanceId: instance.id,
+            url: '/today',
+          },
+        )
+        if (!result.ok) {
+          if (result.gone) {
+            await db
+              .delete(pushSubscriptions)
+              .where(eq(pushSubscriptions.id, sub.id))
+          } else {
+            await db
+              .update(pushSubscriptions)
+              .set({
+                failureCount: sub.failureCount + 1,
+                lastFailureAt: new Date(),
+              })
+              .where(eq(pushSubscriptions.id, sub.id))
+          }
         }
-      }
-    }),
-  )
+      }),
+    )
+  }
 
   if (attempt < MAX_REMINDER_ATTEMPTS) {
     const nextAt = new Date(now.getTime() + ESCALATION_INTERVAL_MS)
-    // Don't chain a nudge into quiet hours. Skipping here ends the chain
-    // cleanly rather than silently piling up jobs.
-    if (
-      !isInQuietHours(
-        nextAt,
-        owner?.quietHoursStart ?? null,
-        owner?.quietHoursEnd ?? null,
-        timezone,
-      )
-    ) {
+    // Only chain another nudge if at least one recipient would be reachable
+    // (outside their quiet hours) at that time. If everyone's asleep then,
+    // ending the chain here beats silently piling up no-op jobs.
+    const anyReachable = recipients.some(
+      (u) =>
+        !isInQuietHours(
+          nextAt,
+          u.quietHoursStart ?? null,
+          u.quietHoursEnd ?? null,
+          u.timezone ?? 'UTC',
+        ),
+    )
+    if (anyReachable) {
       // Avoid importing boss.ts at module top because this file is imported
       // by boss.ts — would create a cycle. Dynamic import keeps both files
       // self-contained.

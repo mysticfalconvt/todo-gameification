@@ -15,6 +15,7 @@ import {
   eq,
   gt,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
@@ -590,6 +591,190 @@ export async function createTask(
       ? { slug: categorization.slug, reasoning: categorization.reasoning }
       : null,
   }
+}
+
+export interface SimilarTask {
+  id: string
+  title: string
+  lastCompletedAt: string | null
+  hasOpenInstance: boolean
+}
+
+export interface FindSimilarTasksInput {
+  title: string
+  // null/undefined → search the caller's personal tasks (householdId IS
+  // NULL). Set → search that household's chores (caller must be a member).
+  householdId?: string | null
+}
+
+// Surface existing tasks with a matching title so the new-task form can
+// offer to *re-use* one. Re-using re-adds an instance under the same
+// taskId (see readdTaskInstance) instead of creating a fresh task, which
+// keeps stats unified — everything keys on taskId. Only active
+// (non-deleted) tasks are candidates. Returns at most 5, most-recent
+// first. Falls back to an empty list (rather than throwing) when the
+// query is too short or the caller can't see the household, so the form
+// can call it freely on every keystroke.
+export async function findSimilarTasks(
+  userId: string,
+  input: FindSimilarTasksInput,
+): Promise<SimilarTask[]> {
+  const q = input.title.trim()
+  if (q.length < 3) return []
+
+  let scope
+  if (input.householdId) {
+    const mine = await getMyMembership(userId)
+    if (
+      !mine ||
+      mine.householdId !== input.householdId ||
+      mine.role === 'kid' ||
+      mine.role === 'kiosk'
+    ) {
+      return []
+    }
+    scope = eq(tasks.householdId, input.householdId)
+  } else {
+    scope = and(eq(tasks.userId, userId), isNull(tasks.householdId))
+  }
+
+  // Escape LIKE wildcards in user input so "50%" doesn't match everything.
+  const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      lastCompletedAt: sql<
+        string | null
+      >`max(${taskInstances.completedAt})`,
+      openCount: sql<number>`count(*) filter (where ${taskInstances.completedAt} is null and ${taskInstances.skippedAt} is null)`,
+    })
+    .from(tasks)
+    .leftJoin(taskInstances, eq(taskInstances.taskId, tasks.id))
+    .where(and(eq(tasks.active, true), scope, ilike(tasks.title, pattern)))
+    .groupBy(tasks.id, tasks.title)
+    .orderBy(
+      desc(sql`coalesce(max(${taskInstances.completedAt}), ${tasks.createdAt})`),
+    )
+    .limit(5)
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    lastCompletedAt: r.lastCompletedAt
+      ? new Date(r.lastCompletedAt).toISOString()
+      : null,
+    hasOpenInstance: Number(r.openCount) > 0,
+  }))
+}
+
+export interface ReaddTaskInput {
+  taskId: string
+  dueAtOverride?: string | null
+  dueKind?: 'hard' | 'week_target'
+  someday: boolean
+  timeOfDay: string | null
+  timeByWeekday?: WeekdayTimes | null
+}
+
+export interface ReaddTaskResult {
+  id: string
+  instanceId: string
+  // True when the task already had an open instance — we returned that one
+  // instead of inserting a duplicate.
+  alreadyOpen: boolean
+}
+
+// Re-add an instance to an *existing* task ("combine with"). The task
+// definition (title, notes, difficulty, recurrence) is untouched; only a
+// fresh instance with a new due date is created, so all completions keep
+// stacking under the same taskId. Authorization mirrors createTask:
+// personal tasks belong to their owner; household chores require an adult
+// member. Idempotent against an already-open instance.
+export async function readdTaskInstance(
+  userId: string,
+  input: ReaddTaskInput,
+): Promise<ReaddTaskResult> {
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, input.taskId),
+  })
+  if (!task || !task.active) throw new Error('Task not found.')
+
+  if (task.householdId) {
+    const mine = await db.query.householdMembers.findFirst({
+      where: and(
+        eq(householdMembers.userId, userId),
+        eq(householdMembers.householdId, task.householdId),
+      ),
+      columns: { role: true },
+    })
+    if (!mine) throw new Error('You are not a member of that household.')
+    if (mine.role === 'kid' || mine.role === 'kiosk') {
+      throw new Error('Kids and kiosk accounts cannot add chores.')
+    }
+  } else if (task.userId !== userId) {
+    throw new Error('Task not found.')
+  }
+
+  // Don't stack two open instances on one task — if it's already on the
+  // list, just hand back the existing one.
+  const open = await db.query.taskInstances.findFirst({
+    where: and(
+      eq(taskInstances.taskId, task.id),
+      isNull(taskInstances.completedAt),
+      isNull(taskInstances.skippedAt),
+    ),
+  })
+  if (open) {
+    return { id: task.id, instanceId: open.id, alreadyOpen: true }
+  }
+
+  const now = new Date()
+  const timeZone = await getUserTimeZone(userId)
+  const effectiveTimeOfDay = input.someday ? null : input.timeOfDay
+  if (effectiveTimeOfDay) assertValidTimeOfDay(effectiveTimeOfDay)
+  const effectiveTimeByWeekday = effectiveTimeOfDay
+    ? (input.timeByWeekday ?? null)
+    : null
+
+  const dueAt = input.dueAtOverride
+    ? new Date(input.dueAtOverride)
+    : firstDueAt({
+        now,
+        recurrence: task.recurrence,
+        timeOfDay: effectiveTimeOfDay,
+        timeByWeekday: effectiveTimeByWeekday,
+        timeZone,
+        someday: input.someday,
+      })
+
+  const dueKind: 'hard' | 'week_target' =
+    input.dueKind === 'week_target' ? 'week_target' : 'hard'
+
+  const [inst] = await db
+    .insert(taskInstances)
+    .values({
+      taskId: task.id,
+      userId,
+      dueAt,
+      dueKind,
+      // Mirror the task's current household assignment onto the instance,
+      // same as createTask does.
+      householdId: task.householdId,
+      assignedToUserId: task.assignedToUserId,
+      assigneeGroup: task.assigneeGroup,
+    })
+    .returning()
+
+  if (inst.dueAt && inst.dueAt > new Date()) {
+    await scheduleReminder(
+      { taskInstanceId: inst.id, attempt: 1 },
+      inst.dueAt,
+    ).catch((e) => console.error('scheduleReminder failed', e))
+  }
+
+  return { id: task.id, instanceId: inst.id, alreadyOpen: false }
 }
 
 export async function listAllTasks(userId: string): Promise<TaskListRow[]> {

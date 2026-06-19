@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createTask } from '../../../server/functions/tasks'
+import {
+  createTask,
+  findSimilarTasks,
+  readdTask,
+} from '../../../server/functions/tasks'
 import { getMyHouseholdFn } from '../../../server/functions/households'
 import { getLlmStatus } from '../../../server/functions/config'
 import type {
@@ -10,7 +14,10 @@ import type {
   Recurrence,
 } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
-import type { TaskVisibility } from '../../../server/services/tasks'
+import type {
+  SimilarTask,
+  TaskVisibility,
+} from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
 import { PositiveNumberInput } from '../../../components/NumberInput'
 
@@ -155,8 +162,11 @@ function NewTaskPage() {
   const [visibility, setVisibility] = useState<TaskVisibility>('friends')
   const [steps, setSteps] = useState<string[]>([])
   const [forHousehold, setForHousehold] = useState(search.household === 1)
-  // 'self' = assigned to me; 'ffa' = free-for-all; otherwise a member userId.
-  const [assignee, setAssignee] = useState<string>('self')
+  // 'ffa' = free-for-all; 'group:adults' / 'group:kids' = role groups;
+  // otherwise a member userId. Defaults to the creator's own id once the
+  // household loads (see the effect below), so new chores are assigned to
+  // "me" unless the user picks otherwise.
+  const [assignee, setAssignee] = useState<string>('ffa')
   // Rotation: 'fixed' = task stays with the chosen assignee.
   //           'round_robin' = cycle through `rotationPool` on each
   //                            recurrence. Only meaningful for
@@ -166,6 +176,11 @@ function NewTaskPage() {
     useState<'fixed' | 'round_robin'>('fixed')
   const [rotationPool, setRotationPool] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  // When set, the form re-adds an instance to this existing task instead
+  // of creating a new one — completions then stack under one taskId so
+  // stats stay combined. combineTitle is just for display.
+  const [combineTaskId, setCombineTaskId] = useState<string | null>(null)
+  const [combineTitle, setCombineTitle] = useState<string>('')
 
   const householdQuery = useQuery({
     queryKey: ['my-household'],
@@ -173,6 +188,53 @@ function NewTaskPage() {
   })
   const household = householdQuery.data
   const isKid = household?.role === 'kid'
+
+  // Once we know the user is in a household, default new tasks to being a
+  // household chore assigned to the creator. Runs once (guarded by the
+  // ref) so a manual untick or re-pick is never clobbered on re-render.
+  // Kids can't create tasks, so skip them.
+  const didInitHousehold = useRef(false)
+  useEffect(() => {
+    if (didInitHousehold.current) return
+    if (!household || isKid) return
+    didInitHousehold.current = true
+    setForHousehold(true)
+    setAssignee(household.viewerUserId)
+  }, [household, isKid])
+
+  const combining = combineTaskId !== null
+
+  // Debounced title search for an existing task to combine stats with.
+  // Scoped to the household when this is a household chore, else personal.
+  const [debouncedTitle, setDebouncedTitle] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTitle(title.trim()), 300)
+    return () => clearTimeout(t)
+  }, [title])
+  const searchHouseholdId =
+    forHousehold && household ? household.household.id : null
+  const similarQuery = useQuery({
+    queryKey: ['similar-tasks', debouncedTitle, searchHouseholdId],
+    queryFn: () =>
+      findSimilarTasks({
+        data: { title: debouncedTitle, householdId: searchHouseholdId },
+      }),
+    enabled: !combining && debouncedTitle.length >= 3,
+  })
+  const suggestions = combining ? [] : (similarQuery.data ?? [])
+
+  // Shared success path for both create and combine.
+  async function afterSave() {
+    await qc.invalidateQueries({ queryKey: ['today'] })
+    await qc.invalidateQueries({ queryKey: ['someday'] })
+    await qc.invalidateQueries({ queryKey: ['tasks'] })
+    if (search.household === 1) {
+      await qc.invalidateQueries({ queryKey: ['household-chores'] })
+      navigate({ to: '/household' })
+    } else {
+      navigate({ to: '/today' })
+    }
+  }
 
   const isSomeday = dueKind === 'someday'
   // Week-target tasks are one-off in v1 — disable recurrence when picked.
@@ -198,19 +260,22 @@ function NewTaskPage() {
       rotationStrategy?: 'fixed' | 'round_robin'
       rotationPool?: string[] | null
     }) => createTask({ data: input }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['today'] })
-      await qc.invalidateQueries({ queryKey: ['someday'] })
-      await qc.invalidateQueries({ queryKey: ['tasks'] })
-      // If the user landed here from the household page (?household=1),
-      // also refresh the household chores list and send them back there.
-      if (search.household === 1) {
-        await qc.invalidateQueries({ queryKey: ['household-chores'] })
-        navigate({ to: '/household' })
-      } else {
-        navigate({ to: '/today' })
-      }
+    onSuccess: afterSave,
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     },
+  })
+
+  const combineMutation = useMutation({
+    mutationFn: (input: {
+      taskId: string
+      dueAtOverride?: string | null
+      dueKind?: 'hard' | 'week_target'
+      someday: boolean
+      timeOfDay: string | null
+      timeByWeekday?: Record<string, string> | null
+    }) => readdTask({ data: input }),
+    onSuccess: afterSave,
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     },
@@ -219,7 +284,10 @@ function NewTaskPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    // Recurrence is irrelevant when combining (the existing task's
+    // recurrence wins), so skip the weekly-days check in that case.
     if (
+      !combining &&
       !isSomeday &&
       recurrenceKind === 'weekly' &&
       weekdays.length === 0
@@ -261,6 +329,20 @@ function NewTaskPage() {
       dueKind === 'timed' && recurrenceKind === 'daily' && weekendDiffers
         ? { '0': weekendTimeOfDay, '6': weekendTimeOfDay }
         : null
+    // Combining: re-add an instance to the chosen existing task with just
+    // the new due date. Everything else (title, notes, recurrence,
+    // assignment) comes from that task, so we skip the create payload.
+    if (combineTaskId) {
+      combineMutation.mutate({
+        taskId: combineTaskId,
+        dueAtOverride,
+        dueKind: dueKind === 'week' ? 'week_target' : 'hard',
+        someday: isSomeday,
+        timeOfDay: effectiveTimeOfDay,
+        timeByWeekday: effectiveTimeByWeekday,
+      })
+      return
+    }
     const cleanedSteps = steps
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
@@ -294,16 +376,9 @@ function NewTaskPage() {
         // assignee; the server enforces who may complete.
         assignedToUserId = null
         outgoingAssigneeGroup = assignee === 'group:adults' ? 'adults' : 'kids'
-      } else if (assignee === 'self') {
-        // Server treats "no assignee" as free-for-all, so explicitly
-        // pin the creator id to make this an assigned chore for them.
-        assignedToUserId = null
-        // Note: for "self" we let it default to free-for-all. If the
-        // user wants it explicitly assigned to themselves, they can
-        // reassign post-create. For Phase 1 this is fine — self means
-        // "I'll do it" which behaves the same as free-for-all in a
-        // solo-member household.
       } else {
+        // A specific member's user id (including the creator's own —
+        // the default). The server validates household membership.
         assignedToUserId = assignee
       }
     }
@@ -377,36 +452,59 @@ function NewTaskPage() {
           />
         </label>
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Notes
-          </span>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            placeholder="Optional — any details, links, or context."
-            className="field-input"
+        {combining ? (
+          <CombineBanner
+            title={combineTitle}
+            onClear={() => {
+              setCombineTaskId(null)
+              setCombineTitle('')
+            }}
           />
-        </label>
+        ) : suggestions.length > 0 ? (
+          <SimilarTaskHint
+            suggestions={suggestions}
+            household={searchHouseholdId !== null}
+            onCombine={(s) => {
+              setCombineTaskId(s.id)
+              setCombineTitle(s.title)
+            }}
+          />
+        ) : null}
 
-        <StepsField steps={steps} onChange={setSteps} />
+        {combining ? null : (
+          <>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Notes
+              </span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Optional — any details, links, or context."
+                className="field-input"
+              />
+            </label>
 
-        {llmEnabled ? null : (
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Difficulty
-            </span>
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-              className="field-input"
-            >
-              <option value="small">Small — 10 XP</option>
-              <option value="medium">Medium — 25 XP</option>
-              <option value="large">Large — 60 XP</option>
-            </select>
-          </label>
+            <StepsField steps={steps} onChange={setSteps} />
+
+            {llmEnabled ? null : (
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Difficulty
+                </span>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value as Difficulty)}
+                  className="field-input"
+                >
+                  <option value="small">Small — 10 XP</option>
+                  <option value="medium">Medium — 25 XP</option>
+                  <option value="large">Large — 60 XP</option>
+                </select>
+              </label>
+            )}
+          </>
         )}
 
         <fieldset>
@@ -574,6 +672,8 @@ function NewTaskPage() {
           ) : null}
         </fieldset>
 
+        {combining ? null : (
+          <>
         <label className={`block ${recurrenceLocked ? 'opacity-50' : ''}`}>
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
             Recurrence
@@ -772,6 +872,8 @@ function NewTaskPage() {
             </option>
           </select>
         </label>
+          </>
+        )}
 
         {error ? (
           <p className="text-sm text-red-600" role="alert">
@@ -781,14 +883,98 @@ function NewTaskPage() {
 
         <button
           type="submit"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || combineMutation.isPending}
           className="w-full rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
         >
-          {mutation.isPending ? 'Creating…' : 'Create task'}
+          {combining
+            ? combineMutation.isPending
+              ? 'Adding…'
+              : 'Add to existing task'
+            : mutation.isPending
+              ? 'Creating…'
+              : 'Create task'}
         </button>
       </form>
     </main>
   )
+}
+
+// Quiet, non-blocking nudge under the Title field: "you've made a task
+// like this before — re-use it so the stats stay together." Shows up to a
+// few matches; clicking one flips the form into combine mode.
+function SimilarTaskHint({
+  suggestions,
+  household,
+  onCombine,
+}: {
+  suggestions: SimilarTask[]
+  household: boolean
+  onCombine: (s: SimilarTask) => void
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2">
+      <p className="text-xs text-[var(--sea-ink-soft)]">
+        Done this before? Combine to keep {household ? 'household ' : ''}stats
+        together.
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {suggestions.map((s) => (
+          <li key={s.id} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 flex-1 truncate text-sm text-[var(--sea-ink)]">
+              {s.title}
+              <span className="ml-1 text-xs text-[var(--sea-ink-soft)]">
+                {s.lastCompletedAt
+                  ? `(last done ${formatLastDone(s.lastCompletedAt)})`
+                  : s.hasOpenInstance
+                    ? '(already on the list)'
+                    : '(never completed)'}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onCombine(s)}
+              className="shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)]"
+            >
+              Combine
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// The "combine mode" banner shown in place of the suggestion list once a
+// match is chosen. Clearing it returns to the normal create form.
+function CombineBanner({
+  title,
+  onClear,
+}: {
+  title: string
+  onClear: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] px-3 py-2">
+      <span className="min-w-0 flex-1 text-sm text-[var(--sea-ink)]">
+        Combining stats with{' '}
+        <span className="font-semibold">{title}</span>. Pick when it&rsquo;s
+        due again below — its other settings stay the same.
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="shrink-0 text-xs font-semibold text-[var(--lagoon-deep)] underline"
+      >
+        Clear
+      </button>
+    </div>
+  )
+}
+
+function formatLastDone(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 function RotationPoolPicker({

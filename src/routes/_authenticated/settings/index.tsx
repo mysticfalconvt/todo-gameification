@@ -58,6 +58,10 @@ import {
   MembersOnlyUpsell,
   formatMoney,
 } from '../../../components/membership/MembersOnlyUpsell'
+import {
+  COACH_ATTITUDE_OPTIONS,
+  type CoachAttitude,
+} from '../../../domain/coach'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
@@ -659,45 +663,7 @@ function MembershipSection() {
 // Coach attitude
 // ---------------------------------------------------------------------------
 
-type CoachAttitudeSlug = 'warm' | 'snarky' | 'stoic' | 'drill' | 'zen'
-
-const COACH_ATTITUDE_OPTIONS: ReadonlyArray<{
-  value: CoachAttitudeSlug
-  label: string
-  glyph: string
-  hint: string
-}> = [
-  {
-    value: 'warm',
-    label: 'Warm',
-    glyph: '·',
-    hint: 'A warm, ADHD-aware companion. The original voice.',
-  },
-  {
-    value: 'snarky',
-    label: 'Snarky',
-    glyph: '✦',
-    hint: 'Sarcastic and dry. Roasts the to-do list, never the human.',
-  },
-  {
-    value: 'stoic',
-    label: 'Stoic',
-    glyph: '◻',
-    hint: 'Just facts. No personality, no warmth, no humor.',
-  },
-  {
-    value: 'drill',
-    label: 'Drill Sergeant',
-    glyph: '★',
-    hint: 'Theatrical tough-love. Short, punchy, imperative.',
-  },
-  {
-    value: 'zen',
-    label: 'Zen',
-    glyph: '◯',
-    hint: 'Calm and unhurried. Reframes the day toward "do less, breathe."',
-  },
-]
+type CoachAttitudeSlug = CoachAttitude
 
 function CoachAttitudeSection() {
   const qc = useQueryClient()
