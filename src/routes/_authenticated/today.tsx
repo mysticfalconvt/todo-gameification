@@ -1060,7 +1060,7 @@ function BucketList({
       {rows.map((inst) => (
         <li
           key={inst.instanceId}
-          className="island-shell relative flex flex-col gap-2 rounded-xl p-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:gap-3"
+          className="island-shell relative flex flex-col gap-2 overflow-hidden rounded-xl p-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:gap-3"
         >
           {inst.householdId ? (
             <span
