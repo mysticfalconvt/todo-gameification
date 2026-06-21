@@ -598,6 +598,10 @@ export interface SimilarTask {
   title: string
   lastCompletedAt: string | null
   hasOpenInstance: boolean
+  // When hasOpenInstance, the current due time / snooze state of that open
+  // instance, so the combine UI can warn that picking a date reschedules it.
+  openDueAt: string | null
+  openSnoozedUntil: string | null
 }
 
 export interface FindSimilarTasksInput {
@@ -649,6 +653,12 @@ export async function findSimilarTasks(
         string | null
       >`max(${taskInstances.completedAt})`,
       openCount: sql<number>`count(*) filter (where ${taskInstances.completedAt} is null and ${taskInstances.skippedAt} is null)`,
+      openDueAt: sql<
+        string | null
+      >`max(${taskInstances.dueAt}) filter (where ${taskInstances.completedAt} is null and ${taskInstances.skippedAt} is null)`,
+      openSnoozedUntil: sql<
+        string | null
+      >`max(${taskInstances.snoozedUntil}) filter (where ${taskInstances.completedAt} is null and ${taskInstances.skippedAt} is null)`,
     })
     .from(tasks)
     .leftJoin(taskInstances, eq(taskInstances.taskId, tasks.id))
@@ -666,6 +676,10 @@ export async function findSimilarTasks(
       ? new Date(r.lastCompletedAt).toISOString()
       : null,
     hasOpenInstance: Number(r.openCount) > 0,
+    openDueAt: r.openDueAt ? new Date(r.openDueAt).toISOString() : null,
+    openSnoozedUntil: r.openSnoozedUntil
+      ? new Date(r.openSnoozedUntil).toISOString()
+      : null,
   }))
 }
 
@@ -691,7 +705,10 @@ export interface ReaddTaskResult {
 // fresh instance with a new due date is created, so all completions keep
 // stacking under the same taskId. Authorization mirrors createTask:
 // personal tasks belong to their owner; household chores require an adult
-// member. Idempotent against an already-open instance.
+// member. If the task already has an open instance we don't stack a second
+// one — instead we *reschedule* that open instance to the newly-picked due
+// date (and clear any snooze), since the combine UI explicitly asks "when's
+// it due again?". Returns alreadyOpen: true in that case.
 export async function readdTaskInstance(
   userId: string,
   input: ReaddTaskInput,
@@ -717,8 +734,8 @@ export async function readdTaskInstance(
     throw new Error('Task not found.')
   }
 
-  // Don't stack two open instances on one task — if it's already on the
-  // list, just hand back the existing one.
+  // Don't stack two open instances on one task. If it's already on the list
+  // we reschedule that open instance below instead of inserting a duplicate.
   const open = await db.query.taskInstances.findFirst({
     where: and(
       eq(taskInstances.taskId, task.id),
@@ -726,9 +743,6 @@ export async function readdTaskInstance(
       isNull(taskInstances.skippedAt),
     ),
   })
-  if (open) {
-    return { id: task.id, instanceId: open.id, alreadyOpen: true }
-  }
 
   const now = new Date()
   const timeZone = await getUserTimeZone(userId)
@@ -751,6 +765,23 @@ export async function readdTaskInstance(
 
   const dueKind: 'hard' | 'week_target' =
     input.dueKind === 'week_target' ? 'week_target' : 'hard'
+
+  // Already on the list: move the open instance to the new due date and
+  // un-snooze it so it surfaces where the user expects, rather than
+  // silently keeping its old (often future or someday) due time.
+  if (open) {
+    await db
+      .update(taskInstances)
+      .set({ dueAt, dueKind, snoozedUntil: null })
+      .where(eq(taskInstances.id, open.id))
+    if (dueAt && dueAt > new Date()) {
+      await scheduleReminder(
+        { taskInstanceId: open.id, attempt: 1 },
+        dueAt,
+      ).catch((e) => console.error('scheduleReminder failed', e))
+    }
+    return { id: task.id, instanceId: open.id, alreadyOpen: true }
+  }
 
   const [inst] = await db
     .insert(taskInstances)

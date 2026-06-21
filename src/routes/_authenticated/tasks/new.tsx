@@ -181,6 +181,12 @@ function NewTaskPage() {
   // stats stay combined. combineTitle is just for display.
   const [combineTaskId, setCombineTaskId] = useState<string | null>(null)
   const [combineTitle, setCombineTitle] = useState<string>('')
+  // Current state of the chosen task's open instance (if any), so the
+  // combine banner can warn that picking a date reschedules it.
+  const [combineOpen, setCombineOpen] = useState<{
+    dueAt: string | null
+    snoozedUntil: string | null
+  } | null>(null)
 
   const householdQuery = useQuery({
     queryKey: ['my-household'],
@@ -455,9 +461,11 @@ function NewTaskPage() {
         {combining ? (
           <CombineBanner
             title={combineTitle}
+            open={combineOpen}
             onClear={() => {
               setCombineTaskId(null)
               setCombineTitle('')
+              setCombineOpen(null)
             }}
           />
         ) : suggestions.length > 0 ? (
@@ -467,6 +475,11 @@ function NewTaskPage() {
             onCombine={(s) => {
               setCombineTaskId(s.id)
               setCombineTitle(s.title)
+              setCombineOpen(
+                s.hasOpenInstance
+                  ? { dueAt: s.openDueAt, snoozedUntil: s.openSnoozedUntil }
+                  : null,
+              )
             }}
           />
         ) : null}
@@ -948,9 +961,11 @@ function SimilarTaskHint({
 // match is chosen. Clearing it returns to the normal create form.
 function CombineBanner({
   title,
+  open,
   onClear,
 }: {
   title: string
+  open: { dueAt: string | null; snoozedUntil: string | null } | null
   onClear: () => void
 }) {
   return (
@@ -959,6 +974,12 @@ function CombineBanner({
         Combining stats with{' '}
         <span className="font-semibold">{title}</span>. Pick when it&rsquo;s
         due again below — its other settings stay the same.
+        {open ? (
+          <span className="mt-1 block text-xs text-[var(--sea-ink-soft)]">
+            ⚠️ Already on your list — {describeOpenInstance(open)}. Picking a
+            date below reschedules it.
+          </span>
+        ) : null}
       </span>
       <button
         type="button"
@@ -969,6 +990,34 @@ function CombineBanner({
       </button>
     </div>
   )
+}
+
+// Human-readable summary of an open instance's current due/snooze state for
+// the combine banner, e.g. "due Jun 22", "no due date (someday)", or
+// "snoozed until Jun 22".
+function describeOpenInstance(open: {
+  dueAt: string | null
+  snoozedUntil: string | null
+}): string {
+  if (open.snoozedUntil) {
+    const s = new Date(open.snoozedUntil)
+    if (!isNaN(s.getTime()) && s.getTime() > Date.now()) {
+      return `snoozed until ${formatDueDate(s)}`
+    }
+  }
+  if (!open.dueAt) return 'no due date (someday)'
+  const d = new Date(open.dueAt)
+  if (isNaN(d.getTime())) return 'currently scheduled'
+  return `due ${formatDueDate(d)}`
+}
+
+function formatDueDate(d: Date): string {
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 function formatLastDone(iso: string): string {
