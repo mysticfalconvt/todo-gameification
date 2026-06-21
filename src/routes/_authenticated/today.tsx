@@ -328,9 +328,19 @@ function TodayPage() {
 
       {progression ? (
         <section className="island-shell mb-6 rounded-2xl p-4">
-          <div className="grid grid-cols-5 gap-2 text-center">
+          <div className="grid grid-cols-5 gap-1 text-center sm:gap-2">
             <Stat label="Level" value={progression.level} />
-            <Stat label="XP" value={progression.xp} />
+            <Stat
+              label="XP"
+              value={
+                progression.xp >= 10000
+                  ? new Intl.NumberFormat(undefined, {
+                      notation: 'compact',
+                      maximumFractionDigits: 1,
+                    }).format(progression.xp)
+                  : progression.xp
+              }
+            />
             <Stat label="Streak" value={`${progression.currentStreak}d`} />
             <Stat label="Longest" value={`${progression.longestStreak}d`} />
             <Link
@@ -873,7 +883,9 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <p className="text-xs uppercase tracking-wide text-[var(--kicker)]">
         {label}
       </p>
-      <p className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</p>
+      <p className="mt-1 text-lg font-bold leading-tight tabular-nums text-[var(--sea-ink)] sm:text-2xl">
+        {value}
+      </p>
     </div>
   )
 }
@@ -1048,7 +1060,7 @@ function BucketList({
       {rows.map((inst) => (
         <li
           key={inst.instanceId}
-          className="island-shell relative flex items-center gap-3 overflow-hidden rounded-xl p-3"
+          className="island-shell relative flex flex-col gap-2 rounded-xl p-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:gap-3"
         >
           {inst.householdId ? (
             <span
@@ -1057,55 +1069,57 @@ function BucketList({
               style={assigneeBarStyle(inst, householdMembers)}
             />
           ) : null}
-          <button
-            type="button"
-            aria-label={`Complete ${inst.title}`}
-            onClick={() => onComplete(inst)}
-            className="h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)]"
-          />
-          <button
-            type="button"
-            onClick={() =>
-              onSelect({
-                taskId: inst.taskId,
-                instanceId: inst.instanceId,
-                title: inst.title,
-                difficulty: inst.difficulty,
-                xpOverride: inst.xpOverride,
-                categorySlug: inst.categorySlug,
-                dueAt: inst.dueAt,
-                timeOfDay: inst.timeOfDay,
-              })
-            }
-            className="min-w-0 flex-1 cursor-pointer bg-transparent p-0 text-left"
-            aria-label={`View ${inst.title}`}
-          >
-            <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
-              <CategoryDot slug={inst.categorySlug} map={catBySlug} />
-              <span className="truncate">{inst.title}</span>
-              {inst.stepsTotal > 0 ? (
-                <StepsBadge
-                  completed={inst.stepsCompleted}
-                  total={inst.stepsTotal}
-                />
-              ) : null}
-              {inst.householdId ? (
-                <HouseholdBadge
-                  freeForAll={inst.assignedToUserId === null}
-                  assigneeGroup={inst.assigneeGroup}
-                />
-              ) : null}
-            </p>
-            <p className="text-xs text-[var(--sea-ink-soft)]">
-              {dueLabel(inst.dueAt, inst.timeOfDay, inst.dueKind)}
-              {' • '}
-              {xpLabel(inst.difficulty, inst.xpOverride)}
-              {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
-                <> • {catBySlug.get(inst.categorySlug)!.label}</>
-              ) : null}
-            </p>
-          </button>
-          <div className="flex flex-shrink-0 flex-col items-stretch gap-1 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-start gap-3 min-[450px]:flex-1 min-[450px]:items-center">
+            <button
+              type="button"
+              aria-label={`Complete ${inst.title}`}
+              onClick={() => onComplete(inst)}
+              className="mt-0.5 h-6 w-6 flex-shrink-0 rounded-full border-2 border-[rgba(50,143,151,0.4)] transition hover:border-[var(--lagoon-deep)] hover:bg-[rgba(79,184,178,0.16)] min-[450px]:mt-0"
+            />
+            <button
+              type="button"
+              onClick={() =>
+                onSelect({
+                  taskId: inst.taskId,
+                  instanceId: inst.instanceId,
+                  title: inst.title,
+                  difficulty: inst.difficulty,
+                  xpOverride: inst.xpOverride,
+                  categorySlug: inst.categorySlug,
+                  dueAt: inst.dueAt,
+                  timeOfDay: inst.timeOfDay,
+                })
+              }
+              className="min-w-0 flex-1 cursor-pointer bg-transparent p-0 text-left"
+              aria-label={`View ${inst.title}`}
+            >
+              <p className="flex flex-wrap items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
+                <CategoryDot slug={inst.categorySlug} map={catBySlug} />
+                <span className="line-clamp-2 break-words">{inst.title}</span>
+                {inst.stepsTotal > 0 ? (
+                  <StepsBadge
+                    completed={inst.stepsCompleted}
+                    total={inst.stepsTotal}
+                  />
+                ) : null}
+                {inst.householdId ? (
+                  <HouseholdBadge
+                    freeForAll={inst.assignedToUserId === null}
+                    assigneeGroup={inst.assigneeGroup}
+                  />
+                ) : null}
+              </p>
+              <p className="text-xs text-[var(--sea-ink-soft)]">
+                {dueLabel(inst.dueAt, inst.timeOfDay, inst.dueKind)}
+                {' • '}
+                {xpLabel(inst.difficulty, inst.xpOverride)}
+                {inst.categorySlug && catBySlug.get(inst.categorySlug) ? (
+                  <> • {catBySlug.get(inst.categorySlug)!.label}</>
+                ) : null}
+              </p>
+            </button>
+          </div>
+          <div className="flex flex-shrink-0 flex-row flex-wrap gap-1 min-[450px]:flex-nowrap min-[450px]:items-center">
             <Link
               to="/focus"
               search={{

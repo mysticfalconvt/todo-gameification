@@ -445,13 +445,13 @@ function TabLink({
   return (
     <Link
       to={to}
-      className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-[var(--sea-ink-soft)] no-underline"
+      className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2 text-[9px] font-semibold text-[var(--sea-ink-soft)] no-underline sm:text-[10px]"
       activeProps={{
         className:
-          'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-[var(--lagoon-deep)] no-underline',
+          'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2 text-[9px] font-semibold text-[var(--lagoon-deep)] no-underline sm:text-[10px]',
       }}
     >
-      <span className="text-xl leading-none" aria-hidden>
+      <span className="text-lg leading-none" aria-hidden>
         {icon}
       </span>
       <span className="truncate">{label}</span>
