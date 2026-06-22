@@ -408,8 +408,9 @@ function TodayPage() {
             {somedayInstances.map((inst) => (
               <li
                 key={inst.instanceId}
-                className="island-shell flex items-center gap-3 rounded-xl p-3"
+                className="island-shell relative flex items-center gap-3 overflow-hidden rounded-xl p-3"
               >
+                <CategoryBar slug={inst.categorySlug} map={catBySlug} />
                 <button
                   type="button"
                   aria-label={`Complete ${inst.title}`}
@@ -434,7 +435,6 @@ function TodayPage() {
                   aria-label={`View ${inst.title}`}
                 >
                   <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
-                    <CategoryDot slug={inst.categorySlug} map={catBySlug} />
                     <span className="truncate">{inst.title}</span>
                     {inst.stepsTotal > 0 ? (
                       <StepsBadge
@@ -1069,6 +1069,7 @@ function BucketList({
               style={assigneeBarStyle(inst, householdMembers)}
             />
           ) : null}
+          <CategoryBar slug={inst.categorySlug} map={catBySlug} />
           <div className="flex min-w-0 items-start gap-3 min-[450px]:flex-1 min-[450px]:items-center">
             <button
               type="button"
@@ -1094,7 +1095,6 @@ function BucketList({
               aria-label={`View ${inst.title}`}
             >
               <p className="flex flex-wrap items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
-                <CategoryDot slug={inst.categorySlug} map={catBySlug} />
                 <span className="line-clamp-2 break-words">{inst.title}</span>
                 {inst.stepsTotal > 0 ? (
                   <StepsBadge
@@ -1150,7 +1150,10 @@ function BucketList({
   )
 }
 
-function CategoryDot({
+// Right-edge vertical color bar marking the task's category — mirrors the
+// left-edge assignee bar on household chores (left = who, right = what).
+// Renders nothing for uncategorized tasks so the card edge stays clean.
+function CategoryBar({
   slug,
   map,
 }: {
@@ -1158,15 +1161,13 @@ function CategoryDot({
   map: Map<string, { label: string; color: string }>
 }) {
   const cat = slug ? map.get(slug) : null
+  if (!cat) return null
   return (
     <span
-      aria-hidden
-      title={cat?.label ?? 'Uncategorized'}
-      className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
-      style={{
-        backgroundColor: cat?.color ?? 'transparent',
-        border: cat ? 'none' : '1px dashed var(--line)',
-      }}
+      aria-hidden="true"
+      title={cat.label}
+      className="absolute inset-y-0 right-0 w-1"
+      style={{ backgroundColor: cat.color }}
     />
   )
 }
