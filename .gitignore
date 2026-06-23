@@ -13,3 +13,4 @@ __unconfig*
 todos.json
 package-lock.json
 yarn.lock
+.claude/settings.json

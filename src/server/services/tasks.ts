@@ -45,6 +45,7 @@ import {
 } from '../../domain/recurrence'
 import {
   assertHouseholdRole,
+  getMembership,
   getMyMembership,
   listHouseholdMembers,
 } from './households'
@@ -919,15 +920,31 @@ export async function listAllTasks(userId: string): Promise<TaskListRow[]> {
   })
 }
 
+// A task can be managed (viewed in the editor / updated) by its creator, or by
+// an admin of the household the task belongs to. The latter lets either parent
+// edit a chore the other one created — e.g. a kid's task.
+async function canManageTask(
+  userId: string,
+  task: { userId: string; householdId: string | null },
+): Promise<boolean> {
+  if (task.userId === userId) return true
+  if (task.householdId) {
+    const m = await getMembership(userId, task.householdId)
+    if (m?.role === 'admin') return true
+  }
+  return false
+}
+
 export async function getTask(
   userId: string,
   taskId: string,
 ): Promise<TaskDetail> {
   if (!taskId) throw new Error('taskId required')
   const row = await db.query.tasks.findFirst({
-    where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
+    where: eq(tasks.id, taskId),
   })
   if (!row) throw new Error('task not found')
+  if (!(await canManageTask(userId, row))) throw new Error('task not found')
   const [latestCompletion] = await db
     .select({ completedAt: taskInstances.completedAt })
     .from(taskInstances)
@@ -982,6 +999,12 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<{ id: string }> {
   validateUpdate(input)
+  const existing = await db.query.tasks.findFirst({
+    where: eq(tasks.id, input.taskId),
+    columns: { userId: true, householdId: true },
+  })
+  if (!existing) throw new Error('task not found')
+  if (!(await canManageTask(userId, existing))) throw new Error('task not found')
   const setValues: Record<string, unknown> = {
     title: input.title.trim(),
     notes: input.notes,
@@ -1002,7 +1025,7 @@ export async function updateTask(
   const result = await db
     .update(tasks)
     .set(setValues)
-    .where(and(eq(tasks.id, input.taskId), eq(tasks.userId, userId)))
+    .where(eq(tasks.id, input.taskId))
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
   return { id: result[0].id }
@@ -1013,10 +1036,16 @@ export async function deleteTask(
   taskId: string,
 ): Promise<{ id: string }> {
   if (!taskId) throw new Error('taskId required')
+  const existing = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+    columns: { userId: true, householdId: true },
+  })
+  if (!existing) throw new Error('task not found')
+  if (!(await canManageTask(userId, existing))) throw new Error('task not found')
   const result = await db
     .update(tasks)
     .set({ active: false, updatedAt: new Date() })
-    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+    .where(eq(tasks.id, taskId))
     .returning({ id: tasks.id })
   if (result.length === 0) throw new Error('task not found')
   return { id: result[0].id }

@@ -618,6 +618,16 @@ function ChoresTab({
               {choreXp(c)} XP ✎
             </button>
           ))}
+        {viewerRole === 'admin' && (
+          <Link
+            to="/tasks/$taskId"
+            params={{ taskId: c.taskId }}
+            title="Edit this chore"
+            className="flex-shrink-0 rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)] no-underline"
+          >
+            ✎ Edit
+          </Link>
+        )}
         {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
           <button
             type="button"
