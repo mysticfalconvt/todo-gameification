@@ -531,7 +531,7 @@ function ChoresTab({
     return (
       <li
         key={c.instanceId}
-        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--option-bg)] py-2 pl-4 pr-3"
+        className="relative flex flex-col gap-2 overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--option-bg)] py-2 pl-4 pr-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:justify-between min-[450px]:gap-3"
       >
         <span
           aria-hidden="true"
@@ -539,8 +539,8 @@ function ChoresTab({
           style={assigneeBarStyle(c, members)}
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium text-[var(--sea-ink)]">
+          <div className="flex items-start gap-2">
+            <span className="line-clamp-2 break-words font-medium text-[var(--sea-ink)]">
               {c.title}
             </span>
             {c.recurring && (
@@ -572,7 +572,8 @@ function ChoresTab({
             )}
           </div>
         </div>
-        {isAdult &&
+        <div className="flex flex-shrink-0 flex-row flex-wrap items-center gap-1 min-[450px]:flex-nowrap min-[450px]:gap-2">
+          {isAdult &&
           (editingXpTaskId === c.taskId ? (
             <span className="flex flex-shrink-0 items-center gap-1">
               <input
@@ -645,7 +646,8 @@ function ChoresTab({
           >
             Complete
           </button>
-        )}
+          )}
+        </div>
       </li>
     )
   }
