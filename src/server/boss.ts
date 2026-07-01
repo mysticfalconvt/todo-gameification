@@ -15,9 +15,14 @@ import {
   type FocusSessionEndJobData,
   type FocusSessionExpireJobData,
 } from './jobs/focusSessionEnd'
+import {
+  doomScrollEndHandler,
+  type DoomScrollEndJobData,
+} from './jobs/doomScrollEnd'
 
 const FOCUS_END_QUEUE = 'focus-session-end'
 const FOCUS_EXPIRE_QUEUE = 'focus-session-expire'
+const DOOMSCROLL_END_QUEUE = 'doomscroll-end'
 
 let instance: PgBoss | null = null
 let booting: Promise<PgBoss> | null = null
@@ -35,6 +40,7 @@ async function boot(): Promise<PgBoss> {
   await boss.createQueue('send-weekly-summary')
   await boss.createQueue(FOCUS_END_QUEUE)
   await boss.createQueue(FOCUS_EXPIRE_QUEUE)
+  await boss.createQueue(DOOMSCROLL_END_QUEUE)
   await boss.work('send-reminder', sendReminderHandler)
   await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
   await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
@@ -42,6 +48,7 @@ async function boot(): Promise<PgBoss> {
   await boss.work('send-weekly-summary', async () => sendWeeklySummaryHandler())
   await boss.work(FOCUS_END_QUEUE, focusSessionEndHandler)
   await boss.work(FOCUS_EXPIRE_QUEUE, focusSessionExpireHandler)
+  await boss.work(DOOMSCROLL_END_QUEUE, doomScrollEndHandler)
   await boss.schedule('cleanup-stale-subs', '0 3 * * *')
   // Runs at :00 every hour, UTC. The handler filters to users whose
   // local hour is 18 and only sends to those with at-risk plants.
@@ -119,6 +126,26 @@ export async function scheduleFocusSessionExpire(
     {
       singletonKey: `focus-expire-${data.startEventId}`,
       retryLimit: 1,
+    },
+    fireAt,
+  )
+}
+
+// Schedules the "back to work" push for when a doom-scroll break timer
+// expires. Returns the job id so the caller can persist it on the
+// originating doomscroll.started event.
+export async function scheduleDoomScrollEnd(
+  data: DoomScrollEndJobData,
+  fireAt: Date,
+): Promise<string | null> {
+  const boss = await getBoss()
+  return await boss.sendAfter(
+    DOOMSCROLL_END_QUEUE,
+    data,
+    {
+      singletonKey: `doomscroll-end-${data.startEventId}`,
+      retryLimit: 2,
+      retryBackoff: true,
     },
     fireAt,
   )

@@ -106,6 +106,23 @@ export type DomainEvent =
       occurredAt: Date
     }
   | {
+      // "Doom scroll" break timer: the user spends a token to sanction a
+      // fixed period of goofing off, and we push them when it's up. Cost +
+      // XP are baked into the payload so replay stays deterministic (same
+      // pattern as focus.completed / game.played). There's no companion
+      // completion event — the token debit and XP credit both apply at
+      // start, and the scheduled push is a pure reminder.
+      type: 'doomscroll.started'
+      durationMin: DoomScrollDurationMin
+      tokenCost: number
+      xpEarned: number
+      // Bookkeeping: expected end time and the pg-boss job id (for the
+      // scheduled "back to work" push).
+      expectedEndAt?: Date | null
+      scheduledJobId?: string | null
+      occurredAt: Date
+    }
+  | {
       type: 'game.played'
       gameId: string
       tokenCost: number
@@ -280,6 +297,20 @@ export function focusDurationMs(durationMin: FocusDurationMin): number {
   return FOCUS_TEST_OVERRIDE_SECONDS > 0
     ? FOCUS_TEST_OVERRIDE_SECONDS * 1000
     : durationMin * 60_000
+}
+
+// Doom-scroll break timer. Fixed tiers; costs one token to start (the
+// price of sanctioned goofing off) and grants a single XP as a small
+// reward for being disciplined enough to set a limit.
+export const DOOMSCROLL_DURATIONS = [5, 10, 15, 30] as const
+export type DoomScrollDurationMin = (typeof DOOMSCROLL_DURATIONS)[number]
+export function isDoomScrollDuration(n: number): n is DoomScrollDurationMin {
+  return (DOOMSCROLL_DURATIONS as readonly number[]).includes(n)
+}
+export const DOOMSCROLL_TOKEN_COST = 1
+export const DOOMSCROLL_XP = 1
+export function doomScrollDurationMs(durationMin: DoomScrollDurationMin): number {
+  return durationMin * 60_000
 }
 
 // Validation: do we recognize this duration tier at all?

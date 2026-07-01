@@ -222,6 +222,18 @@ export function applyEvent(
       }
     }
 
+    case 'doomscroll.started': {
+      // Break timer: debit the token spent to start it and grant the flat
+      // reward XP. Both values live on the event so replay is deterministic.
+      const xp = state.xp + event.xpEarned
+      return {
+        ...state,
+        xp,
+        level: levelFor(xp),
+        tokens: Math.max(0, state.tokens - event.tokenCost),
+      }
+    }
+
     case 'game.played': {
       const xp = state.xp + event.xpReward
       return {

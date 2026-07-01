@@ -27,6 +27,7 @@ import {
 } from '../../lib/push'
 import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
+import { DoomScrollButton } from '../../components/DoomScrollButton'
 import {
   TaskDetailsDialog,
   type TaskDetailsInstance,
@@ -312,17 +313,20 @@ function TodayPage() {
           {!isKid && (
             <Link
               to="/tasks/new"
-              className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
+              className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:w-32 sm:flex-none"
             >
               + New
             </Link>
           )}
           <Link
             to="/focus"
-            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:flex-none"
+            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:w-32 sm:flex-none"
           >
             🎯 Focus
           </Link>
+          {!isKid && (
+            <DoomScrollButton tokens={progression?.tokens ?? 0} />
+          )}
         </div>
       </header>
 
