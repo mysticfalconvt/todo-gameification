@@ -422,8 +422,8 @@ function ChoresTab({
         toast.message('Already done!')
       } else if ('pendingApproval' in res && res.pendingApproval) {
         toast.success('Submitted — waiting for a grown-up to approve.')
-      } else if ('xp' in res) {
-        toast.success(`+${res.xp} XP`)
+      } else if ('xpGained' in res) {
+        toast.success(`+${res.xpGained} XP`)
       }
       qc.invalidateQueries({ queryKey: ['household-chores', householdId] })
       qc.invalidateQueries({ queryKey: ['household-chores-week', householdId] })
@@ -1882,8 +1882,8 @@ function ReviewTab({
     onSuccess: (res) => {
       if ('alreadyHandled' in res && res.alreadyHandled) {
         toast.message('Already handled.')
-      } else if ('xp' in res) {
-        toast.success(`Approved — +${res.xp} XP`)
+      } else if ('xpGained' in res) {
+        toast.success(`Approved — +${res.xpGained} XP`)
       } else {
         toast.success('Approved.')
       }

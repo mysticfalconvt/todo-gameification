@@ -243,7 +243,12 @@ export type CompleteInstanceResult =
   | {
       alreadyHandled: false
       requiresConfirm?: false
+      // Cumulative total XP after this completion (used to render the
+      // level bar / total). NOT the amount earned by this task.
       xp: number
+      // XP actually awarded for this completion (base × streak ×
+      // punctuality, rounded). This is what a "+N XP" toast should show.
+      xpGained: number
       level: number
       currentStreak: number
     }
@@ -1585,6 +1590,50 @@ async function repairDriftedRecurring(
   }
 }
 
+// Build the per-user/household visibility predicate shared by the Today
+// and Someday queries. Personal tasks (household_id IS NULL) always show
+// for their creator. When the user is in a household and the merge toggle
+// is on, also include household chores assigned to them and unclaimed
+// free-for-all chores that are open to their role. When the toggle is off
+// (or they're not in a household), only personal tasks show — household
+// chores live solely on the Household tab.
+async function buildTodayVisibility(userId: string) {
+  const prefsRow = await db.query.userPrefs.findFirst({
+    where: eq(userPrefs.userId, userId),
+    columns: { mergeHouseholdIntoToday: true },
+  })
+  const mergePref = prefsRow?.mergeHouseholdIntoToday ?? true
+  const myMembership = mergePref
+    ? await db.query.householdMembers.findFirst({
+        where: eq(householdMembers.userId, userId),
+        columns: { householdId: true, role: true },
+      })
+    : null
+  // Unassigned household chores (specific assignee is null) show to the
+  // viewer when the chore's group is open to their role: plain
+  // free-for-all and "any kid" chores show to everyone; "any adult"
+  // chores are hidden from kids (who also can't complete them).
+  const openToMe =
+    myMembership?.role === 'kid'
+      ? and(
+          isNull(taskInstances.assignedToUserId),
+          or(
+            isNull(taskInstances.assigneeGroup),
+            eq(taskInstances.assigneeGroup, 'kids'),
+          ),
+        )
+      : isNull(taskInstances.assignedToUserId)
+  return myMembership
+    ? or(
+        and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId)),
+        and(
+          eq(taskInstances.householdId, myMembership.householdId),
+          or(eq(taskInstances.assignedToUserId, userId), openToMe),
+        ),
+      )
+    : and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId))
+}
+
 export async function listTodayInstances(
   userId: string,
 ): Promise<TodayInstance[]> {
@@ -1612,44 +1661,10 @@ export async function listTodayInstances(
     console.error('[repairDriftedRecurring] failed:', err)
   }
 
-  // Build the per-user/household visibility predicate. Personal tasks
-  // (household_id IS NULL) always show for their creator. When the
-  // user is in a household and the merge toggle is on, also include
-  // household chores assigned to them and unclaimed free-for-all chores.
-  const prefsRow = await db.query.userPrefs.findFirst({
-    where: eq(userPrefs.userId, userId),
-    columns: { mergeHouseholdIntoToday: true },
-  })
-  const mergePref = prefsRow?.mergeHouseholdIntoToday ?? true
-  const myMembership = mergePref
-    ? await db.query.householdMembers.findFirst({
-        where: eq(householdMembers.userId, userId),
-        columns: { householdId: true, role: true },
-      })
-    : null
-  // Unassigned household chores (specific assignee is null) show to the
-  // viewer when the chore's group is open to their role: plain
-  // free-for-all and "any kid" chores show to everyone; "any adult"
-  // chores are hidden from kids (who also can't complete them).
-  const openToMe =
-    myMembership?.role === 'kid'
-      ? and(
-          isNull(taskInstances.assignedToUserId),
-          or(
-            isNull(taskInstances.assigneeGroup),
-            eq(taskInstances.assigneeGroup, 'kids'),
-          ),
-        )
-      : isNull(taskInstances.assignedToUserId)
-  const visibility = myMembership
-    ? or(
-        and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId)),
-        and(
-          eq(taskInstances.householdId, myMembership.householdId),
-          or(eq(taskInstances.assignedToUserId, userId), openToMe),
-        ),
-      )
-    : and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId))
+  // Personal tasks always show for their creator; household chores show
+  // per the shared visibility rules (assignment + free-for-all + merge
+  // toggle). See buildTodayVisibility.
+  const visibility = await buildTodayVisibility(userId)
 
   const rows = await db
     .select({
@@ -2125,6 +2140,7 @@ export async function approveClaim(
     return {
       alreadyHandled: false as const,
       xp: next.xp,
+      xpGained: next.xp - prevState.xp,
       level: next.level,
       currentStreak: next.currentStreak,
       materialized,
@@ -2143,6 +2159,7 @@ export async function approveClaim(
   return {
     alreadyHandled: false,
     xp: txResult.xp,
+    xpGained: txResult.xpGained,
     level: txResult.level,
     currentStreak: txResult.currentStreak,
   }
@@ -2551,6 +2568,11 @@ function buildProjection(
 export async function listSomedayInstances(
   userId: string,
 ): Promise<SomedayInstance[]> {
+  // Same visibility rules as Today so no-due-date household chores
+  // assigned to the viewer (by another member) surface here too, not
+  // just on the Household tab. Previously keyed on taskInstances.userId
+  // (the creator), which hid family tasks someone else assigned to you.
+  const visibility = await buildTodayVisibility(userId)
   const rows = await db
     .select({
       instanceId: taskInstances.id,
@@ -2565,9 +2587,11 @@ export async function listSomedayInstances(
     .innerJoin(tasks, eq(tasks.id, taskInstances.taskId))
     .where(
       and(
-        eq(taskInstances.userId, userId),
+        visibility,
         isNull(taskInstances.completedAt),
         isNull(taskInstances.skippedAt),
+        // Pending kid-claims drop out here too (mirrors Today).
+        isNull(taskInstances.claimedAt),
         isNull(taskInstances.dueAt),
         eq(tasks.active, true),
       ),
@@ -3557,6 +3581,7 @@ export async function completeInstance(
     // single insert/upsert as before. We keep the primary recipient's
     // resulting progression to return for the completion toast.
     let primaryNext: Progression | null = null
+    let primaryPrevXp = 0
     for (const recipientId of recipients) {
       // Read the recipient's timezone for the punctuality curve. For
       // self-completion this matches `timeZone` (loaded earlier). For
@@ -3640,7 +3665,10 @@ export async function completeInstance(
         : INITIAL_PROGRESSION
 
       const next = applyEvent(prevState, event, { timeZone: recipientTimeZone })
-      if (recipientId === primaryRecipientId) primaryNext = next
+      if (recipientId === primaryRecipientId) {
+        primaryNext = next
+        primaryPrevXp = prevState.xp
+      }
 
       await tx
         .insert(progression)
@@ -3712,6 +3740,7 @@ export async function completeInstance(
     return {
       alreadyHandled: false as const,
       xp: next.xp,
+      xpGained: next.xp - primaryPrevXp,
       level: next.level,
       currentStreak: next.currentStreak,
       materialized,
@@ -3741,6 +3770,7 @@ export async function completeInstance(
   return {
     alreadyHandled: false,
     xp: txResult.xp,
+    xpGained: txResult.xpGained,
     level: txResult.level,
     currentStreak: txResult.currentStreak,
   }

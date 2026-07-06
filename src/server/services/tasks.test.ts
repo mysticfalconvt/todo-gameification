@@ -10,6 +10,7 @@ import {
   deleteTask,
   getProgression,
   listAllTasks,
+  listSomedayInstances,
   listTodayInstances,
   setHouseholdChoreXp,
   setKidCompletionXp,
@@ -197,6 +198,32 @@ describe('tasks service', () => {
         expect(aToday).toHaveLength(1)
         expect(bToday).toHaveLength(0)
       })
+    })
+  })
+})
+
+describe('household someday visibility', () => {
+  it('surfaces a no-due-date family task to its assignee, not just the creator', async () => {
+    await withHousehold(['admin', 'admin'], async ([creator, assignee], householdId) => {
+      await createTask(creator.id, {
+        title: 'Take out recycling',
+        difficulty: 'small',
+        recurrence: null,
+        timeOfDay: null,
+        someday: true,
+        householdId,
+        assignedToUserId: assignee.id,
+      })
+
+      // The assignee (a different user than the creator) must see it in
+      // their Someday list — regression for the bug where Someday keyed
+      // on the creator's id and hid family tasks assigned to others.
+      const assigneeSomeday = await listSomedayInstances(assignee.id)
+      expect(assigneeSomeday.map((t) => t.title)).toContain('Take out recycling')
+
+      // And it never leaked a due date (someday => null due).
+      const creatorToday = await listTodayInstances(creator.id)
+      expect(creatorToday.map((t) => t.title)).not.toContain('Take out recycling')
     })
   })
 })
