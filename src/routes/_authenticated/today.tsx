@@ -1129,6 +1129,7 @@ function BucketList({
               search={{
                 taskInstanceId: inst.instanceId,
                 taskTitle: inst.title,
+                taskId: inst.taskId,
               }}
               aria-label={`Focus on ${inst.title}`}
               className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2.5 py-1 text-center text-xs font-semibold text-[var(--sea-ink-soft)] no-underline transition hover:text-[var(--sea-ink)]"

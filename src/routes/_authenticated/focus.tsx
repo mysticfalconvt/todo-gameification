@@ -3,13 +3,16 @@ import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FocusTimer } from '../../components/focus/FocusTimer'
+import { TaskContextCard } from '../../components/focus/TaskContextCard'
+import { FocusStepsChecklist } from '../../components/focus/FocusStepsChecklist'
+import { UpcomingTasksPreview } from '../../components/focus/UpcomingTasksPreview'
 import {
   cancelFocusSession,
   completeFocusSession,
   getActiveFocusSession,
   startFocusSession,
 } from '../../server/functions/focus'
-import { completeInstance } from '../../server/functions/tasks'
+import { completeInstance, listTodayInstances } from '../../server/functions/tasks'
 import {
   focusRewardsFor,
   type FocusMode,
@@ -25,6 +28,7 @@ type Phase = 'picking' | 'running' | 'pocket' | 'confirming'
 interface FocusSearch {
   taskInstanceId?: string
   taskTitle?: string
+  taskId?: string
   // Deep link from the end-of-session push: jumps straight to the
   // confirmation modal for the named active session.
   focus_confirm?: string
@@ -37,6 +41,7 @@ export const Route = createFileRoute('/_authenticated/focus')({
       typeof s.taskInstanceId === 'string' ? s.taskInstanceId : undefined,
     taskTitle:
       typeof s.taskTitle === 'string' ? s.taskTitle : undefined,
+    taskId: typeof s.taskId === 'string' ? s.taskId : undefined,
     focus_confirm:
       typeof s.focus_confirm === 'string' ? s.focus_confirm : undefined,
   }),
@@ -70,6 +75,21 @@ function FocusPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
+
+  // Effective task context for the info card / step checklist. instanceId
+  // can come from the in-flight session (pocket resume) or the URL. taskId
+  // isn't carried on the session row, so fall back to looking it up in the
+  // Today list by instanceId.
+  const instanceId = activeStart?.taskInstanceId ?? search.taskInstanceId ?? null
+  const today = useQuery({
+    queryKey: ['today'],
+    queryFn: () => listTodayInstances(),
+    enabled: !search.taskId && !!instanceId,
+  })
+  const taskId =
+    search.taskId ??
+    today.data?.find((i) => i.instanceId === instanceId)?.taskId ??
+    null
 
   const didRestoreRef = useRef(false)
   useEffect(() => {
@@ -234,6 +254,8 @@ function FocusPage() {
             activeStart?.taskInstanceId ?? search.taskInstanceId,
           )}
           taskTitle={search.taskTitle}
+          taskId={taskId}
+          instanceId={instanceId}
           durationMin={activeStart?.durationMin ?? duration}
           pending={completeFocus.isPending || completeTask.isPending}
           onTaskConfirm={handleTaskConfirm}
@@ -250,6 +272,8 @@ function FocusPage() {
           expectedEndAt={activeStart.expectedEndAt}
           durationMin={activeStart.durationMin}
           taskTitle={search.taskTitle}
+          taskId={taskId}
+          instanceId={instanceId}
           onCancel={onCancel}
           onConfirmNow={() => setPhase('confirming')}
         />
@@ -263,6 +287,8 @@ function FocusPage() {
         <FocusTimer
           durationMin={duration}
           taskTitle={search.taskTitle}
+          taskId={taskId}
+          instanceId={instanceId}
           onComplete={onTimerComplete}
           onCancel={onCancel}
         />
@@ -315,14 +341,19 @@ function FocusPage() {
       {mode === 'pocket' ? <PocketReadinessHints /> : null}
 
       {search.taskInstanceId ? (
-        <p className="mb-4 text-xs text-[var(--sea-ink-soft)]">
-          {search.taskTitle ? (
-            <>Focusing on <span className="font-semibold">{search.taskTitle}</span>. We'll ask if you finished it when the timer ends.</>
-          ) : (
-            <>We'll ask if you finished the task when the timer ends.</>
-          )}
-        </p>
-      ) : null}
+        <div className="mb-4 space-y-2">
+          <TaskContextCard
+            taskId={taskId}
+            instanceId={instanceId}
+            fallbackTitle={search.taskTitle}
+          />
+          <p className="text-xs text-[var(--sea-ink-soft)]">
+            We'll ask if you finished it when the timer ends.
+          </p>
+        </div>
+      ) : (
+        <UpcomingTasksPreview />
+      )}
 
       <button
         type="button"
@@ -448,12 +479,16 @@ function PocketWaiting({
   expectedEndAt,
   durationMin,
   taskTitle,
+  taskId,
+  instanceId,
   onCancel,
   onConfirmNow,
 }: {
   expectedEndAt: Date
   durationMin: 5 | 10 | 15 | 25 | 50
   taskTitle?: string
+  taskId: string | null
+  instanceId: string | null
   onCancel: () => void
   onConfirmNow: () => void
 }) {
@@ -481,10 +516,13 @@ function PocketWaiting({
         {durationMin}-min focus. Phone can be locked or away — we'll push
         you at <span className="font-semibold">{endTimeLabel}</span>.
       </p>
-      {taskTitle ? (
-        <p className="text-base font-semibold text-[var(--sea-ink)]">
-          {taskTitle}
-        </p>
+      {taskId || taskTitle ? (
+        <TaskContextCard
+          taskId={taskId}
+          instanceId={instanceId}
+          fallbackTitle={taskTitle}
+          compact
+        />
       ) : null}
 
       <div className="text-6xl font-semibold tabular-nums text-[var(--sea-ink)]" aria-live="polite">
@@ -529,6 +567,8 @@ function formatPocketRemaining(ms: number): string {
 function ConfirmationPrompt({
   taskLinked,
   taskTitle,
+  taskId,
+  instanceId,
   durationMin,
   pending,
   onTaskConfirm,
@@ -536,6 +576,8 @@ function ConfirmationPrompt({
 }: {
   taskLinked: boolean
   taskTitle?: string
+  taskId: string | null
+  instanceId: string | null
   durationMin: 5 | 10 | 15 | 25 | 50
   pending: boolean
   onTaskConfirm: (didCompleteTask: boolean) => void
@@ -552,10 +594,15 @@ function ConfirmationPrompt({
       </p>
       {taskLinked ? (
         <>
-          {taskTitle ? (
-            <p className="text-base font-semibold text-[var(--sea-ink)]">
-              “{taskTitle}”
-            </p>
+          {taskId || taskTitle ? (
+            <TaskContextCard
+              taskId={taskId}
+              instanceId={instanceId}
+              fallbackTitle={taskTitle}
+            />
+          ) : null}
+          {taskId ? (
+            <FocusStepsChecklist taskId={taskId} instanceId={instanceId} />
           ) : null}
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {taskTitle

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFocusSession } from '../../lib/useFocusSession'
 import { focusDurationMs } from '../../domain/events'
+import { TaskContextCard } from './TaskContextCard'
+import { FocusStepsChecklist } from './FocusStepsChecklist'
 
 // If the user lands here but doesn't click Start within this many seconds,
 // fire it automatically. Covers the "I walked off and forgot to hit Start"
@@ -17,12 +19,16 @@ function formatRemaining(ms: number): string {
 export function FocusTimer({
   durationMin,
   taskTitle,
+  taskId = null,
+  instanceId = null,
   plannedMsOverride,
   onComplete,
   onCancel,
 }: {
   durationMin: 5 | 10 | 15 | 25 | 50
   taskTitle?: string
+  taskId?: string | null
+  instanceId?: string | null
   // Test-mode override (e.g., 10s instead of 15 min). Keeps the server
   // reward mapping unchanged since durationMin is still the logical value.
   plannedMsOverride?: number
@@ -61,14 +67,17 @@ export function FocusTimer({
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6">
-      <div className="flex flex-col items-center gap-1 text-center">
+      <div className="flex flex-col items-center gap-2 text-center">
         <div className="text-sm text-[var(--sea-ink-soft)]">
           {durationMin}-min focus session
         </div>
-        {taskTitle ? (
-          <div className="max-w-xs text-lg font-semibold text-[var(--sea-ink)]">
-            {taskTitle}
-          </div>
+        {taskId || taskTitle ? (
+          <TaskContextCard
+            taskId={taskId}
+            instanceId={instanceId}
+            fallbackTitle={taskTitle}
+            compact
+          />
         ) : null}
       </div>
 
@@ -85,6 +94,10 @@ export function FocusTimer({
           style={{ width: `${progress * 100}%` }}
         />
       </div>
+
+      {taskId ? (
+        <FocusStepsChecklist taskId={taskId} instanceId={instanceId} />
+      ) : null}
 
       {status === 'paused' ? (
         <p className="text-sm text-[var(--sea-ink-soft)]">
