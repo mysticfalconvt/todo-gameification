@@ -29,6 +29,17 @@ import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
 import { DoomScrollButton } from '../../components/DoomScrollButton'
 import {
+  MilestoneCelebration,
+  type CelebrationEvent,
+} from '../../components/MilestoneCelebration'
+import type { CompletionCelebration } from '../../server/services/tasks'
+import { badgeForStreak } from '../../domain/gamification'
+import {
+  DEFAULT_MOTIVATION_STYLE,
+  isMotivationStyle,
+  motivationStyleOption,
+} from '../../domain/motivation'
+import {
   TaskDetailsDialog,
   type TaskDetailsInstance,
 } from '../../components/TaskDetailsDialog'
@@ -105,6 +116,45 @@ function TodayPage() {
     queryFn: () => getProfile(),
   })
   const coachDetailed = profileQuery.data?.coachDetailed ?? false
+  const motivationStyle = motivationStyleOption(
+    isMotivationStyle(profileQuery.data?.motivationStyle)
+      ? profileQuery.data.motivationStyle
+      : DEFAULT_MOTIVATION_STYLE,
+  )
+
+  // Ephemeral completion celebration (confetti + card). `key` bumps per fire
+  // so re-triggering re-runs the animation.
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null)
+  const celebrationKey = useRef(0)
+
+  // Turn a completion's celebration payload into confetti + toasts. A streak
+  // milestone outranks a level-up for the big overlay; a level-up on its own
+  // still gets the overlay. Token/freeze gains ride along as a toast.
+  function fireCelebration(c: CompletionCelebration) {
+    if (c.milestone) {
+      const freezeNote =
+        c.freezesEarned > 0 ? ' · ❄ streak freeze earned' : ''
+      setCelebration({
+        key: (celebrationKey.current += 1),
+        kind: 'milestone',
+        glyph: '🏅',
+        title: `${c.milestone.days}-day streak!`,
+        subtitle: c.milestone.label,
+      })
+      toast.success(
+        `🏅 ${c.milestone.label} — +${c.milestone.tokens} 🪙${freezeNote}`,
+      )
+    } else if (c.leveledUp) {
+      setCelebration({
+        key: (celebrationKey.current += 1),
+        kind: 'level',
+        glyph: '⬆️',
+        title: `Level ${c.leveledUp}!`,
+        subtitle: 'Onward.',
+      })
+      toast.success(`⬆️ Level ${c.leveledUp}!`)
+    }
+  }
   const catBySlug = useMemo(() => {
     const m = new Map<string, { label: string; color: string }>()
     // Defensive: a stale or corrupted persisted query entry could come
@@ -179,12 +229,18 @@ function TodayPage() {
       const removed = await optimisticRemove(instanceId)()
       return { ...removed, watering }
     },
-    onSuccess: (_data, _vars, ctx) => {
+    onSuccess: (data, _vars, ctx) => {
       if (ctx?.watering.first) {
         toast.success(
           `🌱 First watering today — ${ctx.watering.label} is perky.`,
         )
       }
+      // Online completions carry a celebration payload; offline-queued ones
+      // don't (runOrQueue returns undefined when queued) — tolerate absence.
+      const celebrationData = (
+        data as { celebration?: CompletionCelebration } | undefined
+      )?.celebration
+      if (celebrationData) fireCelebration(celebrationData)
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
@@ -284,6 +340,10 @@ function TodayPage() {
 
   return (
     <main className="page-wrap px-4 py-8">
+      <MilestoneCelebration
+        event={celebration}
+        onDone={() => setCelebration(null)}
+      />
       <header
         className={`mb-6 flex justify-between gap-3 ${
           coachDetailed
@@ -336,6 +396,7 @@ function TodayPage() {
             <Stat label="Level" value={progression.level} />
             <Stat
               label="XP"
+              accent={motivationStyle.primaryStat === 'xp'}
               value={
                 progression.xp >= 10000
                   ? new Intl.NumberFormat(undefined, {
@@ -345,7 +406,16 @@ function TodayPage() {
                   : progression.xp
               }
             />
-            <Stat label="Streak" value={`${progression.currentStreak}d`} />
+            <Stat
+              label="Streak"
+              accent={motivationStyle.primaryStat === 'streak'}
+              value={`${progression.currentStreak}d`}
+              sub={
+                progression.streakFreezes > 0
+                  ? `❄ ${progression.streakFreezes}`
+                  : undefined
+              }
+            />
             <Stat label="Longest" value={`${progression.longestStreak}d`} />
             <Link
               to="/arcade"
@@ -360,6 +430,13 @@ function TodayPage() {
               </span>
             </Link>
           </div>
+          {badgeForStreak(progression.longestStreak) ? (
+            <div className="mt-3 flex justify-center">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)]">
+                🏅 {badgeForStreak(progression.longestStreak)!.label}
+              </span>
+            </div>
+          ) : null}
           <div className="mt-4">
             <ActivityStrip days={Array.isArray(activityQuery.data) ? activityQuery.data : []} />
           </div>
@@ -881,15 +958,38 @@ function CoachBlurb({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string
+  value: string | number
+  // Optional small line beneath the value (e.g. "❄ 2" streak freezes).
+  sub?: string
+  // Foreground this tile for the user's motivation style.
+  accent?: boolean
+}) {
   return (
-    <div>
+    <div
+      className={
+        accent
+          ? 'rounded-xl bg-[rgba(79,184,178,0.14)] px-1 py-1 ring-1 ring-[rgba(50,143,151,0.3)]'
+          : undefined
+      }
+    >
       <p className="text-xs uppercase tracking-wide text-[var(--kicker)]">
         {label}
       </p>
       <p className="mt-1 text-lg font-bold leading-tight tabular-nums text-[var(--sea-ink)] sm:text-2xl">
         {value}
       </p>
+      {sub ? (
+        <p className="text-[10px] font-semibold leading-tight text-[var(--lagoon-deep)]">
+          {sub}
+        </p>
+      ) : null}
     </div>
   )
 }

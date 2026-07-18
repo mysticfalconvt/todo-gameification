@@ -9,6 +9,10 @@ import {
   normalizeHandle,
 } from '../services/handles'
 import { COACH_ATTITUDES, type CoachAttitude } from '../services/coach'
+import {
+  MOTIVATION_STYLES,
+  type MotivationStyle,
+} from '../../domain/motivation'
 
 const VISIBILITY_VALUES = ['public', 'friends', 'private'] as const
 type Visibility = (typeof VISIBILITY_VALUES)[number]
@@ -71,6 +75,8 @@ export const getProfile = createServerFn({ method: 'GET' })
       shareTaskTitles: prefsRow?.shareTaskTitles ?? false,
       coachAttitude: (prefsRow?.coachAttitude ?? 'warm') as CoachAttitude,
       coachDetailed: prefsRow?.coachDetailed ?? false,
+      motivationStyle: (prefsRow?.motivationStyle ??
+        'balanced') as MotivationStyle,
       bio: prefsRow?.bio ?? '',
       quietHoursStart: userRow?.quietHoursStart ?? null,
       quietHoursEnd: userRow?.quietHoursEnd ?? null,
@@ -186,6 +192,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
       shareTaskTitles?: boolean
       coachAttitude?: string
       coachDetailed?: boolean
+      motivationStyle?: string
       bio?: string
       mergeHouseholdIntoToday?: boolean
       weeklyEmailOptIn?: boolean
@@ -210,6 +217,17 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           throw new Error('invalid coach attitude')
         }
         coachAttitude = data.coachAttitude as CoachAttitude
+      }
+      let motivationStyle: MotivationStyle | undefined
+      if (typeof data.motivationStyle === 'string') {
+        if (
+          !(MOTIVATION_STYLES as readonly string[]).includes(
+            data.motivationStyle,
+          )
+        ) {
+          throw new Error('invalid motivation style')
+        }
+        motivationStyle = data.motivationStyle as MotivationStyle
       }
       let bio: string | undefined
       if (typeof data.bio === 'string') {
@@ -237,6 +255,7 @@ export const updatePrefs = createServerFn({ method: 'POST' })
           typeof data.coachDetailed === 'boolean'
             ? data.coachDetailed
             : undefined,
+        motivationStyle,
         bio,
         mergeHouseholdIntoToday:
           typeof data.mergeHouseholdIntoToday === 'boolean'
@@ -265,6 +284,9 @@ export const updatePrefs = createServerFn({ method: 'POST' })
         'warm') as CoachAttitude,
       coachDetailed:
         data.coachDetailed ?? existing?.coachDetailed ?? false,
+      motivationStyle: (data.motivationStyle ??
+        existing?.motivationStyle ??
+        'balanced') as MotivationStyle,
       bio: data.bio ?? existing?.bio ?? '',
       mergeHouseholdIntoToday:
         data.mergeHouseholdIntoToday ??

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
-import { events, households, householdMembers, tasks } from '../db/schema'
+import {
+  events,
+  households,
+  householdMembers,
+  progression,
+  tasks,
+} from '../db/schema'
 import { withTestUser, withTestUsers } from '../../test/helpers'
 import {
   assignKidXp,
@@ -170,6 +176,45 @@ describe('tasks service', () => {
     })
   })
 
+  it('crossing a streak milestone grants tokens + a freeze and reports a celebration', async () => {
+    await withTestUser(async (u) => {
+      const r = await createTask(u.id, {
+        title: 'Meditate',
+        difficulty: 'small',
+        recurrence: null,
+        timeOfDay: null,
+        someday: false,
+      })
+      // Seed a 6-day streak whose last completion was ~yesterday, so this
+      // completion advances to 7 (the first milestone) with gap === 1.
+      await db.insert(progression).values({
+        userId: u.id,
+        xp: 100,
+        level: 2,
+        currentStreak: 6,
+        longestStreak: 6,
+        tokens: 0,
+        streakFreezes: 0,
+        lastCompletionAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      })
+
+      const today = await listTodayInstances(u.id)
+      const inst = today.find((i) => i.taskId === r.id)
+      const result = await completeInstance(u.id, inst!.instanceId)
+
+      expect('celebration' in result && result.celebration).toBeTruthy()
+      if ('celebration' in result) {
+        expect(result.celebration.milestone?.days).toBe(7)
+        expect(result.celebration.freezesEarned).toBe(1)
+      }
+
+      const p = await getProgression(u.id)
+      expect(p.currentStreak).toBe(7)
+      expect(p.streakFreezes).toBe(1)
+      expect(p.tokens).toBe(3) // 7-day tier bonus
+    })
+  })
+
   it('getProgression returns zero-state for a new user', async () => {
     await withTestUser(async (u) => {
       const p = await getProgression(u.id)
@@ -179,6 +224,7 @@ describe('tasks service', () => {
         currentStreak: 0,
         longestStreak: 0,
         tokens: 0,
+        streakFreezes: 0,
       })
     })
   })

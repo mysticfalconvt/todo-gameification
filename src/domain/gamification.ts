@@ -7,6 +7,10 @@ export interface Progression {
   currentStreak: number
   longestStreak: number
   tokens: number
+  // Banked streak freezes. A freeze is auto-consumed when the user misses a
+  // day, keeping the streak alive instead of resetting it. Earned by crossing
+  // streak milestones; capped at MAX_STREAK_FREEZES.
+  streakFreezes: number
   lastCompletionAt: Date | null
 }
 
@@ -16,6 +20,7 @@ export const INITIAL_PROGRESSION: Progression = {
   currentStreak: 0,
   longestStreak: 0,
   tokens: 0,
+  streakFreezes: 0,
   lastCompletionAt: null,
 }
 
@@ -28,6 +33,58 @@ const BASE_XP: Record<Difficulty, number> = {
 const STREAK_CAP = 30
 const STREAK_STEP = 0.02
 const GRACE_MINUTES = 60
+
+// Long-term streak milestones. Crossing one grants a burst of arcade tokens
+// plus a streak freeze (a bankable safety net), and unlocks a collectible
+// badge derived purely from longestStreak (no storage). Rewards are computed
+// deterministically inside `applyEvent` on the existing `task.completed`
+// event, so they survive event replay without a new event type.
+export interface StreakMilestone {
+  days: number
+  tokens: number
+  id: string
+  label: string
+}
+
+export const STREAK_MILESTONES: readonly StreakMilestone[] = [
+  { days: 7, tokens: 3, id: 'week', label: 'Week One' },
+  { days: 14, tokens: 5, id: 'fortnight', label: 'Fortnight' },
+  { days: 30, tokens: 15, id: 'monthly', label: 'Monthly' },
+  { days: 60, tokens: 25, id: 'steady', label: 'Steady Sixty' },
+  { days: 100, tokens: 50, id: 'centurion', label: 'Centurion' },
+  { days: 180, tokens: 80, id: 'half-year', label: 'Half-Year' },
+  { days: 365, tokens: 200, id: 'year', label: 'Year of Showing Up' },
+] as const
+
+// How many freezes a user can bank at once. Earning past the cap is a no-op.
+export const MAX_STREAK_FREEZES = 3
+
+// Milestones whose threshold was passed going from prevStreak to newStreak
+// (prev < days <= new). Streaks only advance by 1 per streak-day so at most
+// one is returned in practice, but this stays correct for any jump.
+export function milestonesCrossed(
+  prevStreak: number,
+  newStreak: number,
+): StreakMilestone[] {
+  return STREAK_MILESTONES.filter(
+    (m) => prevStreak < m.days && m.days <= newStreak,
+  )
+}
+
+// The highest milestone a user has ever reached (their current badge), or
+// null if they haven't hit the first tier yet. Derived from longestStreak.
+export function badgeForStreak(longestStreak: number): StreakMilestone | null {
+  let earned: StreakMilestone | null = null
+  for (const m of STREAK_MILESTONES) {
+    if (m.days <= longestStreak) earned = m
+  }
+  return earned
+}
+
+// Every milestone the user has earned, for a profile trophy row.
+export function earnedBadges(longestStreak: number): StreakMilestone[] {
+  return STREAK_MILESTONES.filter((m) => m.days <= longestStreak)
+}
 
 export function punctualityMultiplier(input: {
   dueAt: Date | null
@@ -135,14 +192,35 @@ export function applyEvent(
           )
         : null
 
+      // Streak freezes bridge a lapse: missing N days needs N-1 freezes
+      // (gap === 2 means exactly one missed day). If enough are banked, the
+      // freezes are consumed and the streak continues; otherwise it resets.
       let currentStreak: number
-      if (gap === null || gap > 1) {
+      let streakFreezes = state.streakFreezes
+      if (gap === null) {
         currentStreak = 1
+      } else if (gap > 1) {
+        const freezesNeeded = gap - 1
+        if (streakFreezes >= freezesNeeded) {
+          streakFreezes -= freezesNeeded
+          currentStreak = state.currentStreak + 1
+        } else {
+          currentStreak = 1
+        }
       } else if (gap === 1) {
         currentStreak = state.currentStreak + 1
       } else {
         currentStreak = Math.max(state.currentStreak, 1)
       }
+
+      // Milestone rewards: crossing a threshold grants a token burst and a
+      // banked freeze (capped). Additive on top of any kid tokens on the event.
+      const crossed = milestonesCrossed(state.currentStreak, currentStreak)
+      const milestoneTokens = crossed.reduce((sum, m) => sum + m.tokens, 0)
+      streakFreezes = Math.min(
+        MAX_STREAK_FREEZES,
+        streakFreezes + crossed.length,
+      )
 
       const punctuality =
         event.dueKind === 'week_target'
@@ -178,7 +256,9 @@ export function applyEvent(
         longestStreak: Math.max(state.longestStreak, currentStreak),
         // Kids earn arcade tokens from completing chores; the amount is
         // resolved at write time and stored on the event (0 for adults).
-        tokens: state.tokens + (event.tokensEarned ?? 0),
+        // Milestone bonuses are added deterministically on top.
+        tokens: state.tokens + (event.tokensEarned ?? 0) + milestoneTokens,
+        streakFreezes,
         lastCompletionAt: event.occurredAt,
       }
     }

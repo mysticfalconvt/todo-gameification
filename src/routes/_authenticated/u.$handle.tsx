@@ -17,6 +17,7 @@ import {
   unblockUserFn,
 } from '../../server/functions/social'
 import type { PublicProfile } from '../../server/services/profile'
+import { earnedBadges } from '../../domain/gamification'
 
 export const Route = createFileRoute('/_authenticated/u/$handle')({
   component: ProfilePage,
@@ -172,6 +173,19 @@ function ProfilePage() {
                 value={`${p.progression!.longestStreak}d`}
               />
             </div>
+            {earnedBadges(p.progression!.longestStreak).length > 0 ? (
+              <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-[var(--line)] pt-4">
+                {earnedBadges(p.progression!.longestStreak).map((b) => (
+                  <span
+                    key={b.id}
+                    title={`${b.days}-day streak`}
+                    className="inline-flex items-center gap-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)]"
+                  >
+                    🏅 {b.label}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </section>
           <XpSection data={p.xpByDay} />
           <CategorySection userId={p.userId} />

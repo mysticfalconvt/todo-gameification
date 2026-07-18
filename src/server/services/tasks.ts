@@ -64,9 +64,11 @@ import {
   applyEvent,
   baseXpForDifficulty,
   computeStepXp,
+  milestonesCrossed,
   parentBonusBaseXp,
   punctualityMultiplier,
   type Progression,
+  type StreakMilestone,
 } from '../../domain/gamification'
 import { scheduleReminder } from '../boss'
 import { scoreTask } from '../llm/scoreTask'
@@ -228,6 +230,7 @@ export interface ProgressionSummary {
   currentStreak: number
   longestStreak: number
   tokens: number
+  streakFreezes: number
 }
 
 export type CompleteInstanceResult =
@@ -251,7 +254,27 @@ export type CompleteInstanceResult =
       xpGained: number
       level: number
       currentStreak: number
+      // Ephemeral, never persisted: what the client should celebrate for the
+      // primary recipient's completion. Derived by diffing prev vs new
+      // progression state.
+      celebration: CompletionCelebration
+      // The next recurrence's instance, when this completion rematerialized one.
+      materialized?: { instanceId: string; dueAt: Date } | null
     }
+
+// A one-off delight signal returned from a completion. All fields are
+// derived by diffing the recipient's progression before/after applyEvent;
+// nothing here is stored.
+export interface CompletionCelebration {
+  // The new level if this completion crossed a level boundary, else null.
+  leveledUp: number | null
+  // The streak milestone crossed by this completion (highest, if several),
+  // else null. Carries the token bonus + badge label for the UI.
+  milestone: StreakMilestone | null
+  // Streak freezes gained by this completion (>0 only when a milestone was
+  // crossed). Lets the client say "❄ streak freeze earned".
+  freezesEarned: number
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2081,6 +2104,7 @@ export async function approveClaim(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -2094,6 +2118,7 @@ export async function approveClaim(
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
         tokens: next.tokens,
+        streakFreezes: next.streakFreezes,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({
@@ -2104,6 +2129,7 @@ export async function approveClaim(
           currentStreak: next.currentStreak,
           longestStreak: next.longestStreak,
           tokens: next.tokens,
+          streakFreezes: next.streakFreezes,
           lastCompletionAt: next.lastCompletionAt,
           updatedAt: now,
         },
@@ -2137,12 +2163,21 @@ export async function approveClaim(
       materialized = { instanceId: inst.id, dueAt: nextDue }
     }
 
+    const celebration: CompletionCelebration = {
+      leveledUp: next.level > prevState.level ? next.level : null,
+      milestone:
+        milestonesCrossed(prevState.currentStreak, next.currentStreak).at(-1) ??
+        null,
+      freezesEarned: next.streakFreezes - prevState.streakFreezes,
+    }
+
     return {
       alreadyHandled: false as const,
       xp: next.xp,
       xpGained: next.xp - prevState.xp,
       level: next.level,
       currentStreak: next.currentStreak,
+      celebration,
       materialized,
     }
   })
@@ -2162,6 +2197,7 @@ export async function approveClaim(
     xpGained: txResult.xpGained,
     level: txResult.level,
     currentStreak: txResult.currentStreak,
+    celebration: txResult.celebration,
   }
 }
 
@@ -3018,6 +3054,7 @@ async function rebuildProgression(
       currentStreak: state.currentStreak,
       longestStreak: state.longestStreak,
       tokens: state.tokens,
+      streakFreezes: state.streakFreezes,
       lastCompletionAt: state.lastCompletionAt,
     })
     .onConflictDoUpdate({
@@ -3028,6 +3065,7 @@ async function rebuildProgression(
         currentStreak: state.currentStreak,
         longestStreak: state.longestStreak,
         tokens: state.tokens,
+        streakFreezes: state.streakFreezes,
         lastCompletionAt: state.lastCompletionAt,
         updatedAt: now,
       },
@@ -3198,6 +3236,7 @@ export async function assignKidXp(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -3213,6 +3252,7 @@ export async function assignKidXp(
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
         tokens: next.tokens,
+        streakFreezes: next.streakFreezes,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({
@@ -3223,6 +3263,7 @@ export async function assignKidXp(
           currentStreak: next.currentStreak,
           longestStreak: next.longestStreak,
           tokens: next.tokens,
+          streakFreezes: next.streakFreezes,
           lastCompletionAt: next.lastCompletionAt,
           updatedAt: now,
         },
@@ -3581,7 +3622,7 @@ export async function completeInstance(
     // single insert/upsert as before. We keep the primary recipient's
     // resulting progression to return for the completion toast.
     let primaryNext: Progression | null = null
-    let primaryPrevXp = 0
+    let primaryPrev: Progression | null = null
     for (const recipientId of recipients) {
       // Read the recipient's timezone for the punctuality curve. For
       // self-completion this matches `timeZone` (loaded earlier). For
@@ -3660,6 +3701,7 @@ export async function completeInstance(
             currentStreak: current.currentStreak,
             longestStreak: current.longestStreak,
             tokens: current.tokens,
+            streakFreezes: current.streakFreezes,
             lastCompletionAt: current.lastCompletionAt,
           }
         : INITIAL_PROGRESSION
@@ -3667,7 +3709,7 @@ export async function completeInstance(
       const next = applyEvent(prevState, event, { timeZone: recipientTimeZone })
       if (recipientId === primaryRecipientId) {
         primaryNext = next
-        primaryPrevXp = prevState.xp
+        primaryPrev = prevState
       }
 
       await tx
@@ -3679,6 +3721,7 @@ export async function completeInstance(
           currentStreak: next.currentStreak,
           longestStreak: next.longestStreak,
           tokens: next.tokens,
+          streakFreezes: next.streakFreezes,
           lastCompletionAt: next.lastCompletionAt,
         })
         .onConflictDoUpdate({
@@ -3689,6 +3732,7 @@ export async function completeInstance(
             currentStreak: next.currentStreak,
             longestStreak: next.longestStreak,
             tokens: next.tokens,
+            streakFreezes: next.streakFreezes,
             lastCompletionAt: next.lastCompletionAt,
             updatedAt: now,
           },
@@ -3697,6 +3741,15 @@ export async function completeInstance(
 
     // Non-null: the primary id is always one of `recipients`.
     const next = primaryNext!
+    const prev = primaryPrev ?? INITIAL_PROGRESSION
+
+    // Diff prev vs new for the one-off celebration (ephemeral — not stored).
+    const crossed = milestonesCrossed(prev.currentStreak, next.currentStreak)
+    const celebration: CompletionCelebration = {
+      leveledUp: next.level > prev.level ? next.level : null,
+      milestone: crossed.at(-1) ?? null,
+      freezesEarned: next.streakFreezes - prev.streakFreezes,
+    }
 
     let materialized: { instanceId: string; dueAt: Date } | null = null
     if (task.recurrence && task.active && instance.dueAt) {
@@ -3740,9 +3793,10 @@ export async function completeInstance(
     return {
       alreadyHandled: false as const,
       xp: next.xp,
-      xpGained: next.xp - primaryPrevXp,
+      xpGained: next.xp - prev.xp,
       level: next.level,
       currentStreak: next.currentStreak,
+      celebration,
       materialized,
     }
   })
@@ -3773,6 +3827,7 @@ export async function completeInstance(
     xpGained: txResult.xpGained,
     level: txResult.level,
     currentStreak: txResult.currentStreak,
+    celebration: txResult.celebration,
   }
 }
 
@@ -4017,7 +4072,14 @@ export async function getProgression(
     where: eq(progression.userId, userId),
   })
   if (!row) {
-    return { xp: 0, level: 1, currentStreak: 0, longestStreak: 0, tokens: 0 }
+    return {
+      xp: 0,
+      level: 1,
+      currentStreak: 0,
+      longestStreak: 0,
+      tokens: 0,
+      streakFreezes: 0,
+    }
   }
   return {
     xp: row.xp,
@@ -4025,6 +4087,7 @@ export async function getProgression(
     currentStreak: row.currentStreak,
     longestStreak: row.longestStreak,
     tokens: row.tokens,
+    streakFreezes: row.streakFreezes,
   }
 }
 
@@ -5243,6 +5306,7 @@ export async function toggleTaskStep(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -5359,6 +5423,7 @@ function progressionSummary(state: {
   currentStreak: number
   longestStreak: number
   tokens: number
+  streakFreezes: number
 }): ProgressionSummary {
   return {
     xp: state.xp,
@@ -5366,6 +5431,7 @@ function progressionSummary(state: {
     currentStreak: state.currentStreak,
     longestStreak: state.longestStreak,
     tokens: state.tokens,
+    streakFreezes: state.streakFreezes,
   }
 }
 
@@ -5378,6 +5444,7 @@ async function writeProgression(
     currentStreak: number
     longestStreak: number
     tokens: number
+    streakFreezes: number
     lastCompletionAt: Date | null
   },
   now: Date,
@@ -5391,6 +5458,7 @@ async function writeProgression(
       currentStreak: next.currentStreak,
       longestStreak: next.longestStreak,
       tokens: next.tokens,
+      streakFreezes: next.streakFreezes,
       lastCompletionAt: next.lastCompletionAt,
     })
     .onConflictDoUpdate({
@@ -5401,6 +5469,7 @@ async function writeProgression(
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
         tokens: next.tokens,
+        streakFreezes: next.streakFreezes,
         lastCompletionAt: next.lastCompletionAt,
         updatedAt: now,
       },

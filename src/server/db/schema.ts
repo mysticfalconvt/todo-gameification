@@ -277,6 +277,9 @@ export const progression = pgTable('progression', {
   currentStreak: integer('current_streak').notNull().default(0),
   longestStreak: integer('longest_streak').notNull().default(0),
   tokens: integer('tokens').notNull().default(0),
+  // Banked streak freezes — auto-consumed to survive a missed day. Earned by
+  // crossing streak milestones. Projected from events via applyEvent.
+  streakFreezes: integer('streak_freezes').notNull().default(0),
   lastCompletionAt: timestamp('last_completion_at'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -433,6 +436,13 @@ export const userPrefs = pgTable('user_prefs', {
     .notNull()
     .default('warm'),
   coachDetailed: boolean('coach_detailed').notNull().default(false),
+  // What the user wants their list to give them. Reshapes coaching emphasis
+  // and which Today stat is foregrounded — does NOT change reward math.
+  motivationStyle: text('motivation_style', {
+    enum: ['balanced', 'xp_hunter', 'clean_sweep', 'streak_keeper'],
+  })
+    .notNull()
+    .default('balanced'),
   // Free-text "About you" the user writes for the coach. Capped at 500
   // chars in the input validator. Stable, non-obvious context the coach
   // can reference (job, family situation, ADHD specifics, preferred

@@ -74,26 +74,24 @@ async function enqueue(op: QueueInput): Promise<void> {
   await notifyChange()
 }
 
-async function runOp(op: QueuedOp): Promise<void> {
+// Returns the server function's result so an inline (online) caller can act
+// on it — e.g. the completion celebration. The drain path ignores the value.
+async function runOp(op: QueuedOp): Promise<unknown> {
   switch (op.type) {
     case 'complete':
-      await completeInstance({
+      return await completeInstance({
         data: { instanceId: op.instanceId, force: op.force ?? true },
       })
-      return
     case 'skip':
-      await skipInstance({ data: { instanceId: op.instanceId } })
-      return
+      return await skipInstance({ data: { instanceId: op.instanceId } })
     case 'snooze':
-      await snoozeInstance({
+      return await snoozeInstance({
         data: { instanceId: op.instanceId, hours: op.hours },
       })
-      return
     case 'defer':
-      await deferInstanceToTomorrow({
+      return await deferInstanceToTomorrow({
         data: { instanceId: op.instanceId },
       })
-      return
   }
 }
 
@@ -111,18 +109,22 @@ function isNetworkError(err: unknown): boolean {
  * Callers should assume the op will eventually run and apply optimistic UI.
  * Rejections only fire for server-side failures (validation / not-found),
  * not for offline-ness.
+ *
+ * Returns the server result when the op ran inline (online), or `undefined`
+ * when it was queued for later — so callers can surface a completion
+ * celebration but must tolerate its absence on the offline path.
  */
-export async function runOrQueue(op: QueueInput): Promise<void> {
+export async function runOrQueue(op: QueueInput): Promise<unknown> {
   if (!isOnline()) {
     await enqueue(op)
-    return
+    return undefined
   }
   try {
-    await runOp({ ...op, id: 'inline', queuedAt: Date.now() })
+    return await runOp({ ...op, id: 'inline', queuedAt: Date.now() })
   } catch (err) {
     if (isNetworkError(err)) {
       await enqueue(op)
-      return
+      return undefined
     }
     throw err
   }

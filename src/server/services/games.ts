@@ -138,6 +138,7 @@ export async function finishGame(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION

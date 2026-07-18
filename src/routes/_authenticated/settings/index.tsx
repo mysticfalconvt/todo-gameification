@@ -62,6 +62,10 @@ import {
   COACH_ATTITUDE_OPTIONS,
   type CoachAttitude,
 } from '../../../domain/coach'
+import {
+  MOTIVATION_STYLE_OPTIONS,
+  type MotivationStyle,
+} from '../../../domain/motivation'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
@@ -153,6 +157,7 @@ function SettingsPage() {
       <PrivacySection />
       <HouseholdSection />
       <AppearanceSection />
+      <MotivationStyleSection />
       <CoachAttitudeSection />
       <WeeklySummarySection />
       <CategoriesSection />
@@ -664,6 +669,74 @@ function MembershipSection() {
 // ---------------------------------------------------------------------------
 
 type CoachAttitudeSlug = CoachAttitude
+
+function MotivationStyleSection() {
+  const qc = useQueryClient()
+  const profileQuery = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => getProfile(),
+  })
+
+  const setPrefs = useMutation({
+    mutationFn: (motivationStyle: MotivationStyle) =>
+      updatePrefs({ data: { motivationStyle } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] })
+      // The coach blurb keys on the style; nudge it to regenerate.
+      qc.invalidateQueries({ queryKey: ['coach'] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Update failed'),
+  })
+
+  const current = (profileQuery.data?.motivationStyle ??
+    'balanced') as MotivationStyle
+  const selectedHint =
+    MOTIVATION_STYLE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
+
+  return (
+    <section className="island-shell max-w-xl rounded-2xl p-6">
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
+        What motivates you
+      </h2>
+      <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        Tell the app what you want your list to give you. This shifts what your
+        coach emphasizes and which stat leads on the Today page — it never
+        changes how much XP or how many tokens you earn.
+      </p>
+      <div
+        className="flex flex-wrap gap-2"
+        role="radiogroup"
+        aria-label="Motivation style"
+      >
+        {MOTIVATION_STYLE_OPTIONS.map((o) => {
+          const selected = current === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={setPrefs.isPending}
+              onClick={() => setPrefs.mutate(o.value)}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-semibold transition disabled:opacity-60 ${
+                selected
+                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+              }`}
+            >
+              <span aria-hidden>{o.glyph}</span>
+              <span>{o.label}</span>
+            </button>
+          )
+        })}
+      </div>
+      {selectedHint && (
+        <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
+      )}
+    </section>
+  )
+}
 
 function CoachAttitudeSection() {
   const qc = useQueryClient()

@@ -16,6 +16,12 @@ import {
   DEFAULT_COACH_ATTITUDE,
   type CoachAttitude,
 } from '../../domain/coach'
+import {
+  DEFAULT_MOTIVATION_STYLE,
+  isMotivationStyle,
+  motivationStyleOption,
+  type MotivationStyle,
+} from '../../domain/motivation'
 
 // Re-export so existing importers (functions/user.ts, etc.) that pull
 // these from the coach service keep working unchanged.
@@ -284,12 +290,20 @@ async function loadCompletionCadence(
   }
 }
 
-async function loadCoachPrefs(
-  userId: string,
-): Promise<{ attitude: CoachAttitude; detailed: boolean; bio: string }> {
+async function loadCoachPrefs(userId: string): Promise<{
+  attitude: CoachAttitude
+  detailed: boolean
+  bio: string
+  motivationStyle: MotivationStyle
+}> {
   const row = await db.query.userPrefs.findFirst({
     where: eq(userPrefs.userId, userId),
-    columns: { coachAttitude: true, coachDetailed: true, bio: true },
+    columns: {
+      coachAttitude: true,
+      coachDetailed: true,
+      bio: true,
+      motivationStyle: true,
+    },
   })
   const a = row?.coachAttitude
   const attitude =
@@ -300,6 +314,9 @@ async function loadCoachPrefs(
     attitude,
     detailed: row?.coachDetailed ?? false,
     bio: row?.bio ?? '',
+    motivationStyle: isMotivationStyle(row?.motivationStyle)
+      ? row.motivationStyle
+      : DEFAULT_MOTIVATION_STYLE,
   }
 }
 
@@ -314,6 +331,7 @@ function buildUserPrompt(input: {
   attitude: CoachAttitude
   detailed: boolean
   bio: string
+  motivationStyle: MotivationStyle
   today: Awaited<ReturnType<typeof taskService.listTodayInstances>>
   someday: Awaited<ReturnType<typeof taskService.listSomedayInstances>>
   progression: Awaited<ReturnType<typeof taskService.getProgression>>
@@ -326,6 +344,7 @@ function buildUserPrompt(input: {
     attitude,
     detailed,
     bio,
+    motivationStyle,
     today,
     someday,
     progression,
@@ -448,6 +467,12 @@ function buildUserPrompt(input: {
     )
   }
 
+  // What this person wants their list to give them — steer emphasis (not
+  // tone; the attitude owns tone). Emphasis only; never invent rewards.
+  parts.push(
+    `Motivation emphasis: ${motivationStyleOption(motivationStyle).coachEmphasis}`,
+  )
+
   parts.push(
     `Selected attitude: ${attitude}. Detailed mode: ${detailed ? 'on' : 'off'}. Write the coach message now.`,
   )
@@ -463,6 +488,7 @@ const COACH_CACHE_TTL_MS = 2 * 60 * 60 * 1000
 function buildCoachSignature(
   today: { instanceId: string }[],
   someday: { instanceId: string }[],
+  motivationStyle: MotivationStyle,
 ): string {
   const t = today
     .map((i) => i.instanceId)
@@ -472,7 +498,9 @@ function buildCoachSignature(
     .map((i) => i.instanceId)
     .sort()
     .join(',')
-  return `${t}:${s}`
+  // Fold the motivation style into the signature so switching style
+  // invalidates the cached blurb without needing a new DB column.
+  return `${t}:${s}:${motivationStyle}`
 }
 
 export async function generateCoachSummary(
@@ -488,7 +516,7 @@ export async function generateCoachSummary(
   // their picked attitude/detailed mode comes back automatically.
   const attitude: CoachAttitude = member.isMember ? prefs.attitude : 'warm'
   const detailed = member.isMember ? prefs.detailed : false
-  const { bio } = prefs
+  const { bio, motivationStyle } = prefs
 
   // Cheapest possible cache check: we need today + someday anyway to
   // build the prompt, so loading them up front costs nothing extra. If
@@ -501,7 +529,7 @@ export async function generateCoachSummary(
       where: eq(coachSummaries.userId, userId),
     }),
   ])
-  const signature = buildCoachSignature(today, someday)
+  const signature = buildCoachSignature(today, someday, motivationStyle)
   if (
     cached &&
     cached.signature === signature &&
@@ -528,6 +556,7 @@ export async function generateCoachSummary(
     attitude,
     detailed,
     bio,
+    motivationStyle,
     today,
     someday,
     progression,

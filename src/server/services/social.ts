@@ -84,6 +84,7 @@ async function grantFriendXpForSide(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -107,6 +108,7 @@ async function grantFriendXpForSide(
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
         tokens: next.tokens,
+        streakFreezes: next.streakFreezes,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({

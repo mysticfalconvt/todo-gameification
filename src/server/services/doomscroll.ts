@@ -84,6 +84,7 @@ export async function recordDoomScrollStart(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -98,6 +99,7 @@ export async function recordDoomScrollStart(
         currentStreak: nextState.currentStreak,
         longestStreak: nextState.longestStreak,
         tokens: nextState.tokens,
+        streakFreezes: nextState.streakFreezes,
         lastCompletionAt: nextState.lastCompletionAt,
       })
       .onConflictDoUpdate({

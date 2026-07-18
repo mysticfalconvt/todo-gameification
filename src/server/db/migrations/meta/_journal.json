@@ -337,6 +337,13 @@
       "when": 1777210000000,
       "tag": "0047_arcade_onboarding_boggle",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1777220000000,
+      "tag": "0048_streak_rewards_motivation",
+      "breakpoints": true
     }
   ]
 }

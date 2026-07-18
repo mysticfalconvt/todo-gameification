@@ -333,6 +333,7 @@ export async function completeFocusSession(
           currentStreak: current.currentStreak,
           longestStreak: current.longestStreak,
           tokens: current.tokens,
+          streakFreezes: current.streakFreezes,
           lastCompletionAt: current.lastCompletionAt,
         }
       : INITIAL_PROGRESSION
@@ -348,6 +349,7 @@ export async function completeFocusSession(
         currentStreak: next.currentStreak,
         longestStreak: next.longestStreak,
         tokens: next.tokens,
+        streakFreezes: next.streakFreezes,
         lastCompletionAt: next.lastCompletionAt,
       })
       .onConflictDoUpdate({

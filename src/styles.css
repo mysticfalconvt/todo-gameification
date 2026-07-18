@@ -309,3 +309,38 @@ a {
     transform: translateY(0);
   }
 }
+
+/* Milestone celebration: a burst of confetti that falls and fades. Each
+   piece varies its horizontal drift, delay, and spin via inline CSS vars
+   set by the MilestoneCelebration component. */
+.confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall 1600ms cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+  animation-delay: var(--confetti-delay, 0ms);
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, -12px) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--confetti-drift, 0px), 90vh)
+      rotate(var(--confetti-spin, 540deg));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    display: none;
+  }
+}

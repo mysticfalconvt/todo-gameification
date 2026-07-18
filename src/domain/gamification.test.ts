@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   INITIAL_PROGRESSION,
+  MAX_STREAK_FREEZES,
   applyEvent,
+  badgeForStreak,
   computeXp,
+  earnedBadges,
   isNewDay,
   levelFor,
+  milestonesCrossed,
   punctualityMultiplier,
   replay,
   weekTargetMultiplier,
@@ -385,6 +389,119 @@ describe('applyEvent', () => {
     expect(applyEvent(INITIAL_PROGRESSION, skipped, { timeZone: UTC })).toEqual(
       INITIAL_PROGRESSION,
     )
+  })
+})
+
+// Apply `count` consecutive daily completions (12:00Z) starting the day
+// after `startDay`, folding onto `initial`. Used to grow a streak to a
+// target length for milestone/freeze tests.
+function completeConsecutiveDays(
+  count: number,
+  opts: { initial?: typeof INITIAL_PROGRESSION; startDay?: string } = {},
+) {
+  let state = opts.initial ?? INITIAL_PROGRESSION
+  const base = new Date(`${opts.startDay ?? '2026-03-31'}T12:00:00Z`)
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(base.getTime() + i * 86_400_000)
+    state = applyEvent(state, completed(d.toISOString()), { timeZone: UTC })
+  }
+  return state
+}
+
+describe('streak milestones', () => {
+  it('milestonesCrossed returns thresholds passed prev < days <= new', () => {
+    expect(milestonesCrossed(6, 7).map((m) => m.days)).toEqual([7])
+    expect(milestonesCrossed(7, 8)).toEqual([])
+    expect(milestonesCrossed(0, 0)).toEqual([])
+    // A reset (prev high, new 1) never re-awards.
+    expect(milestonesCrossed(30, 1)).toEqual([])
+  })
+
+  it('crossing the 7-day milestone grants token bonus + a streak freeze', () => {
+    const before = completeConsecutiveDays(6)
+    expect(before.currentStreak).toBe(6)
+    expect(before.streakFreezes).toBe(0)
+    const tokensBefore = before.tokens
+
+    const after = completeConsecutiveDays(1, {
+      initial: before,
+      startDay: '2026-04-06',
+    })
+    expect(after.currentStreak).toBe(7)
+    // 7-day tier: +3 tokens, +1 freeze.
+    expect(after.tokens).toBe(tokensBefore + 3)
+    expect(after.streakFreezes).toBe(1)
+  })
+
+  it('does not re-award a milestone on the day after crossing it', () => {
+    const at7 = completeConsecutiveDays(7)
+    const tokensAt7 = at7.tokens
+    const at8 = completeConsecutiveDays(1, {
+      initial: at7,
+      startDay: '2026-04-07',
+    })
+    expect(at8.currentStreak).toBe(8)
+    expect(at8.tokens).toBe(tokensAt7)
+    expect(at8.streakFreezes).toBe(1)
+  })
+
+  it('banks at most MAX_STREAK_FREEZES freezes', () => {
+    // Grow far enough to cross several milestones (7,14,30,...).
+    const state = completeConsecutiveDays(40)
+    expect(state.streakFreezes).toBe(MAX_STREAK_FREEZES)
+  })
+})
+
+describe('streak freezes', () => {
+  it('consumes a freeze to bridge a one-day lapse', () => {
+    const at7 = completeConsecutiveDays(7)
+    expect(at7.streakFreezes).toBe(1)
+    // Miss one day: last completion 2026-04-07, next 2026-04-09 (gap 2).
+    const resumed = applyEvent(at7, completed('2026-04-09T12:00:00Z'), {
+      timeZone: UTC,
+    })
+    expect(resumed.currentStreak).toBe(8) // continued, not reset
+    expect(resumed.streakFreezes).toBe(0) // freeze consumed
+  })
+
+  it('resets when no freeze is available to bridge a lapse', () => {
+    // A 3-day streak earns no freeze (first tier is 7).
+    const at3 = completeConsecutiveDays(3)
+    expect(at3.streakFreezes).toBe(0)
+    const resumed = applyEvent(at3, completed('2026-04-05T12:00:00Z'), {
+      timeZone: UTC,
+    })
+    expect(resumed.currentStreak).toBe(1)
+  })
+
+  it('resets when the lapse is longer than banked freezes can bridge', () => {
+    const at7 = completeConsecutiveDays(7) // 1 freeze
+    // Miss two days (gap 3, needs 2 freezes): only 1 banked → reset.
+    const resumed = applyEvent(at7, completed('2026-04-10T12:00:00Z'), {
+      timeZone: UTC,
+    })
+    expect(resumed.currentStreak).toBe(1)
+    // Freezes untouched when the lapse can't be bridged.
+    expect(resumed.streakFreezes).toBe(1)
+  })
+})
+
+describe('streak badges', () => {
+  it('badgeForStreak returns the highest reached tier', () => {
+    expect(badgeForStreak(0)).toBeNull()
+    expect(badgeForStreak(6)).toBeNull()
+    expect(badgeForStreak(7)?.id).toBe('week')
+    expect(badgeForStreak(29)?.id).toBe('fortnight')
+    expect(badgeForStreak(365)?.id).toBe('year')
+  })
+
+  it('earnedBadges lists every tier up to longestStreak', () => {
+    expect(earnedBadges(6)).toEqual([])
+    expect(earnedBadges(30).map((b) => b.id)).toEqual([
+      'week',
+      'fortnight',
+      'monthly',
+    ])
   })
 })
 
