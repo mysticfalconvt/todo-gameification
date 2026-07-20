@@ -12,9 +12,12 @@ import {
   listRecentEvents,
   loadAdminSummary,
   loadLlmUsage,
+  loadSessionDiagnostics,
   loadUserDetail,
+  loadWeeklyEmailStatus,
   revokeMembership,
   setEmailVerified,
+  triggerWeeklyEmail,
 } from '../services/admin'
 import { loadLlmMetrics } from '../services/llmTracking'
 import { loadJobStats } from '../services/jobs'
@@ -52,6 +55,24 @@ export const getAdminLlmMetricsFn = createServerFn({ method: 'GET' })
 export const getAdminJobStatsFn = createServerFn({ method: 'GET' })
   .middleware([adminMiddleware])
   .handler(async () => loadJobStats())
+
+export const getAdminSessionDiagnosticsFn = createServerFn({ method: 'GET' })
+  .middleware([adminMiddleware])
+  .handler(async () => loadSessionDiagnostics())
+
+export const getAdminWeeklyEmailStatusFn = createServerFn({ method: 'GET' })
+  .middleware([adminMiddleware])
+  .handler(async () => loadWeeklyEmailStatus())
+
+export const triggerWeeklyEmailFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .inputValidator((data: { userId: string }) => {
+    if (typeof data?.userId !== 'string' || !data.userId) {
+      throw new Error('userId required')
+    }
+    return { userId: data.userId }
+  })
+  .handler(async ({ data }) => triggerWeeklyEmail(data.userId))
 
 // Drill-in for a single user. userId is the better-auth text id.
 export const getAdminUserDetailFn = createServerFn({ method: 'POST' })

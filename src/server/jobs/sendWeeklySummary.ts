@@ -21,8 +21,21 @@ import {
 import { renderWeeklyEmail } from './weeklySummaryEmail'
 
 export async function sendWeeklySummaryHandler(): Promise<void> {
-  if (!isEmailConfigured()) return
+  if (!isEmailConfigured()) {
+    console.warn('[weekly-summary] SMTP not configured; skipping run')
+    return
+  }
   const now = new Date()
+
+  // Per-run tally so each hourly tick leaves a visible trace in the logs —
+  // otherwise a run where every user is off-slot, unverified, or a send
+  // silently fails is indistinguishable from the cron never firing.
+  let dueThisTick = 0
+  let sent = 0
+  let skippedUnverified = 0
+  let skippedNonMember = 0
+  let alreadySent = 0
+  let failed = 0
 
   const candidates = await db
     .select({
@@ -40,7 +53,6 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
     .where(eq(userPrefs.weeklyEmailOptIn, true))
 
   for (const u of candidates) {
-    if (!u.email || !u.emailVerified) continue
     const tz = u.timezone || 'UTC'
     let localHour: number
     let localDow: number
@@ -52,9 +64,24 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
     }
     if (localDow !== u.dow || localHour !== u.hour) continue
 
+    // From here on the user is due this tick — count them so the log
+    // distinguishes "nobody was due" from "due but not delivered".
+    dueThisTick++
+
+    // Unverified (or missing) email addresses are skipped by design, but
+    // count them: a user who never got a weekly email is often one whose
+    // verification email itself failed, and this makes that visible.
+    if (!u.email || !u.emailVerified) {
+      skippedUnverified++
+      continue
+    }
+
     try {
       const member = await getEffectiveMemberStatus(u.id)
-      if (!member.isMember) continue
+      if (!member.isMember) {
+        skippedNonMember++
+        continue
+      }
 
       const summary = await getWeeklySummary(u.id)
 
@@ -65,7 +92,10 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
         .values({ userId: u.id, weekKey: summary.weekKey })
         .onConflictDoNothing()
         .returning({ userId: weeklyEmailLog.userId })
-      if (claimed.length === 0) continue
+      if (claimed.length === 0) {
+        alreadySent++
+        continue
+      }
 
       try {
         const [analysis, householdAnalysis] = await Promise.all([
@@ -78,6 +108,7 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
           householdAnalysis?.analysis ?? null,
         )
         await sendMail({ to: u.email, subject, text, html })
+        sent++
       } catch (sendErr) {
         // Release the claim so the send isn't silently marked done.
         await db
@@ -92,7 +123,101 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
         throw sendErr
       }
     } catch (err) {
+      failed++
       console.error('[weekly-summary] failed for', u.id, err)
     }
   }
+
+  // Only log when the tick actually had work to do — an idle hour (no user
+  // in their configured slot) stays quiet so the logs aren't flooded 24x/day.
+  if (dueThisTick > 0) {
+    console.log(
+      `[weekly-summary] tick done: due=${dueThisTick} sent=${sent} ` +
+        `already-sent=${alreadySent} skipped-unverified=${skippedUnverified} ` +
+        `skipped-non-member=${skippedNonMember} failed=${failed}`,
+    )
+  }
+}
+
+export type DeliverWeeklyResult =
+  | { status: 'sent'; weekKey: string }
+  | { status: 'smtp-not-configured' }
+  | { status: 'user-not-found' }
+  | { status: 'no-email' }
+  | { status: 'already-sent'; weekKey: string }
+
+// Send one user's weekly summary on demand — powers the admin "Send now"
+// button and any support-driven resend. `force` bypasses both the per-slot
+// time gate and the once-per-week dedup so an operator can (re)send at any
+// moment; the send is still recorded in weekly_email_log (sent_at bumped to
+// now) so "last sent" stays accurate. The scheduled cron path is unchanged.
+export async function deliverWeeklySummaryToUser(
+  userId: string,
+  opts: { force: boolean },
+): Promise<DeliverWeeklyResult> {
+  if (!isEmailConfigured()) return { status: 'smtp-not-configured' }
+
+  const [u] = await db
+    .select({ email: userTable.email })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .limit(1)
+  if (!u) return { status: 'user-not-found' }
+  if (!u.email) return { status: 'no-email' }
+
+  const summary = await getWeeklySummary(userId)
+
+  // Non-forced sends respect the once-per-week claim so a manual resend can't
+  // double up on top of the scheduled one.
+  let claimedHere = false
+  if (!opts.force) {
+    const claimed = await db
+      .insert(weeklyEmailLog)
+      .values({ userId, weekKey: summary.weekKey })
+      .onConflictDoNothing()
+      .returning({ userId: weeklyEmailLog.userId })
+    if (claimed.length === 0) {
+      return { status: 'already-sent', weekKey: summary.weekKey }
+    }
+    claimedHere = true
+  }
+
+  try {
+    const [analysis, householdAnalysis] = await Promise.all([
+      generateWeeklyAnalysis(userId, summary),
+      generateHouseholdAnalysis(userId, summary),
+    ])
+    const { subject, text, html } = renderWeeklyEmail(
+      summary,
+      analysis?.analysis ?? null,
+      householdAnalysis?.analysis ?? null,
+    )
+    await sendMail({ to: u.email, subject, text, html })
+  } catch (sendErr) {
+    // Release a claim we made so a failed non-forced send can be retried.
+    if (claimedHere) {
+      await db
+        .delete(weeklyEmailLog)
+        .where(
+          and(
+            eq(weeklyEmailLog.userId, userId),
+            eq(weeklyEmailLog.weekKey, summary.weekKey),
+          ),
+        )
+        .catch(() => {})
+    }
+    throw sendErr
+  }
+
+  // Record/refresh the send. A forced resend for a week already logged just
+  // bumps sent_at so the admin view reflects the latest delivery.
+  await db
+    .insert(weeklyEmailLog)
+    .values({ userId, weekKey: summary.weekKey })
+    .onConflictDoUpdate({
+      target: [weeklyEmailLog.userId, weeklyEmailLog.weekKey],
+      set: { sentAt: new Date() },
+    })
+
+  return { status: 'sent', weekKey: summary.weekKey }
 }

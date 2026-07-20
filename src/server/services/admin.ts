@@ -3,6 +3,7 @@
 // emails allowed into /admin. Keep queries cheap-ish; this is for the
 // operator, not for users, so correctness > polish.
 import { and, count, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm'
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
   events,
@@ -13,7 +14,13 @@ import {
   taskInstances,
   tasks,
   user as userTable,
+  userPrefs,
 } from '../db/schema'
+import { isEmailConfigured } from '../email'
+import {
+  deliverWeeklySummaryToUser,
+  type DeliverWeeklyResult,
+} from '../jobs/sendWeeklySummary'
 import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import {
@@ -1217,4 +1224,303 @@ export async function grantTokens(input: {
 
     return { tokens: next.tokens }
   })
+}
+
+// ── Session diagnostics ────────────────────────────────────────────────
+// Better Auth writes one `session` row per successful sign-in. That makes
+// the table a direct log of login events, so it's the best signal we have
+// for the "users keep having to log in again" complaint: a device that is
+// silently dropping its cookie shows up as the same user racking up many
+// fresh sessions per day. We surface three things:
+//   1. TTL sanity — confirms the configured 30-day session length is
+//      actually being written (a short TTL points at a config/cookie bug).
+//   2. Login volume — sessions created in the last 24h/7d.
+//   3. Churn — the users creating the most sessions in the last 24h, with
+//      distinct user-agent / IP counts so you can tell "one device
+//      re-logging-in repeatedly" (churn bug) from "signed in on many
+//      devices" (benign).
+
+export interface SessionChurnRow {
+  userId: string
+  email: string
+  handle: string
+  name: string
+  sessionsLast24h: number
+  distinctUserAgents: number
+  distinctIps: number
+  lastCreatedAt: string
+}
+
+export interface SessionDiagnostics {
+  generatedAt: string
+  activeSessions: number
+  createdLast24h: number
+  createdLast7d: number
+  distinctUsersLast24h: number
+  // Session length in days (expires_at - created_at) over sessions created
+  // in the last 7 days. Expected to sit around the configured 30. Null when
+  // there were no recent sessions to measure.
+  ttlDaysMin: number | null
+  ttlDaysAvg: number | null
+  ttlDaysMax: number | null
+  churn: SessionChurnRow[]
+}
+
+function unwrapRows<T>(res: unknown): T[] {
+  return Array.isArray(res)
+    ? (res as T[])
+    : (((res as { rows?: T[] }).rows ?? []) as T[])
+}
+
+export async function loadSessionDiagnostics(): Promise<SessionDiagnostics> {
+  const summaryRes = await db.execute<{
+    active: string | number
+    created_24h: string | number
+    created_7d: string | number
+    distinct_users_24h: string | number
+    ttl_min: string | number | null
+    ttl_avg: string | number | null
+    ttl_max: string | number | null
+  }>(sql`
+    select
+      count(*) filter (where expires_at > now()) as active,
+      count(*) filter (where created_at > now() - interval '24 hours') as created_24h,
+      count(*) filter (where created_at > now() - interval '7 days') as created_7d,
+      count(distinct user_id) filter (
+        where created_at > now() - interval '24 hours'
+      ) as distinct_users_24h,
+      min(extract(epoch from (expires_at - created_at)) / 86400) filter (
+        where created_at > now() - interval '7 days'
+      ) as ttl_min,
+      avg(extract(epoch from (expires_at - created_at)) / 86400) filter (
+        where created_at > now() - interval '7 days'
+      ) as ttl_avg,
+      max(extract(epoch from (expires_at - created_at)) / 86400) filter (
+        where created_at > now() - interval '7 days'
+      ) as ttl_max
+    from session
+  `)
+  const s = unwrapRows<{
+    active: string | number
+    created_24h: string | number
+    created_7d: string | number
+    distinct_users_24h: string | number
+    ttl_min: string | number | null
+    ttl_avg: string | number | null
+    ttl_max: string | number | null
+  }>(summaryRes)[0]
+
+  const churnRes = await db.execute<{
+    user_id: string
+    email: string
+    handle: string | null
+    name: string | null
+    sessions_24h: string | number
+    distinct_uas: string | number
+    distinct_ips: string | number
+    last_created: Date | string
+  }>(sql`
+    select
+      s.user_id,
+      u.email,
+      u.handle,
+      u.name,
+      count(*) as sessions_24h,
+      count(distinct s.user_agent) as distinct_uas,
+      count(distinct s.ip_address) as distinct_ips,
+      max(s.created_at) as last_created
+    from session s
+    join "user" u on u.id = s.user_id
+    where s.created_at > now() - interval '24 hours'
+    group by s.user_id, u.email, u.handle, u.name
+    order by count(*) desc, max(s.created_at) desc
+    limit 15
+  `)
+  const churnRows = unwrapRows<{
+    user_id: string
+    email: string
+    handle: string | null
+    name: string | null
+    sessions_24h: string | number
+    distinct_uas: string | number
+    distinct_ips: string | number
+    last_created: Date | string
+  }>(churnRes)
+
+  const round1 = (v: string | number | null): number | null =>
+    v == null ? null : Math.round(Number(v) * 10) / 10
+
+  return {
+    generatedAt: new Date().toISOString(),
+    activeSessions: s ? Number(s.active) : 0,
+    createdLast24h: s ? Number(s.created_24h) : 0,
+    createdLast7d: s ? Number(s.created_7d) : 0,
+    distinctUsersLast24h: s ? Number(s.distinct_users_24h) : 0,
+    ttlDaysMin: s ? round1(s.ttl_min) : null,
+    ttlDaysAvg: s ? round1(s.ttl_avg) : null,
+    ttlDaysMax: s ? round1(s.ttl_max) : null,
+    churn: churnRows.map((r) => ({
+      userId: r.user_id,
+      email: r.email,
+      handle: r.handle ?? '',
+      name: r.name ?? '',
+      sessionsLast24h: Number(r.sessions_24h),
+      distinctUserAgents: Number(r.distinct_uas),
+      distinctIps: Number(r.distinct_ips),
+      lastCreatedAt: new Date(r.last_created).toISOString(),
+    })),
+  }
+}
+
+// ── Weekly email status ────────────────────────────────────────────────
+// Operator view of the weekly-summary email: who's opted in, when their
+// next send is due (in their own timezone), and when they last actually
+// received one. Backs the admin table + the per-user "Send now" trigger.
+
+const WEEKDAY_ABBR = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+export interface WeeklyEmailUserRow {
+  userId: string
+  email: string
+  name: string
+  handle: string
+  emailVerified: boolean
+  timezone: string
+  dow: number
+  hour: number
+  scheduleLabel: string
+  nextScheduledAt: string | null
+  lastSentAt: string | null
+  lastWeekKey: string | null
+}
+
+export interface WeeklyEmailStatus {
+  generatedAt: string
+  smtpConfigured: boolean
+  optedInCount: number
+  verifiedCount: number
+  sentLast7d: number
+  users: WeeklyEmailUserRow[]
+}
+
+// Next UTC instant at which the user's local weekday+hour slot occurs. Scans
+// today plus the next 7 local days and returns the first future match, so it
+// naturally lands on next week when today's slot has already passed. Returns
+// null if the timezone is unparseable.
+function nextScheduledInstant(
+  now: Date,
+  tz: string,
+  dow: number,
+  hour: number,
+): string | null {
+  try {
+    const hh = String(hour).padStart(2, '0')
+    for (let addDays = 0; addDays <= 7; addDays++) {
+      const probe = new Date(now.getTime() + addDays * 86_400_000)
+      if (Number(formatInTimeZone(probe, tz, 'i')) !== dow) continue
+      const ymd = formatInTimeZone(probe, tz, 'yyyy-MM-dd')
+      const candidate = fromZonedTime(`${ymd}T${hh}:00:00`, tz)
+      if (candidate.getTime() > now.getTime()) return candidate.toISOString()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function loadWeeklyEmailStatus(): Promise<WeeklyEmailStatus> {
+  const now = new Date()
+
+  const rows = await db
+    .select({
+      userId: userTable.id,
+      email: userTable.email,
+      name: userTable.name,
+      handle: userTable.handle,
+      emailVerified: userTable.emailVerified,
+      timezone: userTable.timezone,
+      dow: userPrefs.weeklyEmailDow,
+      hour: userPrefs.weeklyEmailHour,
+    })
+    .from(userPrefs)
+    .innerJoin(userTable, eq(userTable.id, userPrefs.userId))
+    .where(eq(userPrefs.weeklyEmailOptIn, true))
+
+  // Most recent send per user (across all weeks).
+  const lastSentRes = await db.execute<{
+    user_id: string
+    week_key: string
+    sent_at: Date | string
+  }>(sql`
+    select distinct on (user_id) user_id, week_key, sent_at
+    from weekly_email_log
+    order by user_id, sent_at desc
+  `)
+  const lastSent = new Map<string, { weekKey: string; sentAt: string }>()
+  for (const r of unwrapRows<{
+    user_id: string
+    week_key: string
+    sent_at: Date | string
+  }>(lastSentRes)) {
+    lastSent.set(r.user_id, {
+      weekKey: r.week_key,
+      sentAt: new Date(r.sent_at).toISOString(),
+    })
+  }
+
+  const sent7Res = await db.execute<{ n: string | number }>(sql`
+    select count(*) as n
+    from weekly_email_log
+    where sent_at > now() - interval '7 days'
+  `)
+  const sentLast7d = Number(unwrapRows<{ n: string | number }>(sent7Res)[0]?.n ?? 0)
+
+  const users: WeeklyEmailUserRow[] = rows.map((u) => {
+    const tz = u.timezone || 'UTC'
+    const dow = u.dow ?? 1
+    const hour = u.hour ?? 8
+    const last = lastSent.get(u.userId)
+    return {
+      userId: u.userId,
+      email: u.email,
+      name: u.name ?? '',
+      handle: u.handle ?? '',
+      emailVerified: Boolean(u.emailVerified),
+      timezone: tz,
+      dow,
+      hour,
+      scheduleLabel: `${WEEKDAY_ABBR[dow] ?? '?'} ${String(hour).padStart(2, '0')}:00`,
+      nextScheduledAt: nextScheduledInstant(now, tz, dow, hour),
+      lastSentAt: last?.sentAt ?? null,
+      lastWeekKey: last?.weekKey ?? null,
+    }
+  })
+
+  // Sort soonest-due first so the operator sees imminent sends at the top;
+  // users with no computable next slot sink to the bottom.
+  users.sort((a, b) => {
+    if (a.nextScheduledAt && b.nextScheduledAt) {
+      return a.nextScheduledAt.localeCompare(b.nextScheduledAt)
+    }
+    if (a.nextScheduledAt) return -1
+    if (b.nextScheduledAt) return 1
+    return 0
+  })
+
+  return {
+    generatedAt: now.toISOString(),
+    smtpConfigured: isEmailConfigured(),
+    optedInCount: users.length,
+    verifiedCount: users.filter((u) => u.emailVerified).length,
+    sentLast7d,
+    users,
+  }
+}
+
+export async function triggerWeeklyEmail(
+  userId: string,
+): Promise<DeliverWeeklyResult> {
+  // Admin override: force past the slot + dedup gates so a resend works even
+  // if this week already went out.
+  return deliverWeeklySummaryToUser(userId, { force: true })
 }

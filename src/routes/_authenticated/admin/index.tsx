@@ -1,14 +1,18 @@
 import { Fragment, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   getAdminJobStatsFn,
   getAdminLlmMetricsFn,
   getAdminOpenInstancesFn,
+  getAdminSessionDiagnosticsFn,
   getAdminSummaryFn,
+  getAdminWeeklyEmailStatusFn,
   getIsAdminFn,
   listAdminEventsFn,
   listAdminUsersFn,
+  triggerWeeklyEmailFn,
 } from '../../../server/functions/admin'
 import type { LlmMetricsWindow } from '../../../server/services/llmTracking'
 import { MemberBadge } from '../../../components/membership/MemberBadge'
@@ -34,11 +38,306 @@ function AdminPage() {
       </header>
       <SummaryGrid />
       <MotivationSection />
+      <SessionsSection />
+      <WeeklyEmailSection />
       <JobsSection />
       <LlmMetricsSection />
       <UsersTable />
       <RecentEvents />
     </main>
+  )
+}
+
+function SessionsSection() {
+  const query = useQuery({
+    queryKey: ['admin', 'sessions'],
+    queryFn: () => getAdminSessionDiagnosticsFn(),
+    refetchInterval: 30_000,
+  })
+  const data = query.data
+
+  // Configured session length is 30 days (src/server/auth.ts). If the
+  // shortest freshly-written TTL is well under that, the server is minting
+  // short sessions — a config/cookie bug worth chasing. (Refreshed sessions
+  // push expires_at out, so only a LOW min is meaningful, never a high one.)
+  const ttlLooksShort = data?.ttlDaysMin != null && data.ttlDaysMin < 25
+
+  return (
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          Sessions & logins
+        </h2>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          One session = one sign-in. Refreshed every 30s.
+        </p>
+      </header>
+
+      {query.isLoading || !data ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <Stat label="Active sessions" value={data.activeSessions} />
+            <Stat
+              label="Logins 24h"
+              value={data.createdLast24h}
+              hint={`${data.distinctUsersLast24h} distinct users`}
+            />
+            <Stat label="Logins 7d" value={data.createdLast7d} />
+            <Stat
+              label="Session length"
+              value={data.ttlDaysAvg != null ? `${data.ttlDaysAvg}d` : '—'}
+              hint={
+                data.ttlDaysMin != null && data.ttlDaysMax != null
+                  ? `min ${data.ttlDaysMin}d · max ${data.ttlDaysMax}d · expect ~30d`
+                  : 'no recent sessions'
+              }
+            />
+          </div>
+
+          {ttlLooksShort ? (
+            <div className="rounded-2xl border border-[rgba(230,90,90,0.4)] bg-[rgba(230,90,90,0.08)] p-3 text-sm text-red-700">
+              Shortest recent session TTL is {data.ttlDaysMin}d, well under the
+              configured 30d. Sessions are being minted short — check the
+              Better Auth <code>session.expiresIn</code> and any cookie{' '}
+              <code>maxAge</code> override.
+            </div>
+          ) : null}
+
+          <details className="island-shell rounded-2xl p-3 text-sm" open>
+            <summary className="cursor-pointer font-semibold text-[var(--sea-ink)]">
+              Login churn — most sessions created in last 24h
+            </summary>
+            <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+              A user with many logins but few devices/IPs is re-authenticating
+              on the same device — the signature of a dropped-cookie bug.
+              Highlighted rows have 5+ logins across ≤2 devices.
+            </p>
+            {data.churn.length === 0 ? (
+              <p className="mt-3 text-[var(--sea-ink-soft)]">
+                No sessions created in the last 24h.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="border-b border-[var(--line)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+                    <tr>
+                      <th className="px-3 py-2">User</th>
+                      <th className="px-3 py-2">Logins 24h</th>
+                      <th className="px-3 py-2">Devices</th>
+                      <th className="px-3 py-2">IPs</th>
+                      <th className="px-3 py-2">Last login</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.churn.map((c) => {
+                      const suspicious =
+                        c.sessionsLast24h >= 5 && c.distinctUserAgents <= 2
+                      return (
+                        <tr
+                          key={c.userId}
+                          className={`border-b border-[var(--line)] last:border-none ${
+                            suspicious ? 'bg-[rgba(230,90,90,0.08)]' : ''
+                          }`}
+                        >
+                          <td className="px-3 py-2">
+                            <Link
+                              to="/admin/users/$userId"
+                              params={{ userId: c.userId }}
+                              className="font-semibold text-[var(--sea-ink)] no-underline"
+                            >
+                              {c.name || c.email}
+                            </Link>
+                            <div className="text-xs text-[var(--sea-ink-soft)]">
+                              {c.email}
+                            </div>
+                          </td>
+                          <td
+                            className={`px-3 py-2 ${
+                              suspicious ? 'font-semibold text-red-600' : ''
+                            }`}
+                          >
+                            {c.sessionsLast24h}
+                          </td>
+                          <td className="px-3 py-2">{c.distinctUserAgents}</td>
+                          <td className="px-3 py-2">{c.distinctIps}</td>
+                          <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
+                            {relativeTime(c.lastCreatedAt)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </details>
+        </>
+      )}
+    </section>
+  )
+}
+
+function WeeklyEmailSection() {
+  const qc = useQueryClient()
+  const query = useQuery({
+    queryKey: ['admin', 'weekly-email'],
+    queryFn: () => getAdminWeeklyEmailStatusFn(),
+    refetchInterval: 30_000,
+  })
+  const data = query.data
+  const send = useMutation({
+    mutationFn: (userId: string) => triggerWeeklyEmailFn({ data: { userId } }),
+    onSuccess: (res) => {
+      switch (res.status) {
+        case 'sent':
+          toast.success(`Weekly email sent (week ${res.weekKey}).`)
+          break
+        case 'smtp-not-configured':
+          toast.error('SMTP not configured — nothing sent.')
+          break
+        case 'no-email':
+          toast.error('User has no email address.')
+          break
+        case 'user-not-found':
+          toast.error('User not found.')
+          break
+        case 'already-sent':
+          toast.error(`Already sent for week ${res.weekKey}.`)
+          break
+      }
+      qc.invalidateQueries({ queryKey: ['admin', 'weekly-email'] })
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Send failed'),
+  })
+  const sendingId =
+    send.isPending && typeof send.variables === 'string' ? send.variables : null
+
+  return (
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
+          Weekly email
+        </h2>
+        <p className="text-xs text-[var(--sea-ink-soft)]">
+          Opted-in users, next scheduled send (their timezone), and last
+          delivery. Refreshed every 30s.
+        </p>
+      </header>
+
+      {query.isLoading || !data ? (
+        <p className="text-[var(--sea-ink-soft)]">Loading…</p>
+      ) : (
+        <>
+          {!data.smtpConfigured ? (
+            <div className="rounded-2xl border border-[rgba(230,90,90,0.4)] bg-[rgba(230,90,90,0.08)] p-3 text-sm text-red-700">
+              SMTP is not configured, so no weekly emails are being sent. Set
+              the <code>SMTP_*</code> env vars.
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <Stat label="Opted in" value={data.optedInCount} />
+            <Stat
+              label="Verified"
+              value={data.verifiedCount}
+              hint={
+                data.optedInCount - data.verifiedCount > 0
+                  ? `${data.optedInCount - data.verifiedCount} unverified won't receive`
+                  : 'all deliverable'
+              }
+            />
+            <Stat label="Sent 7d" value={data.sentLast7d} />
+            <div className="island-shell rounded-2xl p-4">
+              <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+                SMTP
+              </div>
+              <div className="mt-2">
+                <Flag label="SMTP" on={data.smtpConfigured} />
+              </div>
+            </div>
+          </div>
+
+          {data.users.length === 0 ? (
+            <p className="text-[var(--sea-ink-soft)]">
+              No users have opted into the weekly email.
+            </p>
+          ) : (
+            <div className="island-shell overflow-x-auto rounded-2xl">
+              <table className="min-w-full text-left text-sm">
+                <thead className="border-b border-[var(--line)] bg-[var(--option-bg)] text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
+                  <tr>
+                    <th className="px-3 py-2">User</th>
+                    <th className="px-3 py-2">Schedule</th>
+                    <th className="px-3 py-2">Next send</th>
+                    <th className="px-3 py-2">Last sent</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.users.map((u) => (
+                    <tr
+                      key={u.userId}
+                      className={`border-b border-[var(--line)] last:border-none ${
+                        !u.emailVerified ? 'bg-[rgba(230,90,90,0.06)]' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-2">
+                        <Link
+                          to="/admin/users/$userId"
+                          params={{ userId: u.userId }}
+                          className="font-semibold text-[var(--sea-ink)] no-underline"
+                        >
+                          {u.name || u.email}
+                        </Link>
+                        <div className="text-xs text-[var(--sea-ink-soft)]">
+                          {u.email}
+                          {!u.emailVerified ? (
+                            <span className="ml-1 font-semibold text-red-600">
+                              · unverified
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
+                        {u.scheduleLabel}
+                        <div className="text-xs">{u.timezone}</div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
+                        {u.nextScheduledAt
+                          ? formatDateTime(u.nextScheduledAt)
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
+                        {u.lastSentAt ? (
+                          <span title={u.lastWeekKey ?? undefined}>
+                            {relativeTime(u.lastSentAt)}
+                          </span>
+                        ) : (
+                          <span className="text-red-600">never</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => send.mutate(u.userId)}
+                          disabled={send.isPending || !data.smtpConfigured}
+                          className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)] disabled:opacity-60"
+                        >
+                          {sendingId === u.userId ? 'Sending…' : 'Send now'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -676,6 +975,19 @@ function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
     year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+  })
+}
+
+// Absolute local date+time — used for future timestamps (next scheduled
+// send) where relativeTime's "just now" collapse would be misleading.
+function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 

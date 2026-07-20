@@ -8,6 +8,13 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  // Register the startup plugin that boots pg-boss on process start so the
+  // cron schedulers (weekly summary, plant risk, github poll, cleanup) are
+  // always live — not lazily booted by the first job-scheduling request.
+  // See src/server/nitro/bootJobs.ts.
+  nitro: {
+    plugins: ['./src/server/nitro/bootJobs.ts'],
+  },
   plugins: [
     tailwindcss(),
     tanstackStart({ srcDirectory: 'src' }),
