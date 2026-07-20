@@ -17,10 +17,13 @@ import {
   userPrefs,
 } from '../db/schema'
 import { isEmailConfigured } from '../email'
-import {
-  deliverWeeklySummaryToUser,
-  type DeliverWeeklyResult,
-} from '../jobs/sendWeeklySummary'
+// Type-only import: erased at build time so it does NOT create a runtime
+// module edge. The value (deliverWeeklySummaryToUser) is pulled in via a
+// deferred import() inside triggerWeeklyEmail — a static value import here
+// drags the weekly-summary subtree into services/admin's init, which forms
+// a cycle with middleware/admin (imports isAdminEmail from here) and can
+// leave `adminMiddleware` in the TDZ depending on bundler ordering.
+import type { DeliverWeeklyResult } from '../jobs/sendWeeklySummary'
 import type { DomainEvent } from '../../domain/events'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import {
@@ -1520,6 +1523,11 @@ export async function loadWeeklyEmailStatus(): Promise<WeeklyEmailStatus> {
 export async function triggerWeeklyEmail(
   userId: string,
 ): Promise<DeliverWeeklyResult> {
+  // Deferred import (not top-level) to avoid a static edge from
+  // services/admin → jobs/sendWeeklySummary; see the type-only import note.
+  const { deliverWeeklySummaryToUser } = await import(
+    '../jobs/sendWeeklySummary'
+  )
   // Admin override: force past the slot + dedup gates so a resend works even
   // if this week already went out.
   return deliverWeeklySummaryToUser(userId, { force: true })
