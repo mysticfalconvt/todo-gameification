@@ -42,8 +42,8 @@ function WeeklySummaryPage() {
             : 'Your week, recapped'}
         </h1>
         <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-          A recap of the week just finished. This is exactly what lands in your
-          Monday email if you turn it on in{' '}
+          A recap of the 7 days before your weekly email goes out. This is
+          exactly what lands in your inbox if you turn it on in{' '}
           <Link to="/settings" className="underline">
             settings
           </Link>
@@ -386,13 +386,25 @@ function StatCard({
 // Mon..Sun grouped bar chart for the subject week. Two bars per day — XP
 // and chores completed — each scaled to its own max so both stay readable
 // when their magnitudes differ. xpByDay is Mon-first.
+// Weekday labels derive from each day's own date so the axis stays correct
+// when the week doesn't start on Monday (a user's window begins on their
+// send day). Parsed at noon, local, so no tz shift moves the weekday.
+function weekdayNarrow(dateKey: string): string {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'narrow',
+  })
+}
+function weekdayShort(dateKey: string): string {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+  })
+}
+
 function WeekdayBar({
   days,
 }: {
   days: Array<{ date: string; xp: number; count: number }>
 }) {
-  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-  const full = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const maxXp = days.reduce((a, d) => Math.max(a, d.xp), 0) || 1
   const maxCount = days.reduce((a, d) => Math.max(a, d.count), 0) || 1
   return (
@@ -421,7 +433,7 @@ function WeekdayBar({
             <div
               key={d.date || i}
               className="flex min-w-0 flex-1 flex-col items-center gap-1"
-              title={`${full[i]}: ${d.xp} XP · ${d.count} chores`}
+              title={`${d.date ? weekdayShort(d.date) : ''}: ${d.xp} XP · ${d.count} chores`}
             >
               <span className="text-[10px] font-semibold tabular-nums text-[var(--sea-ink-soft)]">
                 {d.xp}
@@ -440,7 +452,7 @@ function WeekdayBar({
                 {d.count}
               </span>
               <span className="text-[10px] text-[var(--sea-ink-soft)]">
-                {labels[i]}
+                {d.date ? weekdayNarrow(d.date) : ''}
               </span>
             </div>
           )

@@ -1,0 +1,2007 @@
+2026-07-20T09:13:55.456581519Z 
+2026-07-20T09:13:55.456601836Z > todo-gameification@ db:migrate /app
+2026-07-20T09:13:55.456603899Z > drizzle-kit migrate
+2026-07-20T09:13:55.456605262Z 
+2026-07-20T09:13:55.691126305Z No config path provided, using default 'drizzle.config.ts'
+2026-07-20T09:13:55.691409588Z Reading config file '/app/drizzle.config.ts'
+2026-07-20T09:13:56.188455585Z Using 'pg' driver for database querying
+2026-07-20T09:13:56.713574616Z [⣷] applying migrations...KG[✓] migrations applied successfully!➜ Listening on: http://localhost:3310/ (all interfaces)
+2026-07-20T09:13:56.811746244Z [boot] pg-boss started; cron schedulers active
+2026-07-20T12:00:31.338203209Z [weekly-summary] tick done: due=1 sent=1 already-sent=0 skipped-unverified=0 skipped-non-member=0 failed=0
+2026-07-23T00:13:33.617736338Z 
+2026-07-23T00:13:33.617945321Z [word-search] ── REQUEST for theme "Ink pens" (count=14, target=18, len=4-10) ──
+2026-07-23T00:13:33.617951982Z ── SYSTEM ──
+2026-07-23T00:13:33.617954391Z You generate themed word lists for word-search puzzles.
+2026-07-23T00:13:33.617956774Z 
+2026-07-23T00:13:33.617959087Z ── USER ──
+2026-07-23T00:13:33.617961381Z Generate a list of 18 words for the theme: "Ink pens".
+2026-07-23T00:13:33.617963843Z 
+2026-07-23T00:13:33.617966288Z Requirements:
+2026-07-23T00:13:33.617968747Z - Every word must clearly fit the theme (an example of it, a kind of it, or a closely associated term). Stay strictly on theme.
+2026-07-23T00:13:33.617971364Z - Each word must be 4–10 letters, ALL UPPERCASE, letters A–Z only (no spaces, hyphens, apostrophes, digits, accents).
+2026-07-23T00:13:33.617973985Z - No duplicates. No brand or product names. No specific people's names.
+2026-07-23T00:13:33.617976173Z - Return 18 complete words. If only a few are obvious, include less-common examples until you have 18.
+2026-07-23T00:13:33.617978253Z - Do NOT return placeholders like "...", "...more...", or ellipses. Only complete words.
+2026-07-23T00:13:33.617980733Z 
+2026-07-23T00:13:33.617982797Z Examples of how to interpret a theme (each shows only 5 words — your list must contain 18):
+2026-07-23T00:13:33.617985154Z - "Music" → ["GUITAR", "PIANO", "DRUMS", "VIOLIN", "TEMPO"]
+2026-07-23T00:13:33.617987714Z - "Nature" → ["RIVER", "FOREST", "MEADOW", "VALLEY", "STREAM"]
+2026-07-23T00:13:33.617990156Z - "tree species" → ["OAK", "MAPLE", "BIRCH", "PINE", "CEDAR"]
+2026-07-23T00:13:33.617992750Z 
+2026-07-23T00:13:33.617994818Z If the theme is genuine gibberish you cannot interpret at all, return an empty array.
+2026-07-23T00:13:33.617996914Z 
+2026-07-23T00:13:33.617999006Z Respond with JSON only, no prose: { "words": ["WORD1", "WORD2", ...] }
+2026-07-23T00:13:33.618001125Z 
+2026-07-23T00:13:49.239697287Z 
+2026-07-23T00:13:49.239717999Z [word-search] ── RESPONSE for theme "Ink pens" ──
+2026-07-23T00:13:49.239720890Z {
+2026-07-23T00:13:49.239722676Z   "words": [
+2026-07-23T00:13:49.239724371Z     "FOUNTAIN",
+2026-07-23T00:13:49.239726085Z     "BALLPOINT",
+2026-07-23T00:13:49.239727930Z     "GELPEN",
+2026-07-23T00:13:49.239729692Z     "QUILL",
+2026-07-23T00:13:49.239732063Z     "INKWELL",
+2026-07-23T00:13:49.239734122Z     "REFILL",
+2026-07-23T00:13:49.239735821Z     "CARTRIDGE",
+2026-07-23T00:13:49.239737627Z     "SCRIPT",
+2026-07-23T00:13:49.239739782Z     "STYLUS",
+2026-07-23T00:13:49.239741384Z     "PENCASE",
+2026-07-23T00:13:49.239743036Z     "CAPLESS",
+2026-07-23T00:13:49.239744950Z     "FEEDER",
+2026-07-23T00:13:49.239746739Z     "DIPPER",
+2026-07-23T00:13:49.239748545Z     "INKPAD",
+2026-07-23T00:13:49.239750151Z     "BLOTTER",
+2026-07-23T00:13:49.239751941Z     "PARCHMENT",
+2026-07-23T00:13:49.239754308Z     "NIBS",
+2026-07-23T00:13:49.239756009Z     "INKSTONE"
+2026-07-23T00:13:49.239757733Z   ]
+2026-07-23T00:13:49.239759490Z }
+2026-07-23T00:13:49.239761544Z ── END RESPONSE ──
+2026-07-23T00:13:49.239763482Z 
+2026-07-24T09:58:11.747040405Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.747457441Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.747463654Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.747465742Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.747467738Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.747469855Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.747471698Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.747474293Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.747476216Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.747478065Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.747479992Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.747481796Z   length: 116,
+2026-07-24T09:58:11.747483481Z   severity: 'FATAL',
+2026-07-24T09:58:11.747485391Z   code: '57P01',
+2026-07-24T09:58:11.747494006Z   detail: undefined,
+2026-07-24T09:58:11.747496111Z   hint: undefined,
+2026-07-24T09:58:11.747498235Z   position: undefined,
+2026-07-24T09:58:11.747500269Z   internalPosition: undefined,
+2026-07-24T09:58:11.747501924Z   internalQuery: undefined,
+2026-07-24T09:58:11.747503717Z   where: undefined,
+2026-07-24T09:58:11.747505685Z   schema: undefined,
+2026-07-24T09:58:11.747507426Z   table: undefined,
+2026-07-24T09:58:11.747509375Z   column: undefined,
+2026-07-24T09:58:11.747511257Z   dataType: undefined,
+2026-07-24T09:58:11.747513052Z   constraint: undefined,
+2026-07-24T09:58:11.747514918Z   file: 'postgres.c',
+2026-07-24T09:58:11.747517166Z   line: '3315',
+2026-07-24T09:58:11.747519122Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.747521173Z   client: Client {
+2026-07-24T09:58:11.747523002Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.747525042Z     _eventsCount: 1,
+2026-07-24T09:58:11.747526902Z     _maxListeners: undefined,
+2026-07-24T09:58:11.747528925Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.747530990Z       user: 'postgres',
+2026-07-24T09:58:11.747532826Z       database: 'postgres',
+2026-07-24T09:58:11.747534549Z       port: 5432,
+2026-07-24T09:58:11.747539078Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.747541227Z       binary: false,
+2026-07-24T09:58:11.747543209Z       options: undefined,
+2026-07-24T09:58:11.747545557Z       ssl: false,
+2026-07-24T09:58:11.747547355Z       client_encoding: '',
+2026-07-24T09:58:11.747549114Z       replication: undefined,
+2026-07-24T09:58:11.747550901Z       isDomainSocket: false,
+2026-07-24T09:58:11.747553024Z       application_name: 'pgboss',
+2026-07-24T09:58:11.747554807Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.747556885Z       statement_timeout: false,
+2026-07-24T09:58:11.747558833Z       lock_timeout: false,
+2026-07-24T09:58:11.747561116Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.747562987Z       query_timeout: false,
+2026-07-24T09:58:11.747564837Z       connect_timeout: 10
+2026-07-24T09:58:11.747566716Z     },
+2026-07-24T09:58:11.747568862Z     user: 'postgres',
+2026-07-24T09:58:11.747570751Z     database: 'postgres',
+2026-07-24T09:58:11.747572488Z     port: 5432,
+2026-07-24T09:58:11.747574313Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.747576442Z     replication: undefined,
+2026-07-24T09:58:11.747581359Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.747585306Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.747587271Z     _ending: true,
+2026-07-24T09:58:11.747725123Z     _ended: false,
+2026-07-24T09:58:11.747727742Z     _connecting: false,
+2026-07-24T09:58:11.747729661Z     _connected: true,
+2026-07-24T09:58:11.747731565Z     _connectionError: false,
+2026-07-24T09:58:11.747733576Z     _queryable: false,
+2026-07-24T09:58:11.747735435Z     _activeQuery: null,
+2026-07-24T09:58:11.747737069Z     enableChannelBinding: false,
+2026-07-24T09:58:11.747739106Z     connection: Connection {
+2026-07-24T09:58:11.747741237Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.747743261Z       _eventsCount: 23,
+2026-07-24T09:58:11.747744942Z       _maxListeners: undefined,
+2026-07-24T09:58:11.747746761Z       stream: [Socket],
+2026-07-24T09:58:11.747748813Z       _keepAlive: false,
+2026-07-24T09:58:11.747750765Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.747752652Z       parsedStatements: {},
+2026-07-24T09:58:11.747754266Z       ssl: false,
+2026-07-24T09:58:11.747756489Z       _ending: false,
+2026-07-24T09:58:11.747758518Z       _emitMessage: false,
+2026-07-24T09:58:11.747760461Z       _connecting: true,
+2026-07-24T09:58:11.747762678Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.747764828Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.747767091Z     },
+2026-07-24T09:58:11.747769294Z     _queryQueue: [],
+2026-07-24T09:58:11.747771520Z     binary: false,
+2026-07-24T09:58:11.747773783Z     processID: 2925351,
+2026-07-24T09:58:11.747775950Z     secretKey: -209457977,
+2026-07-24T09:58:11.747778030Z     ssl: false,
+2026-07-24T09:58:11.747780360Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.747782756Z     _connectionCallback: null,
+2026-07-24T09:58:11.747784734Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.747786731Z       _idleTimeout: -1,
+2026-07-24T09:58:11.747788707Z       _idlePrev: null,
+2026-07-24T09:58:11.747790474Z       _idleNext: null,
+2026-07-24T09:58:11.747792504Z       _idleStart: 348191815,
+2026-07-24T09:58:11.747794582Z       _onTimeout: null,
+2026-07-24T09:58:11.747796708Z       _timerArgs: undefined,
+2026-07-24T09:58:11.747798977Z       _repeat: null,
+2026-07-24T09:58:11.747936628Z       _destroyed: true,
+2026-07-24T09:58:11.747942616Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.747945009Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.747994316Z       [Symbol(asyncId)]: 93798143,
+2026-07-24T09:58:11.747996841Z       [Symbol(triggerId)]: 93798137,
+2026-07-24T09:58:11.747999015Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.748000818Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748002978Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748004605Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748006288Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748008071Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748009801Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.748011651Z     },
+2026-07-24T09:58:11.748013335Z     saslSession: null,
+2026-07-24T09:58:11.748015365Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.748017116Z     readyForQuery: true,
+2026-07-24T09:58:11.748019404Z     hasExecuted: true,
+2026-07-24T09:58:11.748021107Z     _poolUseCount: 33,
+2026-07-24T09:58:11.748023077Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.748024918Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.748026894Z   }
+2026-07-24T09:58:11.748028768Z }
+2026-07-24T09:58:11.748030767Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.748033200Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.748035555Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.748037886Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.748040985Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.748043505Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.748045403Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.748047158Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.748048988Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.748050954Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.748053139Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.748055438Z   length: 116,
+2026-07-24T09:58:11.748057716Z   severity: 'FATAL',
+2026-07-24T09:58:11.748060074Z   code: '57P01',
+2026-07-24T09:58:11.748062309Z   detail: undefined,
+2026-07-24T09:58:11.748064438Z   hint: undefined,
+2026-07-24T09:58:11.748066644Z   position: undefined,
+2026-07-24T09:58:11.748068542Z   internalPosition: undefined,
+2026-07-24T09:58:11.748073607Z   internalQuery: undefined,
+2026-07-24T09:58:11.748075924Z   where: undefined,
+2026-07-24T09:58:11.748416382Z   schema: undefined,
+2026-07-24T09:58:11.748422714Z   table: undefined,
+2026-07-24T09:58:11.748424817Z   column: undefined,
+2026-07-24T09:58:11.748426736Z   dataType: undefined,
+2026-07-24T09:58:11.748428716Z   constraint: undefined,
+2026-07-24T09:58:11.748431221Z   file: 'postgres.c',
+2026-07-24T09:58:11.748433214Z   line: '3315',
+2026-07-24T09:58:11.748435096Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.748437265Z   client: Client {
+2026-07-24T09:58:11.748439200Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.748441518Z     _eventsCount: 1,
+2026-07-24T09:58:11.748443602Z     _maxListeners: undefined,
+2026-07-24T09:58:11.748445567Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.748447711Z       user: 'postgres',
+2026-07-24T09:58:11.748449861Z       database: 'postgres',
+2026-07-24T09:58:11.748451774Z       port: 5432,
+2026-07-24T09:58:11.748454000Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.748457973Z       binary: false,
+2026-07-24T09:58:11.748460021Z       options: undefined,
+2026-07-24T09:58:11.748462385Z       ssl: false,
+2026-07-24T09:58:11.748464465Z       client_encoding: '',
+2026-07-24T09:58:11.748466542Z       replication: undefined,
+2026-07-24T09:58:11.748468606Z       isDomainSocket: false,
+2026-07-24T09:58:11.748470610Z       application_name: 'pgboss',
+2026-07-24T09:58:11.748472495Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.748474569Z       statement_timeout: false,
+2026-07-24T09:58:11.748476824Z       lock_timeout: false,
+2026-07-24T09:58:11.748478649Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.748480560Z       query_timeout: false,
+2026-07-24T09:58:11.748482629Z       connect_timeout: 10
+2026-07-24T09:58:11.748484848Z     },
+2026-07-24T09:58:11.748486703Z     user: 'postgres',
+2026-07-24T09:58:11.748488639Z     database: 'postgres',
+2026-07-24T09:58:11.748490519Z     port: 5432,
+2026-07-24T09:58:11.748492510Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.748494310Z     replication: undefined,
+2026-07-24T09:58:11.748496457Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.748498534Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.748500693Z     _ending: true,
+2026-07-24T09:58:11.748507603Z     _ended: false,
+2026-07-24T09:58:11.748509542Z     _connecting: false,
+2026-07-24T09:58:11.748511620Z     _connected: true,
+2026-07-24T09:58:11.748513667Z     _connectionError: false,
+2026-07-24T09:58:11.748515770Z     _queryable: false,
+2026-07-24T09:58:11.748517884Z     _activeQuery: null,
+2026-07-24T09:58:11.748548997Z     enableChannelBinding: false,
+2026-07-24T09:58:11.748551998Z     connection: Connection {
+2026-07-24T09:58:11.748554275Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.748556510Z       _eventsCount: 23,
+2026-07-24T09:58:11.748558771Z       _maxListeners: undefined,
+2026-07-24T09:58:11.748562801Z       stream: [Socket],
+2026-07-24T09:58:11.748565119Z       _keepAlive: false,
+2026-07-24T09:58:11.748567404Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.748569691Z       parsedStatements: {},
+2026-07-24T09:58:11.748572001Z       ssl: false,
+2026-07-24T09:58:11.748574194Z       _ending: true,
+2026-07-24T09:58:11.748576419Z       _emitMessage: false,
+2026-07-24T09:58:11.748578702Z       _connecting: true,
+2026-07-24T09:58:11.748580942Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.748583179Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.748585492Z     },
+2026-07-24T09:58:11.748587441Z     _queryQueue: [],
+2026-07-24T09:58:11.748589259Z     binary: false,
+2026-07-24T09:58:11.748591259Z     processID: 2925076,
+2026-07-24T09:58:11.748593078Z     secretKey: 1229963556,
+2026-07-24T09:58:11.748594998Z     ssl: false,
+2026-07-24T09:58:11.748597009Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.748598949Z     _connectionCallback: null,
+2026-07-24T09:58:11.748601063Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.748603292Z       _idleTimeout: -1,
+2026-07-24T09:58:11.748605322Z       _idlePrev: null,
+2026-07-24T09:58:11.748607386Z       _idleNext: null,
+2026-07-24T09:58:11.748609409Z       _idleStart: 348037775,
+2026-07-24T09:58:11.748611473Z       _onTimeout: null,
+2026-07-24T09:58:11.748613606Z       _timerArgs: undefined,
+2026-07-24T09:58:11.748615689Z       _repeat: null,
+2026-07-24T09:58:11.748617818Z       _destroyed: true,
+2026-07-24T09:58:11.748619876Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.748621973Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.748624159Z       [Symbol(asyncId)]: 93757647,
+2026-07-24T09:58:11.748626374Z       [Symbol(triggerId)]: 93757641,
+2026-07-24T09:58:11.748631909Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.748634267Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748636399Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748638597Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748640541Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748642272Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.748644323Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.748646577Z     },
+2026-07-24T09:58:11.748648804Z     saslSession: null,
+2026-07-24T09:58:11.748650798Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.748652871Z     readyForQuery: true,
+2026-07-24T09:58:11.748654768Z     hasExecuted: true,
+2026-07-24T09:58:11.748656775Z     _poolUseCount: 146,
+2026-07-24T09:58:11.748658768Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.749579951Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.749624431Z   }
+2026-07-24T09:58:11.749628637Z }
+2026-07-24T09:58:11.749630600Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.749632572Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.749634544Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.749804936Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.749808921Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.749811138Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.749813755Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.749816031Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.749818059Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.749822632Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.749825406Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.749827805Z   length: 116,
+2026-07-24T09:58:11.749829609Z   severity: 'FATAL',
+2026-07-24T09:58:11.749831452Z   code: '57P01',
+2026-07-24T09:58:11.749833297Z   detail: undefined,
+2026-07-24T09:58:11.749835255Z   hint: undefined,
+2026-07-24T09:58:11.749837085Z   position: undefined,
+2026-07-24T09:58:11.749838899Z   internalPosition: undefined,
+2026-07-24T09:58:11.749840863Z   internalQuery: undefined,
+2026-07-24T09:58:11.749842765Z   where: undefined,
+2026-07-24T09:58:11.749844748Z   schema: undefined,
+2026-07-24T09:58:11.749852151Z   table: undefined,
+2026-07-24T09:58:11.749854622Z   column: undefined,
+2026-07-24T09:58:11.749856469Z   dataType: undefined,
+2026-07-24T09:58:11.749859058Z   constraint: undefined,
+2026-07-24T09:58:11.749860967Z   file: 'postgres.c',
+2026-07-24T09:58:11.749863078Z   line: '3315',
+2026-07-24T09:58:11.749865042Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.749866900Z   client: Client {
+2026-07-24T09:58:11.749868939Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.749878727Z     _eventsCount: 1,
+2026-07-24T09:58:11.749882405Z     _maxListeners: undefined,
+2026-07-24T09:58:11.749884644Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.749886496Z       user: 'postgres',
+2026-07-24T09:58:11.750049858Z       database: 'postgres',
+2026-07-24T09:58:11.750058738Z       port: 5432,
+2026-07-24T09:58:11.750061394Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.750063487Z       binary: false,
+2026-07-24T09:58:11.750065480Z       options: undefined,
+2026-07-24T09:58:11.750067632Z       ssl: false,
+2026-07-24T09:58:11.750069646Z       client_encoding: '',
+2026-07-24T09:58:11.750073142Z       replication: undefined,
+2026-07-24T09:58:11.750076902Z       isDomainSocket: false,
+2026-07-24T09:58:11.750079193Z       application_name: 'pgboss',
+2026-07-24T09:58:11.750082770Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.750084507Z       statement_timeout: false,
+2026-07-24T09:58:11.750086445Z       lock_timeout: false,
+2026-07-24T09:58:11.750088064Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.750089924Z       query_timeout: false,
+2026-07-24T09:58:11.750091680Z       connect_timeout: 10
+2026-07-24T09:58:11.750093738Z     },
+2026-07-24T09:58:11.750095799Z     user: 'postgres',
+2026-07-24T09:58:11.750097704Z     database: 'postgres',
+2026-07-24T09:58:11.750099572Z     port: 5432,
+2026-07-24T09:58:11.750101389Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.750103136Z     replication: undefined,
+2026-07-24T09:58:11.750104991Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.750106764Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.750108990Z     _ending: true,
+2026-07-24T09:58:11.750110808Z     _ended: false,
+2026-07-24T09:58:11.750112814Z     _connecting: false,
+2026-07-24T09:58:11.750114437Z     _connected: true,
+2026-07-24T09:58:11.750234839Z     _connectionError: false,
+2026-07-24T09:58:11.750239421Z     _queryable: false,
+2026-07-24T09:58:11.750241702Z     _activeQuery: null,
+2026-07-24T09:58:11.750244022Z     enableChannelBinding: false,
+2026-07-24T09:58:11.750246308Z     connection: Connection {
+2026-07-24T09:58:11.750248461Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.750250870Z       _eventsCount: 23,
+2026-07-24T09:58:11.750253035Z       _maxListeners: undefined,
+2026-07-24T09:58:11.750255320Z       stream: [Socket],
+2026-07-24T09:58:11.750257571Z       _keepAlive: false,
+2026-07-24T09:58:11.750259749Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.750261896Z       parsedStatements: {},
+2026-07-24T09:58:11.750263820Z       ssl: false,
+2026-07-24T09:58:11.750265814Z       _ending: true,
+2026-07-24T09:58:11.750268156Z       _emitMessage: false,
+2026-07-24T09:58:11.750270380Z       _connecting: true,
+2026-07-24T09:58:11.750272707Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.750274863Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.750277349Z     },
+2026-07-24T09:58:11.750279192Z     _queryQueue: [],
+2026-07-24T09:58:11.750280924Z     binary: false,
+2026-07-24T09:58:11.750282627Z     processID: 2925185,
+2026-07-24T09:58:11.750429790Z     secretKey: -262104941,
+2026-07-24T09:58:11.750432957Z     ssl: false,
+2026-07-24T09:58:11.750434771Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.750436439Z     _connectionCallback: null,
+2026-07-24T09:58:11.750438309Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.750440255Z       _idleTimeout: -1,
+2026-07-24T09:58:11.750441911Z       _idlePrev: null,
+2026-07-24T09:58:11.750443765Z       _idleNext: null,
+2026-07-24T09:58:11.750445706Z       _idleStart: 348097789,
+2026-07-24T09:58:11.750447562Z       _onTimeout: null,
+2026-07-24T09:58:11.750449595Z       _timerArgs: undefined,
+2026-07-24T09:58:11.750451325Z       _repeat: null,
+2026-07-24T09:58:11.750452999Z       _destroyed: true,
+2026-07-24T09:58:11.750454816Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.750456628Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.750458642Z       [Symbol(asyncId)]: 93773462,
+2026-07-24T09:58:11.750460427Z       [Symbol(triggerId)]: 93773456,
+2026-07-24T09:58:11.750462592Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.750464586Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.750466552Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.750472852Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.750474809Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.750476956Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.750478869Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.750538454Z     },
+2026-07-24T09:58:11.750543745Z     saslSession: null,
+2026-07-24T09:58:11.750546094Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.750548349Z     readyForQuery: true,
+2026-07-24T09:58:11.750550660Z     hasExecuted: true,
+2026-07-24T09:58:11.750552801Z     _poolUseCount: 89,
+2026-07-24T09:58:11.750555065Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.750557371Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.750559548Z   }
+2026-07-24T09:58:11.750561482Z }
+2026-07-24T09:58:11.750563376Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.750565316Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.750567289Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.750569376Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.750571332Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.750573737Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.750575439Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.750577459Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.750579780Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.750581825Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.750583849Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.750585971Z   length: 116,
+2026-07-24T09:58:11.750587663Z   severity: 'FATAL',
+2026-07-24T09:58:11.750589595Z   code: '57P01',
+2026-07-24T09:58:11.750591315Z   detail: undefined,
+2026-07-24T09:58:11.750592915Z   hint: undefined,
+2026-07-24T09:58:11.750594804Z   position: undefined,
+2026-07-24T09:58:11.750596494Z   internalPosition: undefined,
+2026-07-24T09:58:11.750598076Z   internalQuery: undefined,
+2026-07-24T09:58:11.750599873Z   where: undefined,
+2026-07-24T09:58:11.750601488Z   schema: undefined,
+2026-07-24T09:58:11.750603690Z   table: undefined,
+2026-07-24T09:58:11.750605468Z   column: undefined,
+2026-07-24T09:58:11.750607209Z   dataType: undefined,
+2026-07-24T09:58:11.750614068Z   constraint: undefined,
+2026-07-24T09:58:11.750615929Z   file: 'postgres.c',
+2026-07-24T09:58:11.750860329Z   line: '3315',
+2026-07-24T09:58:11.750864140Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.750866326Z   client: Client {
+2026-07-24T09:58:11.750868532Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.750877827Z     _eventsCount: 1,
+2026-07-24T09:58:11.750880012Z     _maxListeners: undefined,
+2026-07-24T09:58:11.750882006Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.750883976Z       user: 'postgres',
+2026-07-24T09:58:11.750886955Z       database: 'postgres',
+2026-07-24T09:58:11.750889850Z       port: 5432,
+2026-07-24T09:58:11.750891817Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.750893764Z       binary: false,
+2026-07-24T09:58:11.750895756Z       options: undefined,
+2026-07-24T09:58:11.750897709Z       ssl: false,
+2026-07-24T09:58:11.750899908Z       client_encoding: '',
+2026-07-24T09:58:11.750901827Z       replication: undefined,
+2026-07-24T09:58:11.750903950Z       isDomainSocket: false,
+2026-07-24T09:58:11.750905954Z       application_name: 'pgboss',
+2026-07-24T09:58:11.750910659Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.750914488Z       statement_timeout: false,
+2026-07-24T09:58:11.750916679Z       lock_timeout: false,
+2026-07-24T09:58:11.750919992Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.750922607Z       query_timeout: false,
+2026-07-24T09:58:11.750924358Z       connect_timeout: 10
+2026-07-24T09:58:11.750926080Z     },
+2026-07-24T09:58:11.750928079Z     user: 'postgres',
+2026-07-24T09:58:11.750941975Z     database: 'postgres',
+2026-07-24T09:58:11.750944170Z     port: 5432,
+2026-07-24T09:58:11.750945761Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.750947680Z     replication: undefined,
+2026-07-24T09:58:11.750949260Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.750951407Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.750953142Z     _ending: true,
+2026-07-24T09:58:11.750954803Z     _ended: false,
+2026-07-24T09:58:11.750956438Z     _connecting: false,
+2026-07-24T09:58:11.750958176Z     _connected: true,
+2026-07-24T09:58:11.750959960Z     _connectionError: false,
+2026-07-24T09:58:11.750961833Z     _queryable: false,
+2026-07-24T09:58:11.750963608Z     _activeQuery: null,
+2026-07-24T09:58:11.750969091Z     enableChannelBinding: false,
+2026-07-24T09:58:11.750971105Z     connection: Connection {
+2026-07-24T09:58:11.750973157Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.750975088Z       _eventsCount: 23,
+2026-07-24T09:58:11.750977043Z       _maxListeners: undefined,
+2026-07-24T09:58:11.750978860Z       stream: [Socket],
+2026-07-24T09:58:11.750980775Z       _keepAlive: false,
+2026-07-24T09:58:11.750983070Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.750985134Z       parsedStatements: {},
+2026-07-24T09:58:11.750987434Z       ssl: false,
+2026-07-24T09:58:11.750989240Z       _ending: true,
+2026-07-24T09:58:11.750991303Z       _emitMessage: false,
+2026-07-24T09:58:11.750993143Z       _connecting: true,
+2026-07-24T09:58:11.750994968Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.750996887Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.751029378Z     },
+2026-07-24T09:58:11.751033509Z     _queryQueue: [],
+2026-07-24T09:58:11.751035472Z     binary: false,
+2026-07-24T09:58:11.751037392Z     processID: 2925056,
+2026-07-24T09:58:11.751039191Z     secretKey: -1750696421,
+2026-07-24T09:58:11.751041457Z     ssl: false,
+2026-07-24T09:58:11.751043264Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.751044872Z     _connectionCallback: null,
+2026-07-24T09:58:11.751046671Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.751048653Z       _idleTimeout: -1,
+2026-07-24T09:58:11.751050542Z       _idlePrev: null,
+2026-07-24T09:58:11.751052759Z       _idleNext: null,
+2026-07-24T09:58:11.751054371Z       _idleStart: 348029772,
+2026-07-24T09:58:11.751056124Z       _onTimeout: null,
+2026-07-24T09:58:11.751057767Z       _timerArgs: undefined,
+2026-07-24T09:58:11.751059755Z       _repeat: null,
+2026-07-24T09:58:11.751061974Z       _destroyed: true,
+2026-07-24T09:58:11.751064985Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.751066821Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.751068996Z       [Symbol(asyncId)]: 93755504,
+2026-07-24T09:58:11.751071070Z       [Symbol(triggerId)]: 93755498,
+2026-07-24T09:58:11.751072919Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.751074720Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.751076693Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.751103751Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.751107888Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.751110393Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.751116582Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.751119693Z     },
+2026-07-24T09:58:11.751121714Z     saslSession: null,
+2026-07-24T09:58:11.751123549Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.751125598Z     readyForQuery: true,
+2026-07-24T09:58:11.751127540Z     hasExecuted: true,
+2026-07-24T09:58:11.751129571Z     _poolUseCount: 146,
+2026-07-24T09:58:11.751131537Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.751133476Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.751135754Z   }
+2026-07-24T09:58:11.751137574Z }
+2026-07-24T09:58:11.753773392Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.753782713Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.753785624Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.753787769Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.753789801Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.753791995Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.753794060Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.753796106Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.753798220Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.753800217Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.753802399Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.753804576Z   length: 116,
+2026-07-24T09:58:11.753806664Z   severity: 'FATAL',
+2026-07-24T09:58:11.753808816Z   code: '57P01',
+2026-07-24T09:58:11.753810927Z   detail: undefined,
+2026-07-24T09:58:11.753812978Z   hint: undefined,
+2026-07-24T09:58:11.753814721Z   position: undefined,
+2026-07-24T09:58:11.753816718Z   internalPosition: undefined,
+2026-07-24T09:58:11.753819620Z   internalQuery: undefined,
+2026-07-24T09:58:11.753822539Z   where: undefined,
+2026-07-24T09:58:11.753824358Z   schema: undefined,
+2026-07-24T09:58:11.753826414Z   table: undefined,
+2026-07-24T09:58:11.753828676Z   column: undefined,
+2026-07-24T09:58:11.753830775Z   dataType: undefined,
+2026-07-24T09:58:11.753832680Z   constraint: undefined,
+2026-07-24T09:58:11.753834599Z   file: 'postgres.c',
+2026-07-24T09:58:11.753836482Z   line: '3315',
+2026-07-24T09:58:11.753843681Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.753845883Z   client: Client {
+2026-07-24T09:58:11.753847827Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.753851026Z     _eventsCount: 1,
+2026-07-24T09:58:11.753853796Z     _maxListeners: undefined,
+2026-07-24T09:58:11.753855882Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.753857902Z       user: 'postgres',
+2026-07-24T09:58:11.753859928Z       database: 'postgres',
+2026-07-24T09:58:11.753862035Z       port: 5432,
+2026-07-24T09:58:11.753864358Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.753866777Z       binary: false,
+2026-07-24T09:58:11.753868656Z       options: undefined,
+2026-07-24T09:58:11.753878558Z       ssl: false,
+2026-07-24T09:58:11.753881398Z       client_encoding: '',
+2026-07-24T09:58:11.753884704Z       replication: undefined,
+2026-07-24T09:58:11.754174762Z       isDomainSocket: false,
+2026-07-24T09:58:11.754179846Z       application_name: 'pgboss',
+2026-07-24T09:58:11.754181971Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.754183879Z       statement_timeout: false,
+2026-07-24T09:58:11.754186125Z       lock_timeout: false,
+2026-07-24T09:58:11.754188123Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.754190141Z       query_timeout: false,
+2026-07-24T09:58:11.754192225Z       connect_timeout: 10
+2026-07-24T09:58:11.754194238Z     },
+2026-07-24T09:58:11.754195908Z     user: 'postgres',
+2026-07-24T09:58:11.754197194Z     database: 'postgres',
+2026-07-24T09:58:11.754198499Z     port: 5432,
+2026-07-24T09:58:11.754199857Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.754201158Z     replication: undefined,
+2026-07-24T09:58:11.754202452Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.754204914Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.754214576Z     _ending: true,
+2026-07-24T09:58:11.754216552Z     _ended: false,
+2026-07-24T09:58:11.754218534Z     _connecting: false,
+2026-07-24T09:58:11.754221882Z     _connected: true,
+2026-07-24T09:58:11.754225226Z     _connectionError: false,
+2026-07-24T09:58:11.754226946Z     _queryable: false,
+2026-07-24T09:58:11.754228967Z     _activeQuery: null,
+2026-07-24T09:58:11.754230600Z     enableChannelBinding: false,
+2026-07-24T09:58:11.754232641Z     connection: Connection {
+2026-07-24T09:58:11.754234643Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.754240798Z       _eventsCount: 23,
+2026-07-24T09:58:11.754242865Z       _maxListeners: undefined,
+2026-07-24T09:58:11.754244916Z       stream: [Socket],
+2026-07-24T09:58:11.754419784Z       _keepAlive: false,
+2026-07-24T09:58:11.754422483Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.754428698Z       parsedStatements: {},
+2026-07-24T09:58:11.754431685Z       ssl: false,
+2026-07-24T09:58:11.754434814Z       _ending: false,
+2026-07-24T09:58:11.754436389Z       _emitMessage: false,
+2026-07-24T09:58:11.754438010Z       _connecting: true,
+2026-07-24T09:58:11.754439743Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.754441519Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.754443235Z     },
+2026-07-24T09:58:11.754445295Z     _queryQueue: [],
+2026-07-24T09:58:11.754447437Z     binary: false,
+2026-07-24T09:58:11.754449158Z     processID: 2925165,
+2026-07-24T09:58:11.754450772Z     secretKey: -259896615,
+2026-07-24T09:58:11.754452496Z     ssl: false,
+2026-07-24T09:58:11.754454847Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.754456947Z     _connectionCallback: null,
+2026-07-24T09:58:11.754458770Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.754460783Z       _idleTimeout: -1,
+2026-07-24T09:58:11.754462670Z       _idlePrev: null,
+2026-07-24T09:58:11.754465890Z       _idleNext: null,
+2026-07-24T09:58:11.754468215Z       _idleStart: 348087787,
+2026-07-24T09:58:11.754470174Z       _onTimeout: null,
+2026-07-24T09:58:11.754472260Z       _timerArgs: undefined,
+2026-07-24T09:58:11.754474209Z       _repeat: null,
+2026-07-24T09:58:11.754476086Z       _destroyed: true,
+2026-07-24T09:58:11.754477988Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.754481379Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.754483729Z       [Symbol(asyncId)]: 93770755,
+2026-07-24T09:58:11.754485790Z       [Symbol(triggerId)]: 93770749,
+2026-07-24T09:58:11.754487640Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.754496706Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.754499585Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.754501624Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.754503734Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.754505714Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.754507853Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.754509867Z     },
+2026-07-24T09:58:11.762214772Z     saslSession: null,
+2026-07-24T09:58:11.762226068Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.762227992Z     readyForQuery: true,
+2026-07-24T09:58:11.762229794Z     hasExecuted: true,
+2026-07-24T09:58:11.762231431Z     _poolUseCount: 101,
+2026-07-24T09:58:11.762233112Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.762238245Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.762240055Z   }
+2026-07-24T09:58:11.762242191Z }
+2026-07-24T09:58:11.762505872Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.762512262Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.762514295Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.762516495Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.762518276Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.762520415Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.762522183Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.762523996Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.762525769Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.762527526Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.762529337Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.762531259Z   length: 116,
+2026-07-24T09:58:11.762533032Z   severity: 'FATAL',
+2026-07-24T09:58:11.762534762Z   code: '57P01',
+2026-07-24T09:58:11.762536471Z   detail: undefined,
+2026-07-24T09:58:11.762538261Z   hint: undefined,
+2026-07-24T09:58:11.762540354Z   position: undefined,
+2026-07-24T09:58:11.762542022Z   internalPosition: undefined,
+2026-07-24T09:58:11.762543976Z   internalQuery: undefined,
+2026-07-24T09:58:11.762545644Z   where: undefined,
+2026-07-24T09:58:11.762547626Z   schema: undefined,
+2026-07-24T09:58:11.762549290Z   table: undefined,
+2026-07-24T09:58:11.762551519Z   column: undefined,
+2026-07-24T09:58:11.762553235Z   dataType: undefined,
+2026-07-24T09:58:11.762554934Z   constraint: undefined,
+2026-07-24T09:58:11.762556585Z   file: 'postgres.c',
+2026-07-24T09:58:11.762558275Z   line: '3315',
+2026-07-24T09:58:11.762560076Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.762561855Z   client: Client {
+2026-07-24T09:58:11.762563564Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.762569483Z     _eventsCount: 1,
+2026-07-24T09:58:11.762571335Z     _maxListeners: undefined,
+2026-07-24T09:58:11.762573039Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.762575146Z       user: 'postgres',
+2026-07-24T09:58:11.762576816Z       database: 'postgres',
+2026-07-24T09:58:11.762578820Z       port: 5432,
+2026-07-24T09:58:11.762580529Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.762582442Z       binary: false,
+2026-07-24T09:58:11.762584146Z       options: undefined,
+2026-07-24T09:58:11.762585789Z       ssl: false,
+2026-07-24T09:58:11.762587755Z       client_encoding: '',
+2026-07-24T09:58:11.762589529Z       replication: undefined,
+2026-07-24T09:58:11.762591633Z       isDomainSocket: false,
+2026-07-24T09:58:11.762593451Z       application_name: 'pgboss',
+2026-07-24T09:58:11.762595198Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.762596936Z       statement_timeout: false,
+2026-07-24T09:58:11.762598785Z       lock_timeout: false,
+2026-07-24T09:58:11.762600534Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.762602814Z       query_timeout: false,
+2026-07-24T09:58:11.762604584Z       connect_timeout: 10
+2026-07-24T09:58:11.762606538Z     },
+2026-07-24T09:58:11.762608281Z     user: 'postgres',
+2026-07-24T09:58:11.762610236Z     database: 'postgres',
+2026-07-24T09:58:11.762612002Z     port: 5432,
+2026-07-24T09:58:11.762613778Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.762615629Z     replication: undefined,
+2026-07-24T09:58:11.762617746Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.762620221Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.762622119Z     _ending: true,
+2026-07-24T09:58:11.762623801Z     _ended: false,
+2026-07-24T09:58:11.762625800Z     _connecting: false,
+2026-07-24T09:58:11.762627544Z     _connected: true,
+2026-07-24T09:58:11.762629295Z     _connectionError: false,
+2026-07-24T09:58:11.762631088Z     _queryable: false,
+2026-07-24T09:58:11.762633111Z     _activeQuery: null,
+2026-07-24T09:58:11.762634882Z     enableChannelBinding: false,
+2026-07-24T09:58:11.762636991Z     connection: Connection {
+2026-07-24T09:58:11.762638713Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.762640431Z       _eventsCount: 23,
+2026-07-24T09:58:11.762642054Z       _maxListeners: undefined,
+2026-07-24T09:58:11.762643757Z       stream: [Socket],
+2026-07-24T09:58:11.762647259Z       _keepAlive: false,
+2026-07-24T09:58:11.762649126Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.762650924Z       parsedStatements: {},
+2026-07-24T09:58:11.762652829Z       ssl: false,
+2026-07-24T09:58:11.762654524Z       _ending: false,
+2026-07-24T09:58:11.762656140Z       _emitMessage: false,
+2026-07-24T09:58:11.762658209Z       _connecting: true,
+2026-07-24T09:58:11.762659936Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.762661701Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.762663358Z     },
+2026-07-24T09:58:11.762665132Z     _queryQueue: [],
+2026-07-24T09:58:11.762666795Z     binary: false,
+2026-07-24T09:58:11.762668464Z     processID: 2925318,
+2026-07-24T09:58:11.762670153Z     secretKey: -550668473,
+2026-07-24T09:58:11.762671861Z     ssl: false,
+2026-07-24T09:58:11.762673501Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.762675267Z     _connectionCallback: null,
+2026-07-24T09:58:11.762677004Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.762678735Z       _idleTimeout: -1,
+2026-07-24T09:58:11.762680527Z       _idlePrev: null,
+2026-07-24T09:58:11.762682197Z       _idleNext: null,
+2026-07-24T09:58:11.762683984Z       _idleStart: 348171810,
+2026-07-24T09:58:11.762685683Z       _onTimeout: null,
+2026-07-24T09:58:11.762687322Z       _timerArgs: undefined,
+2026-07-24T09:58:11.762689149Z       _repeat: null,
+2026-07-24T09:58:11.762690903Z       _destroyed: true,
+2026-07-24T09:58:11.762692803Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.762694547Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.762696530Z       [Symbol(asyncId)]: 93792912,
+2026-07-24T09:58:11.762698276Z       [Symbol(triggerId)]: 93792906,
+2026-07-24T09:58:11.762700132Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.762701992Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762703967Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762705748Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762707700Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762709447Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762711390Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.762713149Z     },
+2026-07-24T09:58:11.762714829Z     saslSession: null,
+2026-07-24T09:58:11.762716514Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.762718289Z     readyForQuery: true,
+2026-07-24T09:58:11.762721592Z     hasExecuted: true,
+2026-07-24T09:58:11.762723426Z     _poolUseCount: 45,
+2026-07-24T09:58:11.762725134Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.762726786Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.762728683Z   }
+2026-07-24T09:58:11.762730434Z }
+2026-07-24T09:58:11.762732088Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.762733977Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.762735841Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.762737764Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.762739839Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.762741720Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.762743596Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.762745403Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.762747405Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.762749236Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.762751184Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.762752957Z   length: 116,
+2026-07-24T09:58:11.762754722Z   severity: 'FATAL',
+2026-07-24T09:58:11.762756431Z   code: '57P01',
+2026-07-24T09:58:11.762758301Z   detail: undefined,
+2026-07-24T09:58:11.762760041Z   hint: undefined,
+2026-07-24T09:58:11.762761723Z   position: undefined,
+2026-07-24T09:58:11.762763696Z   internalPosition: undefined,
+2026-07-24T09:58:11.762765402Z   internalQuery: undefined,
+2026-07-24T09:58:11.762767270Z   where: undefined,
+2026-07-24T09:58:11.762768983Z   schema: undefined,
+2026-07-24T09:58:11.762770672Z   table: undefined,
+2026-07-24T09:58:11.762772374Z   column: undefined,
+2026-07-24T09:58:11.762774333Z   dataType: undefined,
+2026-07-24T09:58:11.762776219Z   constraint: undefined,
+2026-07-24T09:58:11.762778086Z   file: 'postgres.c',
+2026-07-24T09:58:11.762780029Z   line: '3315',
+2026-07-24T09:58:11.762783250Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.762785767Z   client: Client {
+2026-07-24T09:58:11.762787662Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.762789814Z     _eventsCount: 1,
+2026-07-24T09:58:11.762791711Z     _maxListeners: undefined,
+2026-07-24T09:58:11.762793561Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.762799816Z       user: 'postgres',
+2026-07-24T09:58:11.762801761Z       database: 'postgres',
+2026-07-24T09:58:11.762803477Z       port: 5432,
+2026-07-24T09:58:11.762805293Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.762806996Z       binary: false,
+2026-07-24T09:58:11.762809638Z       options: undefined,
+2026-07-24T09:58:11.762811621Z       ssl: false,
+2026-07-24T09:58:11.762813418Z       client_encoding: '',
+2026-07-24T09:58:11.762815361Z       replication: undefined,
+2026-07-24T09:58:11.762817317Z       isDomainSocket: false,
+2026-07-24T09:58:11.762820404Z       application_name: 'pgboss',
+2026-07-24T09:58:11.762822324Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.762824197Z       statement_timeout: false,
+2026-07-24T09:58:11.762826436Z       lock_timeout: false,
+2026-07-24T09:58:11.762828332Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.762830376Z       query_timeout: false,
+2026-07-24T09:58:11.762832262Z       connect_timeout: 10
+2026-07-24T09:58:11.762834191Z     },
+2026-07-24T09:58:11.762836008Z     user: 'postgres',
+2026-07-24T09:58:11.762838178Z     database: 'postgres',
+2026-07-24T09:58:11.762839902Z     port: 5432,
+2026-07-24T09:58:11.762841711Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.762843590Z     replication: undefined,
+2026-07-24T09:58:11.762846058Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.762848303Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.762850229Z     _ending: true,
+2026-07-24T09:58:11.762852323Z     _ended: false,
+2026-07-24T09:58:11.762854039Z     _connecting: false,
+2026-07-24T09:58:11.762855931Z     _connected: true,
+2026-07-24T09:58:11.762857814Z     _connectionError: false,
+2026-07-24T09:58:11.762860222Z     _queryable: false,
+2026-07-24T09:58:11.762862125Z     _activeQuery: null,
+2026-07-24T09:58:11.762863937Z     enableChannelBinding: false,
+2026-07-24T09:58:11.762865968Z     connection: Connection {
+2026-07-24T09:58:11.762868014Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.762869763Z       _eventsCount: 23,
+2026-07-24T09:58:11.762880262Z       _maxListeners: undefined,
+2026-07-24T09:58:11.762883759Z       stream: [Socket],
+2026-07-24T09:58:11.762885851Z       _keepAlive: false,
+2026-07-24T09:58:11.762887901Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.762890011Z       parsedStatements: {},
+2026-07-24T09:58:11.762894293Z       ssl: false,
+2026-07-24T09:58:11.762896213Z       _ending: false,
+2026-07-24T09:58:11.762898097Z       _emitMessage: false,
+2026-07-24T09:58:11.762900355Z       _connecting: true,
+2026-07-24T09:58:11.762902255Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.762904531Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.762906454Z     },
+2026-07-24T09:58:11.762908283Z     _queryQueue: [],
+2026-07-24T09:58:11.762910301Z     binary: false,
+2026-07-24T09:58:11.762912242Z     processID: 2925219,
+2026-07-24T09:58:11.762914118Z     secretKey: -947006692,
+2026-07-24T09:58:11.762916202Z     ssl: false,
+2026-07-24T09:58:11.762917960Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.762920118Z     _connectionCallback: null,
+2026-07-24T09:58:11.762921898Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.762923958Z       _idleTimeout: -1,
+2026-07-24T09:58:11.762925759Z       _idlePrev: null,
+2026-07-24T09:58:11.762927742Z       _idleNext: null,
+2026-07-24T09:58:11.762929865Z       _idleStart: 348117792,
+2026-07-24T09:58:11.762931920Z       _onTimeout: null,
+2026-07-24T09:58:11.762933785Z       _timerArgs: undefined,
+2026-07-24T09:58:11.762935869Z       _repeat: null,
+2026-07-24T09:58:11.762937634Z       _destroyed: true,
+2026-07-24T09:58:11.762939530Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.762941464Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.762943793Z       [Symbol(asyncId)]: 93778695,
+2026-07-24T09:58:11.762945637Z       [Symbol(triggerId)]: 93778689,
+2026-07-24T09:58:11.762947428Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.762949274Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.762951714Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.762954241Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762956167Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762958690Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.762960763Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.762962827Z     },
+2026-07-24T09:58:11.762964739Z     saslSession: null,
+2026-07-24T09:58:11.762966972Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.762968848Z     readyForQuery: true,
+2026-07-24T09:58:11.762971206Z     hasExecuted: true,
+2026-07-24T09:58:11.762973086Z     _poolUseCount: 77,
+2026-07-24T09:58:11.762974999Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.762979123Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.762981231Z   }
+2026-07-24T09:58:11.762982913Z }
+2026-07-24T09:58:11.762985418Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.762987317Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.762989396Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.762991383Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.762993498Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.762995631Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.762997757Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.762999568Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.763002351Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.763004284Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.763006786Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.763009185Z   length: 116,
+2026-07-24T09:58:11.763011220Z   severity: 'FATAL',
+2026-07-24T09:58:11.763013201Z   code: '57P01',
+2026-07-24T09:58:11.763015326Z   detail: undefined,
+2026-07-24T09:58:11.763017581Z   hint: undefined,
+2026-07-24T09:58:11.763019366Z   position: undefined,
+2026-07-24T09:58:11.763021632Z   internalPosition: undefined,
+2026-07-24T09:58:11.763023413Z   internalQuery: undefined,
+2026-07-24T09:58:11.763025568Z   where: undefined,
+2026-07-24T09:58:11.763027543Z   schema: undefined,
+2026-07-24T09:58:11.763030067Z   table: undefined,
+2026-07-24T09:58:11.763032554Z   column: undefined,
+2026-07-24T09:58:11.763034382Z   dataType: undefined,
+2026-07-24T09:58:11.763036462Z   constraint: undefined,
+2026-07-24T09:58:11.763038388Z   file: 'postgres.c',
+2026-07-24T09:58:11.763040226Z   line: '3315',
+2026-07-24T09:58:11.763042007Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.763044284Z   client: Client {
+2026-07-24T09:58:11.763046175Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.763048244Z     _eventsCount: 1,
+2026-07-24T09:58:11.763050230Z     _maxListeners: undefined,
+2026-07-24T09:58:11.763052283Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.763054334Z       user: 'postgres',
+2026-07-24T09:58:11.763056200Z       database: 'postgres',
+2026-07-24T09:58:11.763059906Z       port: 5432,
+2026-07-24T09:58:11.763061839Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763064093Z       binary: false,
+2026-07-24T09:58:11.763066084Z       options: undefined,
+2026-07-24T09:58:11.763067980Z       ssl: false,
+2026-07-24T09:58:11.763069882Z       client_encoding: '',
+2026-07-24T09:58:11.763072234Z       replication: undefined,
+2026-07-24T09:58:11.763074083Z       isDomainSocket: false,
+2026-07-24T09:58:11.763076350Z       application_name: 'pgboss',
+2026-07-24T09:58:11.763078354Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.763080977Z       statement_timeout: false,
+2026-07-24T09:58:11.763082785Z       lock_timeout: false,
+2026-07-24T09:58:11.763084828Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.763087301Z       query_timeout: false,
+2026-07-24T09:58:11.763089249Z       connect_timeout: 10
+2026-07-24T09:58:11.763091264Z     },
+2026-07-24T09:58:11.763093338Z     user: 'postgres',
+2026-07-24T09:58:11.763095321Z     database: 'postgres',
+2026-07-24T09:58:11.763097274Z     port: 5432,
+2026-07-24T09:58:11.763099377Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763101122Z     replication: undefined,
+2026-07-24T09:58:11.763103126Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.763105321Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.763107784Z     _ending: true,
+2026-07-24T09:58:11.763109870Z     _ended: false,
+2026-07-24T09:58:11.763112170Z     _connecting: false,
+2026-07-24T09:58:11.763114135Z     _connected: true,
+2026-07-24T09:58:11.763116055Z     _connectionError: false,
+2026-07-24T09:58:11.763118591Z     _queryable: false,
+2026-07-24T09:58:11.763120588Z     _activeQuery: null,
+2026-07-24T09:58:11.763122861Z     enableChannelBinding: false,
+2026-07-24T09:58:11.763124598Z     connection: Connection {
+2026-07-24T09:58:11.763126558Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.763128580Z       _eventsCount: 23,
+2026-07-24T09:58:11.763130697Z       _maxListeners: undefined,
+2026-07-24T09:58:11.763132635Z       stream: [Socket],
+2026-07-24T09:58:11.763134468Z       _keepAlive: false,
+2026-07-24T09:58:11.763136279Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.763138268Z       parsedStatements: {},
+2026-07-24T09:58:11.763140081Z       ssl: false,
+2026-07-24T09:58:11.763142724Z       _ending: true,
+2026-07-24T09:58:11.763144534Z       _emitMessage: false,
+2026-07-24T09:58:11.763148241Z       _connecting: true,
+2026-07-24T09:58:11.763150830Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.763152882Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.763154821Z     },
+2026-07-24T09:58:11.763156809Z     _queryQueue: [],
+2026-07-24T09:58:11.763158639Z     binary: false,
+2026-07-24T09:58:11.763160619Z     processID: 2924948,
+2026-07-24T09:58:11.763162822Z     secretKey: -1588487925,
+2026-07-24T09:58:11.763164774Z     ssl: false,
+2026-07-24T09:58:11.763166585Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.763168765Z     _connectionCallback: null,
+2026-07-24T09:58:11.763170555Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.763172374Z       _idleTimeout: -1,
+2026-07-24T09:58:11.763174502Z       _idlePrev: null,
+2026-07-24T09:58:11.763176353Z       _idleNext: null,
+2026-07-24T09:58:11.763178145Z       _idleStart: 347967754,
+2026-07-24T09:58:11.763180079Z       _onTimeout: null,
+2026-07-24T09:58:11.763182183Z       _timerArgs: undefined,
+2026-07-24T09:58:11.763184002Z       _repeat: null,
+2026-07-24T09:58:11.763185972Z       _destroyed: true,
+2026-07-24T09:58:11.763187697Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.763189691Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.763191609Z       [Symbol(asyncId)]: 93739000,
+2026-07-24T09:58:11.763193824Z       [Symbol(triggerId)]: 93738994,
+2026-07-24T09:58:11.763195770Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.763197808Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763199788Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763201671Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763203614Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763205912Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763207850Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.763210125Z     },
+2026-07-24T09:58:11.763212031Z     saslSession: null,
+2026-07-24T09:58:11.763214078Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.763215969Z     readyForQuery: true,
+2026-07-24T09:58:11.763217794Z     hasExecuted: true,
+2026-07-24T09:58:11.763219873Z     _poolUseCount: 195,
+2026-07-24T09:58:11.763221941Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.763223973Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.763226005Z   }
+2026-07-24T09:58:11.763228086Z }
+2026-07-24T09:58:11.763230102Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.763234158Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.763236263Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.763238323Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.763240356Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.763242592Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.763244590Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.763246540Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.763248706Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.763250743Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.763252693Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.763254505Z   length: 116,
+2026-07-24T09:58:11.763256429Z   severity: 'FATAL',
+2026-07-24T09:58:11.763258170Z   code: '57P01',
+2026-07-24T09:58:11.763259960Z   detail: undefined,
+2026-07-24T09:58:11.763261743Z   hint: undefined,
+2026-07-24T09:58:11.763263603Z   position: undefined,
+2026-07-24T09:58:11.763265289Z   internalPosition: undefined,
+2026-07-24T09:58:11.763267335Z   internalQuery: undefined,
+2026-07-24T09:58:11.763269033Z   where: undefined,
+2026-07-24T09:58:11.763270671Z   schema: undefined,
+2026-07-24T09:58:11.763272385Z   table: undefined,
+2026-07-24T09:58:11.763274087Z   column: undefined,
+2026-07-24T09:58:11.763276015Z   dataType: undefined,
+2026-07-24T09:58:11.763277987Z   constraint: undefined,
+2026-07-24T09:58:11.763280116Z   file: 'postgres.c',
+2026-07-24T09:58:11.763281949Z   line: '3315',
+2026-07-24T09:58:11.763283775Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.763285455Z   client: Client {
+2026-07-24T09:58:11.763287204Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.763288967Z     _eventsCount: 1,
+2026-07-24T09:58:11.763290885Z     _maxListeners: undefined,
+2026-07-24T09:58:11.763292573Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.763294253Z       user: 'postgres',
+2026-07-24T09:58:11.763296097Z       database: 'postgres',
+2026-07-24T09:58:11.763297709Z       port: 5432,
+2026-07-24T09:58:11.763299369Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763301045Z       binary: false,
+2026-07-24T09:58:11.763304466Z       options: undefined,
+2026-07-24T09:58:11.763306505Z       ssl: false,
+2026-07-24T09:58:11.763308190Z       client_encoding: '',
+2026-07-24T09:58:11.763309900Z       replication: undefined,
+2026-07-24T09:58:11.763311712Z       isDomainSocket: false,
+2026-07-24T09:58:11.763313361Z       application_name: 'pgboss',
+2026-07-24T09:58:11.763315174Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.763316839Z       statement_timeout: false,
+2026-07-24T09:58:11.763318646Z       lock_timeout: false,
+2026-07-24T09:58:11.763320275Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.763322160Z       query_timeout: false,
+2026-07-24T09:58:11.763323826Z       connect_timeout: 10
+2026-07-24T09:58:11.763326492Z     },
+2026-07-24T09:58:11.763328078Z     user: 'postgres',
+2026-07-24T09:58:11.763330242Z     database: 'postgres',
+2026-07-24T09:58:11.763331938Z     port: 5432,
+2026-07-24T09:58:11.763333575Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763335223Z     replication: undefined,
+2026-07-24T09:58:11.763336863Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.763338621Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.763340319Z     _ending: true,
+2026-07-24T09:58:11.763342416Z     _ended: false,
+2026-07-24T09:58:11.763344075Z     _connecting: false,
+2026-07-24T09:58:11.763345940Z     _connected: true,
+2026-07-24T09:58:11.763347602Z     _connectionError: false,
+2026-07-24T09:58:11.763349633Z     _queryable: false,
+2026-07-24T09:58:11.763351239Z     _activeQuery: null,
+2026-07-24T09:58:11.763352871Z     enableChannelBinding: false,
+2026-07-24T09:58:11.763354728Z     connection: Connection {
+2026-07-24T09:58:11.763356383Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.763358105Z       _eventsCount: 23,
+2026-07-24T09:58:11.763359839Z       _maxListeners: undefined,
+2026-07-24T09:58:11.763361541Z       stream: [Socket],
+2026-07-24T09:58:11.763363181Z       _keepAlive: false,
+2026-07-24T09:58:11.763364846Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.763366909Z       parsedStatements: {},
+2026-07-24T09:58:11.763368541Z       ssl: false,
+2026-07-24T09:58:11.763370327Z       _ending: true,
+2026-07-24T09:58:11.763371961Z       _emitMessage: false,
+2026-07-24T09:58:11.763373776Z       _connecting: true,
+2026-07-24T09:58:11.763375405Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.763377368Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.763380843Z     },
+2026-07-24T09:58:11.763382450Z     _queryQueue: [],
+2026-07-24T09:58:11.763384169Z     binary: false,
+2026-07-24T09:58:11.763385977Z     processID: 2925167,
+2026-07-24T09:58:11.763387608Z     secretKey: 959735740,
+2026-07-24T09:58:11.763389488Z     ssl: false,
+2026-07-24T09:58:11.763391084Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.763393081Z     _connectionCallback: null,
+2026-07-24T09:58:11.763394754Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.763396781Z       _idleTimeout: -1,
+2026-07-24T09:58:11.763398405Z       _idlePrev: null,
+2026-07-24T09:58:11.763400576Z       _idleNext: null,
+2026-07-24T09:58:11.763402258Z       _idleStart: 348089786,
+2026-07-24T09:58:11.763403946Z       _onTimeout: null,
+2026-07-24T09:58:11.763405808Z       _timerArgs: undefined,
+2026-07-24T09:58:11.763407584Z       _repeat: null,
+2026-07-24T09:58:11.763409294Z       _destroyed: true,
+2026-07-24T09:58:11.763411736Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.763413504Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.763415157Z       [Symbol(asyncId)]: 93771314,
+2026-07-24T09:58:11.763417023Z       [Symbol(triggerId)]: 93771308,
+2026-07-24T09:58:11.763418733Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.763420597Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763422330Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763424316Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763425983Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763427612Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.763429333Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.763431050Z     },
+2026-07-24T09:58:11.763432766Z     saslSession: null,
+2026-07-24T09:58:11.763434881Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.763436927Z     readyForQuery: true,
+2026-07-24T09:58:11.763438635Z     hasExecuted: true,
+2026-07-24T09:58:11.763440419Z     _poolUseCount: 96,
+2026-07-24T09:58:11.763442117Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.763444183Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.763445876Z   }
+2026-07-24T09:58:11.763447862Z }
+2026-07-24T09:58:11.763449517Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.763451803Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.763453561Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.763457173Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.763459156Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.763460950Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.763462757Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.763464539Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.763466247Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.763468193Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.763469892Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.763471914Z   length: 116,
+2026-07-24T09:58:11.763473580Z   severity: 'FATAL',
+2026-07-24T09:58:11.763475632Z   code: '57P01',
+2026-07-24T09:58:11.763477260Z   detail: undefined,
+2026-07-24T09:58:11.763479364Z   hint: undefined,
+2026-07-24T09:58:11.763480963Z   position: undefined,
+2026-07-24T09:58:11.763482819Z   internalPosition: undefined,
+2026-07-24T09:58:11.763484475Z   internalQuery: undefined,
+2026-07-24T09:58:11.763486081Z   where: undefined,
+2026-07-24T09:58:11.763488007Z   schema: undefined,
+2026-07-24T09:58:11.763489636Z   table: undefined,
+2026-07-24T09:58:11.763491516Z   column: undefined,
+2026-07-24T09:58:11.763493331Z   dataType: undefined,
+2026-07-24T09:58:11.763495442Z   constraint: undefined,
+2026-07-24T09:58:11.763497321Z   file: 'postgres.c',
+2026-07-24T09:58:11.763499181Z   line: '3315',
+2026-07-24T09:58:11.763500926Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.763502950Z   client: Client {
+2026-07-24T09:58:11.763504879Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.763506781Z     _eventsCount: 1,
+2026-07-24T09:58:11.763508700Z     _maxListeners: undefined,
+2026-07-24T09:58:11.763510541Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.763512414Z       user: 'postgres',
+2026-07-24T09:58:11.763514340Z       database: 'postgres',
+2026-07-24T09:58:11.763516166Z       port: 5432,
+2026-07-24T09:58:11.763518496Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763520450Z       binary: false,
+2026-07-24T09:58:11.763522528Z       options: undefined,
+2026-07-24T09:58:11.763524438Z       ssl: false,
+2026-07-24T09:58:11.763526421Z       client_encoding: '',
+2026-07-24T09:58:11.763530062Z       replication: undefined,
+2026-07-24T09:58:11.763531807Z       isDomainSocket: false,
+2026-07-24T09:58:11.763533884Z       application_name: 'pgboss',
+2026-07-24T09:58:11.763535671Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.763537776Z       statement_timeout: false,
+2026-07-24T09:58:11.763539555Z       lock_timeout: false,
+2026-07-24T09:58:11.763541545Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.763543340Z       query_timeout: false,
+2026-07-24T09:58:11.763545155Z       connect_timeout: 10
+2026-07-24T09:58:11.763546845Z     },
+2026-07-24T09:58:11.763548643Z     user: 'postgres',
+2026-07-24T09:58:11.763550700Z     database: 'postgres',
+2026-07-24T09:58:11.763552551Z     port: 5432,
+2026-07-24T09:58:11.763554505Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.763556502Z     replication: undefined,
+2026-07-24T09:58:11.763558564Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.763560414Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.763562151Z     _ending: true,
+2026-07-24T09:58:11.763564039Z     _ended: false,
+2026-07-24T09:58:11.763565805Z     _connecting: false,
+2026-07-24T09:58:11.763567666Z     _connected: true,
+2026-07-24T09:58:11.763569500Z     _connectionError: false,
+2026-07-24T09:58:11.763571371Z     _queryable: false,
+2026-07-24T09:58:11.763573438Z     _activeQuery: null,
+2026-07-24T09:58:11.763575326Z     enableChannelBinding: false,
+2026-07-24T09:58:11.763577467Z     connection: Connection {
+2026-07-24T09:58:11.763579209Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.763581430Z       _eventsCount: 23,
+2026-07-24T09:58:11.763583260Z       _maxListeners: undefined,
+2026-07-24T09:58:11.763585088Z       stream: [Socket],
+2026-07-24T09:58:11.763587050Z       _keepAlive: false,
+2026-07-24T09:58:11.763589327Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.763591325Z       parsedStatements: {},
+2026-07-24T09:58:11.763593059Z       ssl: false,
+2026-07-24T09:58:11.763594711Z       _ending: false,
+2026-07-24T09:58:11.763596730Z       _emitMessage: false,
+2026-07-24T09:58:11.763598549Z       _connecting: true,
+2026-07-24T09:58:11.763600193Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.763602105Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.763604018Z     },
+2026-07-24T09:58:11.763605843Z     _queryQueue: [],
+2026-07-24T09:58:11.763607693Z     binary: false,
+2026-07-24T09:58:11.763611910Z     processID: 2925412,
+2026-07-24T09:58:11.763614020Z     secretKey: 1469955491,
+2026-07-24T09:58:11.763615854Z     ssl: false,
+2026-07-24T09:58:11.763617738Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.763619804Z     _connectionCallback: null,
+2026-07-24T09:58:11.763621831Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.763623983Z       _idleTimeout: -1,
+2026-07-24T09:58:11.763625755Z       _idlePrev: null,
+2026-07-24T09:58:11.763627592Z       _idleNext: null,
+2026-07-24T09:58:11.763629606Z       _idleStart: 348229829,
+2026-07-24T09:58:11.763631735Z       _onTimeout: null,
+2026-07-24T09:58:11.763633403Z       _timerArgs: undefined,
+2026-07-24T09:58:11.763635384Z       _repeat: null,
+2026-07-24T09:58:11.763637008Z       _destroyed: true,
+2026-07-24T09:58:11.763638650Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.763640459Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.763642369Z       [Symbol(asyncId)]: 93808018,
+2026-07-24T09:58:11.763644192Z       [Symbol(triggerId)]: 93808012,
+2026-07-24T09:58:11.763646226Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.767211678Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767217519Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767219939Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767222097Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767225852Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767229705Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.767231491Z     },
+2026-07-24T09:58:11.767233429Z     saslSession: null,
+2026-07-24T09:58:11.767235478Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.767237583Z     readyForQuery: true,
+2026-07-24T09:58:11.767239467Z     hasExecuted: true,
+2026-07-24T09:58:11.767241478Z     _poolUseCount: 12,
+2026-07-24T09:58:11.767243346Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767245329Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767248246Z   }
+2026-07-24T09:58:11.767251058Z }
+2026-07-24T09:58:11.767252883Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.767255029Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.767257185Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.767259141Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.767261218Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.767269727Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.767272591Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.767274719Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.767276704Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.767278781Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.767280898Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.767282946Z   length: 116,
+2026-07-24T09:58:11.767284972Z   severity: 'FATAL',
+2026-07-24T09:58:11.767286927Z   code: '57P01',
+2026-07-24T09:58:11.767289014Z   detail: undefined,
+2026-07-24T09:58:11.767290313Z   hint: undefined,
+2026-07-24T09:58:11.767291595Z   position: undefined,
+2026-07-24T09:58:11.767292981Z   internalPosition: undefined,
+2026-07-24T09:58:11.767294284Z   internalQuery: undefined,
+2026-07-24T09:58:11.767295571Z   where: undefined,
+2026-07-24T09:58:11.767296847Z   schema: undefined,
+2026-07-24T09:58:11.767298128Z   table: undefined,
+2026-07-24T09:58:11.767299402Z   column: undefined,
+2026-07-24T09:58:11.767300681Z   dataType: undefined,
+2026-07-24T09:58:11.767301962Z   constraint: undefined,
+2026-07-24T09:58:11.767303281Z   file: 'postgres.c',
+2026-07-24T09:58:11.767304562Z   line: '3315',
+2026-07-24T09:58:11.767305838Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.767307122Z   client: Client {
+2026-07-24T09:58:11.767308431Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.767309830Z     _eventsCount: 1,
+2026-07-24T09:58:11.767311164Z     _maxListeners: undefined,
+2026-07-24T09:58:11.767312496Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.767313837Z       user: 'postgres',
+2026-07-24T09:58:11.767317515Z       database: 'postgres',
+2026-07-24T09:58:11.767318830Z       port: 5432,
+2026-07-24T09:58:11.767320140Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767321448Z       binary: false,
+2026-07-24T09:58:11.767322738Z       options: undefined,
+2026-07-24T09:58:11.767324021Z       ssl: false,
+2026-07-24T09:58:11.767325289Z       client_encoding: '',
+2026-07-24T09:58:11.767326600Z       replication: undefined,
+2026-07-24T09:58:11.767327927Z       isDomainSocket: false,
+2026-07-24T09:58:11.767329224Z       application_name: 'pgboss',
+2026-07-24T09:58:11.767333182Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.767334518Z       statement_timeout: false,
+2026-07-24T09:58:11.767335809Z       lock_timeout: false,
+2026-07-24T09:58:11.767337481Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.767338832Z       query_timeout: false,
+2026-07-24T09:58:11.767340329Z       connect_timeout: 10
+2026-07-24T09:58:11.767342348Z     },
+2026-07-24T09:58:11.767344342Z     user: 'postgres',
+2026-07-24T09:58:11.767346340Z     database: 'postgres',
+2026-07-24T09:58:11.767348257Z     port: 5432,
+2026-07-24T09:58:11.767350268Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767353194Z     replication: undefined,
+2026-07-24T09:58:11.767356214Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.767358085Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.767360233Z     _ending: true,
+2026-07-24T09:58:11.767362092Z     _ended: false,
+2026-07-24T09:58:11.767364248Z     _connecting: false,
+2026-07-24T09:58:11.767366160Z     _connected: true,
+2026-07-24T09:58:11.767368004Z     _connectionError: false,
+2026-07-24T09:58:11.767369909Z     _queryable: false,
+2026-07-24T09:58:11.767371896Z     _activeQuery: null,
+2026-07-24T09:58:11.767373918Z     enableChannelBinding: false,
+2026-07-24T09:58:11.767375925Z     connection: Connection {
+2026-07-24T09:58:11.767377896Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.767380325Z       _eventsCount: 23,
+2026-07-24T09:58:11.767382388Z       _maxListeners: undefined,
+2026-07-24T09:58:11.767384447Z       stream: [Socket],
+2026-07-24T09:58:11.767386349Z       _keepAlive: false,
+2026-07-24T09:58:11.767388494Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.767390792Z       parsedStatements: {},
+2026-07-24T09:58:11.767394223Z       ssl: false,
+2026-07-24T09:58:11.767396485Z       _ending: false,
+2026-07-24T09:58:11.767398286Z       _emitMessage: false,
+2026-07-24T09:58:11.767400488Z       _connecting: true,
+2026-07-24T09:58:11.767402643Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767404566Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767406530Z     },
+2026-07-24T09:58:11.767408478Z     _queryQueue: [],
+2026-07-24T09:58:11.767410707Z     binary: false,
+2026-07-24T09:58:11.767412807Z     processID: 2925386,
+2026-07-24T09:58:11.767414628Z     secretKey: 206463429,
+2026-07-24T09:58:11.767416643Z     ssl: false,
+2026-07-24T09:58:11.767422615Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.767425284Z     _connectionCallback: null,
+2026-07-24T09:58:11.767427360Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.767429542Z       _idleTimeout: -1,
+2026-07-24T09:58:11.767431784Z       _idlePrev: null,
+2026-07-24T09:58:11.767433841Z       _idleNext: null,
+2026-07-24T09:58:11.767435700Z       _idleStart: 348211822,
+2026-07-24T09:58:11.767437599Z       _onTimeout: null,
+2026-07-24T09:58:11.767439550Z       _timerArgs: undefined,
+2026-07-24T09:58:11.767442920Z       _repeat: null,
+2026-07-24T09:58:11.767445240Z       _destroyed: true,
+2026-07-24T09:58:11.767447259Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.767449167Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.767451347Z       [Symbol(asyncId)]: 93803347,
+2026-07-24T09:58:11.767453378Z       [Symbol(triggerId)]: 93803341,
+2026-07-24T09:58:11.767455351Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.767457315Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767459352Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767461376Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767463427Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767465573Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767467289Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.767468647Z     },
+2026-07-24T09:58:11.767470273Z     saslSession: null,
+2026-07-24T09:58:11.767472373Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.767474406Z     readyForQuery: true,
+2026-07-24T09:58:11.767476294Z     hasExecuted: true,
+2026-07-24T09:58:11.767478322Z     _poolUseCount: 22,
+2026-07-24T09:58:11.767480347Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767482432Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767484432Z   }
+2026-07-24T09:58:11.767486363Z }
+2026-07-24T09:58:11.767488466Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.767491855Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.767494024Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.767496212Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.767500052Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.767502346Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.767504528Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.767509327Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.767511626Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.767513628Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.767515718Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.767517893Z   length: 116,
+2026-07-24T09:58:11.767519611Z   severity: 'FATAL',
+2026-07-24T09:58:11.767520941Z   code: '57P01',
+2026-07-24T09:58:11.767522694Z   detail: undefined,
+2026-07-24T09:58:11.767524729Z   hint: undefined,
+2026-07-24T09:58:11.767526798Z   position: undefined,
+2026-07-24T09:58:11.767528681Z   internalPosition: undefined,
+2026-07-24T09:58:11.767530764Z   internalQuery: undefined,
+2026-07-24T09:58:11.767532827Z   where: undefined,
+2026-07-24T09:58:11.767534807Z   schema: undefined,
+2026-07-24T09:58:11.767536719Z   table: undefined,
+2026-07-24T09:58:11.767538788Z   column: undefined,
+2026-07-24T09:58:11.767540652Z   dataType: undefined,
+2026-07-24T09:58:11.767542567Z   constraint: undefined,
+2026-07-24T09:58:11.767544588Z   file: 'postgres.c',
+2026-07-24T09:58:11.767546680Z   line: '3315',
+2026-07-24T09:58:11.767548859Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.767550281Z   client: Client {
+2026-07-24T09:58:11.767551585Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.767552938Z     _eventsCount: 1,
+2026-07-24T09:58:11.767554217Z     _maxListeners: undefined,
+2026-07-24T09:58:11.767555515Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.767556816Z       user: 'postgres',
+2026-07-24T09:58:11.767558095Z       database: 'postgres',
+2026-07-24T09:58:11.767559395Z       port: 5432,
+2026-07-24T09:58:11.767560677Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767561967Z       binary: false,
+2026-07-24T09:58:11.767563236Z       options: undefined,
+2026-07-24T09:58:11.767564521Z       ssl: false,
+2026-07-24T09:58:11.767565791Z       client_encoding: '',
+2026-07-24T09:58:11.767567078Z       replication: undefined,
+2026-07-24T09:58:11.767568410Z       isDomainSocket: false,
+2026-07-24T09:58:11.767569739Z       application_name: 'pgboss',
+2026-07-24T09:58:11.767571033Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.767572334Z       statement_timeout: false,
+2026-07-24T09:58:11.767573614Z       lock_timeout: false,
+2026-07-24T09:58:11.767577021Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.767578338Z       query_timeout: false,
+2026-07-24T09:58:11.767579625Z       connect_timeout: 10
+2026-07-24T09:58:11.767580919Z     },
+2026-07-24T09:58:11.767582186Z     user: 'postgres',
+2026-07-24T09:58:11.767583470Z     database: 'postgres',
+2026-07-24T09:58:11.767584775Z     port: 5432,
+2026-07-24T09:58:11.767586042Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767587375Z     replication: undefined,
+2026-07-24T09:58:11.767588680Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.767590006Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.767591373Z     _ending: true,
+2026-07-24T09:58:11.767592668Z     _ended: false,
+2026-07-24T09:58:11.767594240Z     _connecting: false,
+2026-07-24T09:58:11.767595539Z     _connected: true,
+2026-07-24T09:58:11.767596822Z     _connectionError: false,
+2026-07-24T09:58:11.767598108Z     _queryable: false,
+2026-07-24T09:58:11.767599385Z     _activeQuery: null,
+2026-07-24T09:58:11.767600685Z     enableChannelBinding: false,
+2026-07-24T09:58:11.767601967Z     connection: Connection {
+2026-07-24T09:58:11.767603298Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.767604591Z       _eventsCount: 23,
+2026-07-24T09:58:11.767605879Z       _maxListeners: undefined,
+2026-07-24T09:58:11.767607162Z       stream: [Socket],
+2026-07-24T09:58:11.767608438Z       _keepAlive: false,
+2026-07-24T09:58:11.767609951Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.767612088Z       parsedStatements: {},
+2026-07-24T09:58:11.767614255Z       ssl: false,
+2026-07-24T09:58:11.767616241Z       _ending: true,
+2026-07-24T09:58:11.767618299Z       _emitMessage: false,
+2026-07-24T09:58:11.767621895Z       _connecting: true,
+2026-07-24T09:58:11.767623967Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767625913Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767627973Z     },
+2026-07-24T09:58:11.767629901Z     _queryQueue: [],
+2026-07-24T09:58:11.767631782Z     binary: false,
+2026-07-24T09:58:11.767633673Z     processID: 2925415,
+2026-07-24T09:58:11.767635726Z     secretKey: -797988147,
+2026-07-24T09:58:11.767637608Z     ssl: false,
+2026-07-24T09:58:11.767639561Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.767641713Z     _connectionCallback: null,
+2026-07-24T09:58:11.767644499Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.767650128Z       _idleTimeout: -1,
+2026-07-24T09:58:11.767652178Z       _idlePrev: null,
+2026-07-24T09:58:11.767654145Z       _idleNext: null,
+2026-07-24T09:58:11.767655996Z       _idleStart: 348229829,
+2026-07-24T09:58:11.767658072Z       _onTimeout: null,
+2026-07-24T09:58:11.767660263Z       _timerArgs: undefined,
+2026-07-24T09:58:11.767662309Z       _repeat: null,
+2026-07-24T09:58:11.767664345Z       _destroyed: true,
+2026-07-24T09:58:11.767666198Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.767668164Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.767670244Z       [Symbol(asyncId)]: 93808086,
+2026-07-24T09:58:11.767672250Z       [Symbol(triggerId)]: 93808080,
+2026-07-24T09:58:11.767674845Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.767676539Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.767678422Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.767680420Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767682304Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767684491Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767686499Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.767688569Z     },
+2026-07-24T09:58:11.767692132Z     saslSession: null,
+2026-07-24T09:58:11.767694059Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.767696172Z     readyForQuery: true,
+2026-07-24T09:58:11.767698215Z     hasExecuted: true,
+2026-07-24T09:58:11.767700107Z     _poolUseCount: 22,
+2026-07-24T09:58:11.767701999Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767703906Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767705863Z   }
+2026-07-24T09:58:11.767707838Z }
+2026-07-24T09:58:11.767709844Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.767712885Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.767715889Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.767717886Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.767720052Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.767722368Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.767724785Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.767726857Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.767728906Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.767735281Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.767737769Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.767739870Z   length: 116,
+2026-07-24T09:58:11.767741821Z   severity: 'FATAL',
+2026-07-24T09:58:11.767743960Z   code: '57P01',
+2026-07-24T09:58:11.767745893Z   detail: undefined,
+2026-07-24T09:58:11.767747891Z   hint: undefined,
+2026-07-24T09:58:11.767749766Z   position: undefined,
+2026-07-24T09:58:11.767752024Z   internalPosition: undefined,
+2026-07-24T09:58:11.767753352Z   internalQuery: undefined,
+2026-07-24T09:58:11.767754640Z   where: undefined,
+2026-07-24T09:58:11.767755921Z   schema: undefined,
+2026-07-24T09:58:11.767757231Z   table: undefined,
+2026-07-24T09:58:11.767758510Z   column: undefined,
+2026-07-24T09:58:11.767759793Z   dataType: undefined,
+2026-07-24T09:58:11.767761069Z   constraint: undefined,
+2026-07-24T09:58:11.767762351Z   file: 'postgres.c',
+2026-07-24T09:58:11.767763631Z   line: '3315',
+2026-07-24T09:58:11.767764879Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.767766168Z   client: Client {
+2026-07-24T09:58:11.767767508Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.767768870Z     _eventsCount: 1,
+2026-07-24T09:58:11.767770155Z     _maxListeners: undefined,
+2026-07-24T09:58:11.767771453Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.767772752Z       user: 'postgres',
+2026-07-24T09:58:11.767774179Z       database: 'postgres',
+2026-07-24T09:58:11.767776094Z       port: 5432,
+2026-07-24T09:58:11.767778143Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767780203Z       binary: false,
+2026-07-24T09:58:11.767782100Z       options: undefined,
+2026-07-24T09:58:11.767784194Z       ssl: false,
+2026-07-24T09:58:11.767786416Z       client_encoding: '',
+2026-07-24T09:58:11.767788311Z       replication: undefined,
+2026-07-24T09:58:11.767789632Z       isDomainSocket: false,
+2026-07-24T09:58:11.767791002Z       application_name: 'pgboss',
+2026-07-24T09:58:11.767792317Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.767793649Z       statement_timeout: false,
+2026-07-24T09:58:11.767794944Z       lock_timeout: false,
+2026-07-24T09:58:11.767796906Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.767799120Z       query_timeout: false,
+2026-07-24T09:58:11.767801094Z       connect_timeout: 10
+2026-07-24T09:58:11.767807363Z     },
+2026-07-24T09:58:11.767809719Z     user: 'postgres',
+2026-07-24T09:58:11.767811793Z     database: 'postgres',
+2026-07-24T09:58:11.767813905Z     port: 5432,
+2026-07-24T09:58:11.767815994Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.767817911Z     replication: undefined,
+2026-07-24T09:58:11.767819800Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.767821760Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.767824862Z     _ending: true,
+2026-07-24T09:58:11.767827450Z     _ended: false,
+2026-07-24T09:58:11.767829393Z     _connecting: false,
+2026-07-24T09:58:11.767831498Z     _connected: true,
+2026-07-24T09:58:11.767833457Z     _connectionError: false,
+2026-07-24T09:58:11.767835481Z     _queryable: false,
+2026-07-24T09:58:11.767837623Z     _activeQuery: null,
+2026-07-24T09:58:11.767839472Z     enableChannelBinding: false,
+2026-07-24T09:58:11.767841352Z     connection: Connection {
+2026-07-24T09:58:11.767844164Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.767847151Z       _eventsCount: 23,
+2026-07-24T09:58:11.767849346Z       _maxListeners: undefined,
+2026-07-24T09:58:11.767851393Z       stream: [Socket],
+2026-07-24T09:58:11.767853266Z       _keepAlive: false,
+2026-07-24T09:58:11.767855182Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.767859783Z       parsedStatements: {},
+2026-07-24T09:58:11.767862525Z       ssl: false,
+2026-07-24T09:58:11.767864628Z       _ending: true,
+2026-07-24T09:58:11.767866408Z       _emitMessage: false,
+2026-07-24T09:58:11.767868367Z       _connecting: true,
+2026-07-24T09:58:11.767878238Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767881674Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767883553Z     },
+2026-07-24T09:58:11.767885489Z     _queryQueue: [],
+2026-07-24T09:58:11.767887693Z     binary: false,
+2026-07-24T09:58:11.767889574Z     processID: 2925057,
+2026-07-24T09:58:11.767891303Z     secretKey: -632573483,
+2026-07-24T09:58:11.767893284Z     ssl: false,
+2026-07-24T09:58:11.767895263Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.767897282Z     _connectionCallback: null,
+2026-07-24T09:58:11.767899211Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.767901234Z       _idleTimeout: -1,
+2026-07-24T09:58:11.767903224Z       _idlePrev: null,
+2026-07-24T09:58:11.767905225Z       _idleNext: null,
+2026-07-24T09:58:11.767910662Z       _idleStart: 348029772,
+2026-07-24T09:58:11.767912147Z       _onTimeout: null,
+2026-07-24T09:58:11.767913503Z       _timerArgs: undefined,
+2026-07-24T09:58:11.767914846Z       _repeat: null,
+2026-07-24T09:58:11.767916131Z       _destroyed: true,
+2026-07-24T09:58:11.767917423Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.767918736Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.767920052Z       [Symbol(asyncId)]: 93755458,
+2026-07-24T09:58:11.767921380Z       [Symbol(triggerId)]: 93755452,
+2026-07-24T09:58:11.767922741Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.767924065Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.767925374Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.767926682Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767927992Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767929301Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.767930607Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.767931930Z     },
+2026-07-24T09:58:11.767933205Z     saslSession: null,
+2026-07-24T09:58:11.767934930Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.767937038Z     readyForQuery: true,
+2026-07-24T09:58:11.767939049Z     hasExecuted: true,
+2026-07-24T09:58:11.767940919Z     _poolUseCount: 125,
+2026-07-24T09:58:11.767942847Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.767944818Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.767948605Z   }
+2026-07-24T09:58:11.767950587Z }
+2026-07-24T09:58:11.772203540Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.772214073Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.772216599Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.772218883Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.772220857Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.772226367Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.772228468Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.772230461Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.772232675Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.772234677Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.772236697Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.772249019Z   length: 116,
+2026-07-24T09:58:11.772251855Z   severity: 'FATAL',
+2026-07-24T09:58:11.772254085Z   code: '57P01',
+2026-07-24T09:58:11.772257602Z   detail: undefined,
+2026-07-24T09:58:11.772259891Z   hint: undefined,
+2026-07-24T09:58:11.772265208Z   position: undefined,
+2026-07-24T09:58:11.772266922Z   internalPosition: undefined,
+2026-07-24T09:58:11.772268888Z   internalQuery: undefined,
+2026-07-24T09:58:11.772270413Z   where: undefined,
+2026-07-24T09:58:11.772272326Z   schema: undefined,
+2026-07-24T09:58:11.772274064Z   table: undefined,
+2026-07-24T09:58:11.772275938Z   column: undefined,
+2026-07-24T09:58:11.772277705Z   dataType: undefined,
+2026-07-24T09:58:11.772279901Z   constraint: undefined,
+2026-07-24T09:58:11.772281712Z   file: 'postgres.c',
+2026-07-24T09:58:11.772284117Z   line: '3315',
+2026-07-24T09:58:11.772286023Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.772290418Z   client: Client {
+2026-07-24T09:58:11.772292503Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.772294398Z     _eventsCount: 1,
+2026-07-24T09:58:11.772296084Z     _maxListeners: undefined,
+2026-07-24T09:58:11.772297872Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.772299555Z       user: 'postgres',
+2026-07-24T09:58:11.772301496Z       database: 'postgres',
+2026-07-24T09:58:11.772303717Z       port: 5432,
+2026-07-24T09:58:11.772307009Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772309385Z       binary: false,
+2026-07-24T09:58:11.772311931Z       options: undefined,
+2026-07-24T09:58:11.772313771Z       ssl: false,
+2026-07-24T09:58:11.772315807Z       client_encoding: '',
+2026-07-24T09:58:11.772317619Z       replication: undefined,
+2026-07-24T09:58:11.772319836Z       isDomainSocket: false,
+2026-07-24T09:58:11.772321769Z       application_name: 'pgboss',
+2026-07-24T09:58:11.772323652Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.772328683Z       statement_timeout: false,
+2026-07-24T09:58:11.772330717Z       lock_timeout: false,
+2026-07-24T09:58:11.772332499Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.772334406Z       query_timeout: false,
+2026-07-24T09:58:11.772336158Z       connect_timeout: 10
+2026-07-24T09:58:11.772337902Z     },
+2026-07-24T09:58:11.772339616Z     user: 'postgres',
+2026-07-24T09:58:11.772341376Z     database: 'postgres',
+2026-07-24T09:58:11.772346051Z     port: 5432,
+2026-07-24T09:58:11.772347798Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772349487Z     replication: undefined,
+2026-07-24T09:58:11.772351256Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.772353607Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.772355528Z     _ending: true,
+2026-07-24T09:58:11.772357495Z     _ended: false,
+2026-07-24T09:58:11.772359480Z     _connecting: false,
+2026-07-24T09:58:11.772361363Z     _connected: true,
+2026-07-24T09:58:11.772363304Z     _connectionError: false,
+2026-07-24T09:58:11.772365107Z     _queryable: false,
+2026-07-24T09:58:11.772367085Z     _activeQuery: null,
+2026-07-24T09:58:11.772369123Z     enableChannelBinding: false,
+2026-07-24T09:58:11.772371151Z     connection: Connection {
+2026-07-24T09:58:11.772373267Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.772376749Z       _eventsCount: 23,
+2026-07-24T09:58:11.772378940Z       _maxListeners: undefined,
+2026-07-24T09:58:11.772381030Z       stream: [Socket],
+2026-07-24T09:58:11.772382808Z       _keepAlive: false,
+2026-07-24T09:58:11.772385268Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.772386961Z       parsedStatements: {},
+2026-07-24T09:58:11.772389052Z       ssl: false,
+2026-07-24T09:58:11.772391001Z       _ending: false,
+2026-07-24T09:58:11.772392697Z       _emitMessage: false,
+2026-07-24T09:58:11.772394450Z       _connecting: true,
+2026-07-24T09:58:11.772396215Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.772398076Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.772399837Z     },
+2026-07-24T09:58:11.772401627Z     _queryQueue: [],
+2026-07-24T09:58:11.772403488Z     binary: false,
+2026-07-24T09:58:11.772405463Z     processID: 2925413,
+2026-07-24T09:58:11.772407191Z     secretKey: 1125872173,
+2026-07-24T09:58:11.772409056Z     ssl: false,
+2026-07-24T09:58:11.772410774Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.772412789Z     _connectionCallback: null,
+2026-07-24T09:58:11.772414514Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.772416303Z       _idleTimeout: -1,
+2026-07-24T09:58:11.772418030Z       _idlePrev: null,
+2026-07-24T09:58:11.772419695Z       _idleNext: null,
+2026-07-24T09:58:11.772421462Z       _idleStart: 348229829,
+2026-07-24T09:58:11.772423255Z       _onTimeout: null,
+2026-07-24T09:58:11.772425124Z       _timerArgs: undefined,
+2026-07-24T09:58:11.772429432Z       _repeat: null,
+2026-07-24T09:58:11.772431272Z       _destroyed: true,
+2026-07-24T09:58:11.772433267Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.772434976Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.772437087Z       [Symbol(asyncId)]: 93808068,
+2026-07-24T09:58:11.772438829Z       [Symbol(triggerId)]: 93808062,
+2026-07-24T09:58:11.772440582Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.772442373Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.772444304Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.772446046Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772447832Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772449563Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772451222Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.772453299Z     },
+2026-07-24T09:58:11.772455023Z     saslSession: null,
+2026-07-24T09:58:11.772456815Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.772458625Z     readyForQuery: true,
+2026-07-24T09:58:11.772460572Z     hasExecuted: true,
+2026-07-24T09:58:11.772462354Z     _poolUseCount: 13,
+2026-07-24T09:58:11.772464057Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.772465825Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.772467760Z   }
+2026-07-24T09:58:11.772469497Z }
+2026-07-24T09:58:11.772471568Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.772473424Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.772475473Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.772477325Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.772479735Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.772481685Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.772483782Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.772485541Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.772487443Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.772489246Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.772491184Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.772492984Z   length: 116,
+2026-07-24T09:58:11.772494750Z   severity: 'FATAL',
+2026-07-24T09:58:11.772496530Z   code: '57P01',
+2026-07-24T09:58:11.772501040Z   detail: undefined,
+2026-07-24T09:58:11.772502829Z   hint: undefined,
+2026-07-24T09:58:11.772504758Z   position: undefined,
+2026-07-24T09:58:11.772506845Z   internalPosition: undefined,
+2026-07-24T09:58:11.772508844Z   internalQuery: undefined,
+2026-07-24T09:58:11.772512445Z   where: undefined,
+2026-07-24T09:58:11.772514466Z   schema: undefined,
+2026-07-24T09:58:11.772517150Z   table: undefined,
+2026-07-24T09:58:11.772518819Z   column: undefined,
+2026-07-24T09:58:11.772520711Z   dataType: undefined,
+2026-07-24T09:58:11.772522864Z   constraint: undefined,
+2026-07-24T09:58:11.772524791Z   file: 'postgres.c',
+2026-07-24T09:58:11.772526944Z   line: '3315',
+2026-07-24T09:58:11.772529088Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.772531401Z   client: Client {
+2026-07-24T09:58:11.772533627Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.772536018Z     _eventsCount: 1,
+2026-07-24T09:58:11.772538025Z     _maxListeners: undefined,
+2026-07-24T09:58:11.772539811Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.772541745Z       user: 'postgres',
+2026-07-24T09:58:11.772543529Z       database: 'postgres',
+2026-07-24T09:58:11.772545604Z       port: 5432,
+2026-07-24T09:58:11.772547623Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772549481Z       binary: false,
+2026-07-24T09:58:11.772551344Z       options: undefined,
+2026-07-24T09:58:11.772553267Z       ssl: false,
+2026-07-24T09:58:11.772555204Z       client_encoding: '',
+2026-07-24T09:58:11.772557094Z       replication: undefined,
+2026-07-24T09:58:11.772558887Z       isDomainSocket: false,
+2026-07-24T09:58:11.772560907Z       application_name: 'pgboss',
+2026-07-24T09:58:11.772562545Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.772564261Z       statement_timeout: false,
+2026-07-24T09:58:11.772565932Z       lock_timeout: false,
+2026-07-24T09:58:11.772567645Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.772569536Z       query_timeout: false,
+2026-07-24T09:58:11.772571253Z       connect_timeout: 10
+2026-07-24T09:58:11.772572923Z     },
+2026-07-24T09:58:11.772574714Z     user: 'postgres',
+2026-07-24T09:58:11.772576407Z     database: 'postgres',
+2026-07-24T09:58:11.772578266Z     port: 5432,
+2026-07-24T09:58:11.772579912Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772581641Z     replication: undefined,
+2026-07-24T09:58:11.772586052Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.772587808Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.772589869Z     _ending: true,
+2026-07-24T09:58:11.772591530Z     _ended: false,
+2026-07-24T09:58:11.772593470Z     _connecting: false,
+2026-07-24T09:58:11.772595248Z     _connected: true,
+2026-07-24T09:58:11.772596980Z     _connectionError: false,
+2026-07-24T09:58:11.772598787Z     _queryable: false,
+2026-07-24T09:58:11.772600607Z     _activeQuery: null,
+2026-07-24T09:58:11.772602290Z     enableChannelBinding: false,
+2026-07-24T09:58:11.772604062Z     connection: Connection {
+2026-07-24T09:58:11.772605864Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.772607599Z       _eventsCount: 23,
+2026-07-24T09:58:11.772609452Z       _maxListeners: undefined,
+2026-07-24T09:58:11.772611788Z       stream: [Socket],
+2026-07-24T09:58:11.772613582Z       _keepAlive: false,
+2026-07-24T09:58:11.772615356Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.772617217Z       parsedStatements: {},
+2026-07-24T09:58:11.772618970Z       ssl: false,
+2026-07-24T09:58:11.772620986Z       _ending: false,
+2026-07-24T09:58:11.772622800Z       _emitMessage: false,
+2026-07-24T09:58:11.772624839Z       _connecting: true,
+2026-07-24T09:58:11.772626463Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.772628314Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.772630286Z     },
+2026-07-24T09:58:11.772632116Z     _queryQueue: [],
+2026-07-24T09:58:11.772633705Z     binary: false,
+2026-07-24T09:58:11.772635486Z     processID: 2925414,
+2026-07-24T09:58:11.772637410Z     secretKey: -307836373,
+2026-07-24T09:58:11.772639113Z     ssl: false,
+2026-07-24T09:58:11.772640904Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.772642678Z     _connectionCallback: null,
+2026-07-24T09:58:11.772644644Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.772646648Z       _idleTimeout: -1,
+2026-07-24T09:58:11.772648717Z       _idlePrev: null,
+2026-07-24T09:58:11.772650717Z       _idleNext: null,
+2026-07-24T09:58:11.772652809Z       _idleStart: 348229829,
+2026-07-24T09:58:11.772654887Z       _onTimeout: null,
+2026-07-24T09:58:11.772656891Z       _timerArgs: undefined,
+2026-07-24T09:58:11.772658923Z       _repeat: null,
+2026-07-24T09:58:11.772772890Z       _destroyed: true,
+2026-07-24T09:58:11.772777780Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.772782962Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.772785144Z       [Symbol(asyncId)]: 93808050,
+2026-07-24T09:58:11.772786912Z       [Symbol(triggerId)]: 93808044,
+2026-07-24T09:58:11.772788658Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.772790449Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772792123Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772794011Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772795971Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772798087Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.772800141Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.772802076Z     },
+2026-07-24T09:58:11.772803821Z     saslSession: null,
+2026-07-24T09:58:11.772805678Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.772807439Z     readyForQuery: true,
+2026-07-24T09:58:11.772809279Z     hasExecuted: true,
+2026-07-24T09:58:11.772811120Z     _poolUseCount: 17,
+2026-07-24T09:58:11.772813106Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.772814931Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.772817000Z   }
+2026-07-24T09:58:11.772818943Z }
+2026-07-24T09:58:11.772820918Z pg-boss error error: terminating connection due to administrator command
+2026-07-24T09:58:11.772823011Z     at parseErrorMessage (file:///app/.output/server/_libs/pg-protocol.mjs:810:103)
+2026-07-24T09:58:11.772825179Z     at Parser.handlePacket (file:///app/.output/server/_libs/pg-protocol.mjs:652:21)
+2026-07-24T09:58:11.772827466Z     at Parser.parse (file:///app/.output/server/_libs/pg-protocol.mjs:558:32)
+2026-07-24T09:58:11.772829631Z     at Socket.<anonymous> (file:///app/.output/server/_libs/pg-protocol.mjs:849:45)
+2026-07-24T09:58:11.772832368Z     at Socket.emit (node:events:507:28)
+2026-07-24T09:58:11.772834421Z     at addChunk (node:internal/streams/readable:559:12)
+2026-07-24T09:58:11.772842347Z     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+2026-07-24T09:58:11.772844311Z     at Readable.push (node:internal/streams/readable:390:5)
+2026-07-24T09:58:11.772846030Z     at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+2026-07-24T09:58:11.772848462Z     at TCP.callbackTrampoline (node:internal/async_hooks:130:17) {
+2026-07-24T09:58:11.772850193Z   length: 116,
+2026-07-24T09:58:11.772852035Z   severity: 'FATAL',
+2026-07-24T09:58:11.772853682Z   code: '57P01',
+2026-07-24T09:58:11.772855599Z   detail: undefined,
+2026-07-24T09:58:11.772857462Z   hint: undefined,
+2026-07-24T09:58:11.772859575Z   position: undefined,
+2026-07-24T09:58:11.772863992Z   internalPosition: undefined,
+2026-07-24T09:58:11.772865978Z   internalQuery: undefined,
+2026-07-24T09:58:11.772867860Z   where: undefined,
+2026-07-24T09:58:11.772869986Z   schema: undefined,
+2026-07-24T09:58:11.772880679Z   table: undefined,
+2026-07-24T09:58:11.772882725Z   column: undefined,
+2026-07-24T09:58:11.772888946Z   dataType: undefined,
+2026-07-24T09:58:11.772891243Z   constraint: undefined,
+2026-07-24T09:58:11.772893130Z   file: 'postgres.c',
+2026-07-24T09:58:11.772895370Z   line: '3315',
+2026-07-24T09:58:11.772897166Z   routine: 'ProcessInterrupts',
+2026-07-24T09:58:11.772899069Z   client: Client {
+2026-07-24T09:58:11.772900814Z     _events: [Object: null prototype] { error: [Function (anonymous)] },
+2026-07-24T09:58:11.772902824Z     _eventsCount: 1,
+2026-07-24T09:58:11.772904591Z     _maxListeners: undefined,
+2026-07-24T09:58:11.772906682Z     connectionParameters: ConnectionParameters {
+2026-07-24T09:58:11.772908535Z       user: 'postgres',
+2026-07-24T09:58:11.772910406Z       database: 'postgres',
+2026-07-24T09:58:11.772912205Z       port: 5432,
+2026-07-24T09:58:11.772914275Z       host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772916079Z       binary: false,
+2026-07-24T09:58:11.772917898Z       options: undefined,
+2026-07-24T09:58:11.772919650Z       ssl: false,
+2026-07-24T09:58:11.772921746Z       client_encoding: '',
+2026-07-24T09:58:11.772923396Z       replication: undefined,
+2026-07-24T09:58:11.772925150Z       isDomainSocket: false,
+2026-07-24T09:58:11.772927271Z       application_name: 'pgboss',
+2026-07-24T09:58:11.772929502Z       fallback_application_name: undefined,
+2026-07-24T09:58:11.772931461Z       statement_timeout: false,
+2026-07-24T09:58:11.772933301Z       lock_timeout: false,
+2026-07-24T09:58:11.772935030Z       idle_in_transaction_session_timeout: false,
+2026-07-24T09:58:11.772936783Z       query_timeout: false,
+2026-07-24T09:58:11.772939085Z       connect_timeout: 10
+2026-07-24T09:58:11.772940957Z     },
+2026-07-24T09:58:11.772942785Z     user: 'postgres',
+2026-07-24T09:58:11.772944718Z     database: 'postgres',
+2026-07-24T09:58:11.772946477Z     port: 5432,
+2026-07-24T09:58:11.772948084Z     host: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:11.772949910Z     replication: undefined,
+2026-07-24T09:58:11.772951828Z     _Promise: [Function: Promise],
+2026-07-24T09:58:11.772953784Z     _types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2026-07-24T09:58:11.772955773Z     _ending: true,
+2026-07-24T09:58:11.772960165Z     _ended: false,
+2026-07-24T09:58:11.772962142Z     _connecting: false,
+2026-07-24T09:58:11.772964013Z     _connected: true,
+2026-07-24T09:58:11.772965867Z     _connectionError: false,
+2026-07-24T09:58:11.772967847Z     _queryable: false,
+2026-07-24T09:58:11.772969693Z     _activeQuery: null,
+2026-07-24T09:58:11.772971562Z     enableChannelBinding: false,
+2026-07-24T09:58:11.772973392Z     connection: Connection {
+2026-07-24T09:58:11.772975307Z       _events: [Object: null prototype],
+2026-07-24T09:58:11.772977262Z       _eventsCount: 23,
+2026-07-24T09:58:11.772979077Z       _maxListeners: undefined,
+2026-07-24T09:58:11.772981036Z       stream: [Socket],
+2026-07-24T09:58:11.772982758Z       _keepAlive: false,
+2026-07-24T09:58:11.772984633Z       _keepAliveInitialDelayMillis: 0,
+2026-07-24T09:58:11.772986569Z       parsedStatements: {},
+2026-07-24T09:58:11.772988387Z       ssl: false,
+2026-07-24T09:58:11.772990129Z       _ending: false,
+2026-07-24T09:58:11.772992116Z       _emitMessage: false,
+2026-07-24T09:58:11.772994060Z       _connecting: true,
+2026-07-24T09:58:11.772995832Z       [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.772997749Z       [Symbol(kCapture)]: false
+2026-07-24T09:58:11.772999668Z     },
+2026-07-24T09:58:11.773001569Z     _queryQueue: [],
+2026-07-24T09:58:11.773003656Z     binary: false,
+2026-07-24T09:58:11.773005648Z     processID: 2925274,
+2026-07-24T09:58:11.773008056Z     secretKey: 1000867493,
+2026-07-24T09:58:11.773009977Z     ssl: false,
+2026-07-24T09:58:11.773011880Z     _connectionTimeoutMillis: 10000,
+2026-07-24T09:58:11.773013764Z     _connectionCallback: null,
+2026-07-24T09:58:11.773015823Z     connectionTimeoutHandle: Timeout {
+2026-07-24T09:58:11.773017871Z       _idleTimeout: -1,
+2026-07-24T09:58:11.773019877Z       _idlePrev: null,
+2026-07-24T09:58:11.773021840Z       _idleNext: null,
+2026-07-24T09:58:11.773023765Z       _idleStart: 348147801,
+2026-07-24T09:58:11.773025739Z       _onTimeout: null,
+2026-07-24T09:58:11.773027789Z       _timerArgs: undefined,
+2026-07-24T09:58:11.773029718Z       _repeat: null,
+2026-07-24T09:58:11.773031551Z       _destroyed: true,
+2026-07-24T09:58:11.773033345Z       [Symbol(refed)]: false,
+2026-07-24T09:58:11.773035187Z       [Symbol(kHasPrimitive)]: false,
+2026-07-24T09:58:11.773037050Z       [Symbol(asyncId)]: 93786548,
+2026-07-24T09:58:11.773039069Z       [Symbol(triggerId)]: 93786542,
+2026-07-24T09:58:11.773043592Z       [Symbol(kAsyncContextFrame)]: undefined,
+2026-07-24T09:58:11.773045491Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.773047311Z       [Symbol(kResourceStore)]: [Object],
+2026-07-24T09:58:11.773049103Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.773050986Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.773053101Z       [Symbol(kResourceStore)]: undefined,
+2026-07-24T09:58:11.773054927Z       [Symbol(kResourceStore)]: undefined
+2026-07-24T09:58:11.773056669Z     },
+2026-07-24T09:58:11.773058343Z     saslSession: null,
+2026-07-24T09:58:11.773060319Z     release: [Function (anonymous)],
+2026-07-24T09:58:11.773062051Z     readyForQuery: true,
+2026-07-24T09:58:11.773063780Z     hasExecuted: true,
+2026-07-24T09:58:11.773065520Z     _poolUseCount: 56,
+2026-07-24T09:58:11.773067230Z     [Symbol(shapeMode)]: false,
+2026-07-24T09:58:11.773068940Z     [Symbol(kCapture)]: false
+2026-07-24T09:58:11.773070850Z   }
+2026-07-24T09:58:11.773072761Z }
+2026-07-24T09:58:11.914850044Z 
+Stopping server gracefully (5s)... Press Ctrl+C again to force close.K
+Server closed successfully.
+2026-07-24T09:58:18.129896835Z pg-boss error {
+2026-07-24T09:58:18.129967688Z   errno: -3001,
+2026-07-24T09:58:18.129973122Z   code: 'EAI_AGAIN',
+2026-07-24T09:58:18.129986604Z   syscall: 'getaddrinfo',
+2026-07-24T09:58:18.129994385Z   hostname: 'j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:18.130007783Z   message: 'getaddrinfo EAI_AGAIN j8owc80kk040k0s4gosk8wsk',
+2026-07-24T09:58:18.130022145Z   stack: 'Error: getaddrinfo EAI_AGAIN j8owc80kk040k0s4gosk8wsk\n' +
+2026-07-24T09:58:18.130024443Z     '    at file:///app/.output/server/_libs/pg-pool.mjs:44:13\n' +
+2026-07-24T09:58:18.130029355Z     '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n' +
+2026-07-24T09:58:18.130034403Z     '    at async Db.executeSql (file:///app/.output/server/_libs/pg-boss.mjs:3896:12)\n' +
+2026-07-24T09:58:18.130038061Z     '    at async Manager.getQueues (file:///app/.output/server/_libs/pg-boss.mjs:3454:22)\n' +
+2026-07-24T09:58:18.130042194Z     '    at async Manager.onCacheQueues (file:///app/.output/server/_libs/pg-boss.mjs:3027:22)'
+2026-07-24T09:58:18.130044468Z }
+2026-07-24T09:58:18.130058785Z pg-boss error Error: getaddrinfo EAI_AGAIN j8owc80kk040k0s4gosk8wsk
+2026-07-24T09:58:18.130067412Z     at file:///app/.output/server/_libs/pg-pool.mjs:44:13
+2026-07-24T09:58:18.130069541Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-07-24T09:58:18.130071377Z     at async Db.executeSql (file:///app/.output/server/_libs/pg-boss.mjs:3896:12)
+2026-07-24T09:58:18.130091035Z     at async Manager.getQueues (file:///app/.output/server/_libs/pg-boss.mjs:3454:22)
+2026-07-24T09:58:18.130093384Z     at async #onSupervise (file:///app/.output/server/_libs/pg-boss.mjs:3664:22) {
+2026-07-24T09:58:18.130095401Z   errno: -3001,
+2026-07-24T09:58:18.130097464Z   code: 'EAI_AGAIN',
+2026-07-24T09:58:18.130099588Z   syscall: 'getaddrinfo',
+2026-07-24T09:58:18.130101715Z   hostname: 'j8owc80kk040k0s4gosk8wsk'
+2026-07-24T09:58:18.130103926Z }
+2026-07-24T09:58:18.130299304Z pg-boss error Error: getaddrinfo EAI_AGAIN j8owc80kk040k0s4gosk8wsk
+2026-07-24T09:58:18.130308956Z     at file:///app/.output/server/_libs/pg-pool.mjs:44:13
+2026-07-24T09:58:18.130312097Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-07-24T09:58:18.130313733Z     at async Db.executeSql (file:///app/.output/server/_libs/pg-boss.mjs:3896:12)
+2026-07-24T09:58:18.130315042Z     at async #onPoll (file:///app/.output/server/_libs/pg-boss.mjs:3802:24) {
+2026-07-24T09:58:18.130316336Z   errno: -3001,
+2026-07-24T09:58:18.130317584Z   code: 'EAI_AGAIN',
+2026-07-24T09:58:18.130318821Z   syscall: 'getaddrinfo',
+2026-07-24T09:58:18.130320181Z   hostname: 'j8owc80kk040k0s4gosk8wsk'
+2026-07-24T09:58:18.130321479Z }
+2026-07-24T09:58:21.572031239Z pg-boss error Error: getaddrinfo EAI_AGAIN j8owc80kk040k0s4gosk8wsk
+2026-07-24T09:58:21.572055573Z     at file:///app/.output/server/_libs/pg-pool.mjs:44:13
+2026-07-24T09:58:21.572073329Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-07-24T09:58:21.572076746Z     at async Db.executeSql (file:///app/.output/server/_libs/pg-boss.mjs:3896:12)
+2026-07-24T09:58:21.572079585Z     at async Timekeeper.onCron (file:///app/.output/server/_libs/pg-boss.mjs:2587:26)
+2026-07-24T09:58:21.572082004Z     at async Timeout._onTimeout (file:///app/.output/server/_libs/pg-boss.mjs:2531:56) {
+2026-07-24T09:58:21.572084422Z   errno: -3001,
+2026-07-24T09:58:21.572086516Z   code: 'EAI_AGAIN',
+2026-07-24T09:58:21.572088806Z   syscall: 'getaddrinfo',
+2026-07-24T09:58:21.572090999Z   hostname: 'j8owc80kk040k0s4gosk8wsk'
+2026-07-24T09:58:21.572093164Z }
+2026-07-24T10:05:46.920304608Z 
+2026-07-24T10:05:46.920551817Z > todo-gameification@ db:migrate /app
+2026-07-24T10:05:46.920558948Z > drizzle-kit migrate
+2026-07-24T10:05:46.920560870Z 
+2026-07-24T10:05:47.843051749Z No config path provided, using default 'drizzle.config.ts'
+2026-07-24T10:05:47.843415655Z Reading config file '/app/drizzle.config.ts'
+2026-07-24T10:05:50.334794146Z Using 'pg' driver for database querying
+2026-07-24T10:05:53.372130587Z [⣷] applying migrations...KG[⣯] applying migrations...KG[✓] migrations applied successfully!➜ Listening on: http://localhost:3310/ (all interfaces)
+2026-07-24T10:05:53.968186183Z [boot] pg-boss started; cron schedulers active
+2026-07-25T12:00:25.348245268Z [weekly-summary] tick done: due=1 sent=0 already-sent=1 skipped-unverified=0 skipped-non-member=0 failed=0
+2026-07-27T12:00:40.402006991Z [weekly-summary] tick done: due=1 sent=1 already-sent=0 skipped-unverified=0 skipped-non-member=0 failed=0

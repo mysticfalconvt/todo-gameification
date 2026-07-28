@@ -147,10 +147,16 @@ export type DeliverWeeklyResult =
   | { status: 'already-sent'; weekKey: string }
 
 // Send one user's weekly summary on demand — powers the admin "Send now"
-// button and any support-driven resend. `force` bypasses both the per-slot
-// time gate and the once-per-week dedup so an operator can (re)send at any
-// moment; the send is still recorded in weekly_email_log (sent_at bumped to
-// now) so "last sent" stays accurate. The scheduled cron path is unchanged.
+// button and any support-driven resend.
+//
+// IMPORTANT: a forced (admin) send must NOT write weekly_email_log. The
+// dedup key is the Monday-anchored weekKey, and that key does not advance
+// until the next Monday — so Monday's and (say) Saturday's sends share one
+// weekKey. If a forced resend claimed that row, the user's *scheduled* send
+// later in the same week would be skipped as "already-sent" — which is
+// exactly how a Jul-25 send got suppressed after a Jul-20 delivery of the
+// same weekKey. So: `force` sends the email and touches nothing else, and
+// only the scheduled path (and non-forced callers) claim the dedup row.
 export async function deliverWeeklySummaryToUser(
   userId: string,
   opts: { force: boolean },
@@ -167,8 +173,9 @@ export async function deliverWeeklySummaryToUser(
 
   const summary = await getWeeklySummary(userId)
 
-  // Non-forced sends respect the once-per-week claim so a manual resend can't
-  // double up on top of the scheduled one.
+  // Non-forced sends claim the once-per-week row up front so the scheduled
+  // cron and a concurrent resend can't double up. Forced sends skip this
+  // entirely and never write the dedup log (see note above).
   let claimedHere = false
   if (!opts.force) {
     const claimed = await db
@@ -208,16 +215,6 @@ export async function deliverWeeklySummaryToUser(
     }
     throw sendErr
   }
-
-  // Record/refresh the send. A forced resend for a week already logged just
-  // bumps sent_at so the admin view reflects the latest delivery.
-  await db
-    .insert(weeklyEmailLog)
-    .values({ userId, weekKey: summary.weekKey })
-    .onConflictDoUpdate({
-      target: [weeklyEmailLog.userId, weeklyEmailLog.weekKey],
-      set: { sentAt: new Date() },
-    })
 
   return { status: 'sent', weekKey: summary.weekKey }
 }

@@ -11,11 +11,14 @@
 // you do better, here's a nudge, nice work on X"). Cached per (user,
 // weekKey) in weekly_summaries — mirrors the coach blurb cache.
 //
-// Week semantics: the summary always covers the most recently *completed*
-// calendar week (last Mon–Sun) in the user's timezone, regardless of when
-// it's viewed — so the page is a faithful preview of the Monday email.
+// Week semantics: the summary covers the 7 days immediately before the
+// user's own weekly-email send boundary (their configured weekday+hour, in
+// their timezone) — "the week before the email goes out". It rolls forward
+// the moment the email fires, so the page is a faithful preview of the email
+// that most recently went out. The default Monday-08:00 slot reduces to the
+// previous Mon–Sun, unchanged from the original behavior.
 import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
-import { formatInTimeZone } from 'date-fns-tz'
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
 import {
   events,
@@ -101,14 +104,17 @@ export interface HouseholdWeekly {
 }
 
 export interface WeeklySummary {
-  // ISO yyyy-MM-dd of the subject week's Monday, in the user's tz. Stable
-  // per week — used as the cache key and the email dedup key.
+  // ISO yyyy-MM-dd of the subject week's first day, in the user's tz (7 days
+  // before their send boundary). Stable per week — used as the cache key and
+  // the email dedup key. For a Monday sender this is that week's Monday.
   weekKey: string
   weekStartLabel: string
   weekEndLabel: string
   timeZone: string
   kpis: WeeklyKpis
-  // XP + count per day for the subject week, Mon..Sun. Feeds XpLineSection.
+  // XP + count per day for the subject week, oldest→newest. Feeds
+  // XpLineSection. Day 0 is the start of the user's personalized week, which
+  // is only a Monday when their send day is Monday.
   xpByDay: Array<{ date: string; xp: number; count: number }>
   topTasks: WeeklyTopTask[]
   repeatingTasks: RepeatingTaskTotal[]
@@ -132,30 +138,64 @@ function isoDow(date: Date, tz: string): number {
   return Number(formatInTimeZone(date, tz, 'i'))
 }
 
-// Returns the local day-keys for the subject week (most recent completed
-// Mon–Sun) and the prior week, plus an ordered Mon..Sun list for the
-// subject week. Uses the same `now - k*DAY` day-key approach as coach.ts
-// / households so bucketing is consistent across the codebase.
+// Most recent instant ≤ `now` at which the user's weekly-email slot
+// (local weekday `dow` 1..7, local `hour` 0..23) occurred. Scans today back
+// through the last 7 local days. This is the "send boundary" the subject
+// week hangs off of. Returns null on an unparseable timezone.
+function lastScheduledInstant(
+  now: Date,
+  tz: string,
+  dow: number,
+  hour: number,
+): Date | null {
+  try {
+    const hh = String(hour).padStart(2, '0')
+    for (let addDays = 0; addDays <= 7; addDays++) {
+      const probe = new Date(now.getTime() - addDays * DAY_MS)
+      if (isoDow(probe, tz) !== dow) continue
+      const ymd = dayKey(probe, tz)
+      const candidate = fromZonedTime(`${ymd}T${hh}:00:00`, tz)
+      if (candidate.getTime() <= now.getTime()) return candidate
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Returns the local day-keys for the subject week and the prior week, plus
+// an ordered oldest→newest list for the subject week.
+//
+// The subject week is the 7 full days ENDING at the user's most recent send
+// boundary (their configured weekday+hour) — i.e. "the week before the email
+// goes out", per user, not a fixed calendar Mon–Sun for everyone. It rolls
+// forward the moment the email fires, so the page always matches the email
+// that most recently went out. For the default Monday-08:00 schedule this is
+// exactly the previous Mon–Sun, so nothing changes for Monday users (weekKey
+// stays that Monday's date, keeping existing dedup/cache rows valid).
 function computeWeekWindows(
   now: Date,
   tz: string,
+  dow: number,
+  hour: number,
 ): {
   weekKey: string
-  thisWeekOrdered: string[] // Mon..Sun
+  thisWeekOrdered: string[] // oldest → newest (7 days before the boundary)
   thisWeekSet: Set<string>
   lastWeekSet: Set<string>
 } {
-  const dow = isoDow(now, tz) // 1..7
-  // Last Sunday is `dow` days back; the subject week is the 7 days ending
-  // there. k=dow → Sun, k=dow+6 → Mon.
-  const keyAt = (k: number) => dayKey(new Date(now.getTime() - k * DAY_MS), tz)
+  // Fall back to `now` as the boundary if the slot can't be resolved, so a
+  // bad timezone still yields a sane trailing-7-days window.
+  const boundary = lastScheduledInstant(now, tz, dow, hour) ?? now
+  const keyAt = (k: number) =>
+    dayKey(new Date(boundary.getTime() - k * DAY_MS), tz)
   const thisWeekOrdered: string[] = []
-  for (let k = dow + 6; k >= dow; k--) thisWeekOrdered.push(keyAt(k)) // Mon..Sun
+  for (let k = 7; k >= 1; k--) thisWeekOrdered.push(keyAt(k)) // 7 days before boundary
   const thisWeekSet = new Set(thisWeekOrdered)
   const lastWeekSet = new Set<string>()
-  for (let k = dow + 7; k <= dow + 13; k++) lastWeekSet.add(keyAt(k))
+  for (let k = 14; k >= 8; k--) lastWeekSet.add(keyAt(k))
   return {
-    weekKey: thisWeekOrdered[0], // Monday
+    weekKey: thisWeekOrdered[0], // first day of the subject week
     thisWeekOrdered,
     thisWeekSet,
     lastWeekSet,
@@ -289,9 +329,16 @@ async function loadCompletionsByWeek(
   }
 }
 
-// All-time completion totals for the user's recurring tasks, with the
-// subject-week slice. Joins completed instances to their (recurring)
-// parent task.
+// All-time completion totals for the recurring tasks THIS user actually
+// completes, with the subject-week slice. Joins completed instances to their
+// (recurring) parent task.
+//
+// Attribution is by completer, NOT creator. `tasks.userId` is only the
+// creator — for a household chore created by a parent but done by a kid, the
+// completion must count toward the kid's habits, not the parent's. The
+// authoritative completer is `completedByUserId` (stamped on every
+// completion), falling back to the instance's `userId` for personal tasks
+// where it may be null — the same rule the reopen flow uses.
 async function loadRepeatingTaskTotals(
   userId: string,
   tz: string,
@@ -307,9 +354,9 @@ async function loadRepeatingTaskTotals(
     .innerJoin(tasks, eq(taskInstances.taskId, tasks.id))
     .where(
       and(
-        eq(tasks.userId, userId),
         isNotNull(tasks.recurrence),
         isNotNull(taskInstances.completedAt),
+        sql`coalesce(${taskInstances.completedByUserId}, ${taskInstances.userId}) = ${userId}`,
       ),
     )
 
@@ -429,7 +476,20 @@ async function loadHouseholdWeekly(
 export async function getWeeklySummary(userId: string): Promise<WeeklySummary> {
   const now = new Date()
   const tz = await getUserTimeZone(userId)
-  const windows = computeWeekWindows(now, tz)
+  // Anchor the window to the user's own send schedule so the page shows the
+  // 7 days before their email, not a fixed calendar week. Defaults to the
+  // historic Monday-08:00 slot when no prefs row exists.
+  const [prefs] = await db
+    .select({
+      dow: userPrefs.weeklyEmailDow,
+      hour: userPrefs.weeklyEmailHour,
+    })
+    .from(userPrefs)
+    .where(eq(userPrefs.userId, userId))
+    .limit(1)
+  const dow = prefs?.dow ?? 1
+  const hour = prefs?.hour ?? 8
+  const windows = computeWeekWindows(now, tz, dow, hour)
 
   // Social blocks each isolated: a privacy-empty or failing block yields a
   // safe default rather than breaking the whole summary.
