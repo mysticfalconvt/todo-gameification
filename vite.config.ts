@@ -13,7 +13,11 @@ export default defineConfig({
   // always live — not lazily booted by the first job-scheduling request.
   // See src/server/nitro/bootJobs.ts.
   nitro: {
-    plugins: ['./src/server/nitro/bootJobs.ts'],
+    plugins: [
+      // Sentry/Bugsink first so error tracking is live before jobs boot.
+      './src/server/nitro/sentry.ts',
+      './src/server/nitro/bootJobs.ts',
+    ],
   },
   plugins: [
     tailwindcss(),

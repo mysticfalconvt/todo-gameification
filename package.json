@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@sentry/node": "^10.69.0",
+    "@sentry/react": "^10.69.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/query-sync-storage-persister": "^5.99.0",
     "@tanstack/react-devtools": "latest",
