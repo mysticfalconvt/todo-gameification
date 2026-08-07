@@ -13,10 +13,18 @@ import * as Sentry from '@sentry/react'
 //
 // Safe to call from both server and client code paths: the `document` guard
 // makes it a no-op during SSR so the Node process never loads the browser SDK.
+//
+// Idempotent: the client entry calls this before hydrateRoot (so the
+// onRecoverableError hook has a live SDK from the very first hydration pass),
+// and getRouter() calls it again when StartClient resolves the router entry.
+let initialized = false
+
 export function initSentryBrowser(): void {
   if (typeof document === 'undefined') return
+  if (initialized) return
   const dsn = import.meta.env.VITE_SENTRY_DSN
   if (!dsn) return
+  initialized = true
   Sentry.init({
     dsn,
     release: import.meta.env.VITE_SENTRY_RELEASE || undefined,
