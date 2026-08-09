@@ -1,5 +1,4 @@
 import type { GameDefinition } from '../types'
-import { Boggle } from './Boggle'
 
 export const boggle: GameDefinition = {
   id: 'boggle',
@@ -15,5 +14,4 @@ export const boggle: GameDefinition = {
     // 45+ → 20. Capped at 20 to match the other games.
     return Math.min(20, 5 + Math.floor(score / 3))
   },
-  Component: Boggle,
 }

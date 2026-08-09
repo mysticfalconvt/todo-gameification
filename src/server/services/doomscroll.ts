@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
+import { scheduleDoomScrollEnd } from '../boss'
 import { events, progression } from '../db/schema'
 import {
   DOOMSCROLL_TOKEN_COST,
@@ -117,7 +118,6 @@ export async function recordDoomScrollStart(
   // effort — if scheduling fails the break still ran, the user just
   // won't get pinged at the end.
   try {
-    const { scheduleDoomScrollEnd } = await import('../boss')
     const jobId = await scheduleDoomScrollEnd(
       {
         startEventId,

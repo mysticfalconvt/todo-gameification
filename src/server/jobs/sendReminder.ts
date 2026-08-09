@@ -1,23 +1,17 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
+import { scheduleReminder } from '../boss'
 import { pushSubscriptions, taskInstances, tasks, user as userTable } from '../db/schema'
 import { sendWebPush } from '../push/web-push'
 import { listChoreRecipients } from '../services/households'
 import { isInQuietHours } from '../../domain/quietHours'
 import type { Job } from 'pg-boss'
+import type { SendReminderJobData } from './queues'
 
 // How many times total we'll push for a single instance. 1 = initial push
 // only, 3 = initial + 2 escalations (at T, T+2h, T+4h).
 const MAX_REMINDER_ATTEMPTS = 3
 const ESCALATION_INTERVAL_MS = 2 * 60 * 60 * 1000
-
-export interface SendReminderJobData {
-  taskInstanceId: string
-  // Attempt number: 1 = initial reminder, 2..MAX = escalation nudges.
-  // Legacy jobs that predate the escalation work will be missing this
-  // field; handler defaults to 1 to keep them behaving as before.
-  attempt?: number
-}
 
 export async function sendReminderHandler(jobs: Job<SendReminderJobData>[]): Promise<void> {
   for (const job of jobs) {
@@ -150,10 +144,6 @@ async function handleOne(data: SendReminderJobData) {
         ),
     )
     if (anyReachable) {
-      // Avoid importing boss.ts at module top because this file is imported
-      // by boss.ts — would create a cycle. Dynamic import keeps both files
-      // self-contained.
-      const { scheduleReminder } = await import('../boss')
       await scheduleReminder({ taskInstanceId: instance.id, attempt: attempt + 1 }, nextAt).catch(
         (e) => console.error('escalation reschedule failed', e),
       )

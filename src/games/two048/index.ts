@@ -1,5 +1,4 @@
 import type { GameDefinition } from '../types'
-import { Two048 } from './Two048'
 
 export const two048: GameDefinition = {
   id: '2048',
@@ -14,5 +13,4 @@ export const two048: GameDefinition = {
     const tier = Math.max(0, Math.log2(top) - 10)
     return Math.min(20, Math.round(10 + tier * 5))
   },
-  Component: Two048,
 }

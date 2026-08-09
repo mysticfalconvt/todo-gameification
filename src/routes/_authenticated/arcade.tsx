@@ -6,6 +6,7 @@ import { listGames, finishGame, getArcadeStats } from '../../server/functions/ga
 import { getMemberStatusFn } from '../../server/functions/billing'
 import { getProgression } from '../../server/functions/tasks'
 import { findGame } from '../../games/registry'
+import { gameComponent } from '../../games/components'
 import type { GameResult } from '../../games/types'
 import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 
@@ -133,7 +134,9 @@ function ArcadePage() {
   const activeGame = playingId ? findGame(playingId) : null
 
   if (activeGame) {
-    const ActiveComponent = activeGame.Component
+    // Components live outside the registry so server code can read game
+    // metadata without importing game UI — see games/components.tsx.
+    const ActiveComponent = gameComponent(activeGame.id)
     return (
       <main className="page-wrap px-4 py-8">
         <header className="mb-4 flex items-center justify-between">

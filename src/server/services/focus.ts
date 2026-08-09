@@ -1,5 +1,10 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { db } from '../db/client'
+import {
+  cancelFocusSessionEndJob,
+  scheduleFocusSessionEnd,
+  scheduleFocusSessionExpire,
+} from '../boss'
 import { events, progression } from '../db/schema'
 import {
   focusDurationMs,
@@ -59,7 +64,6 @@ export async function recordFocusStart(input: StartFocusInput): Promise<StartFoc
   // session the user never came back to confirm.
   if (input.mode === 'pocket') {
     try {
-      const { scheduleFocusSessionEnd, scheduleFocusSessionExpire } = await import('../boss')
       const jobId = await scheduleFocusSessionEnd(
         { startEventId, userId: input.userId },
         expectedEndAt,
@@ -207,7 +211,6 @@ export async function cancelFocusSession(input: CancelFocusInput): Promise<void>
   const jobId = payload.scheduledJobId
   if (typeof jobId === 'string' && jobId.length > 0) {
     try {
-      const { cancelFocusSessionEndJob } = await import('../boss')
       await cancelFocusSessionEndJob(jobId)
     } catch (err) {
       console.warn('[focus] failed to cancel scheduled end job', err)
@@ -364,7 +367,6 @@ export async function completeFocusSession(
     const jobId = payload.scheduledJobId
     if (typeof jobId === 'string' && jobId.length > 0) {
       try {
-        const { cancelFocusSessionEndJob } = await import('../boss')
         await cancelFocusSessionEndJob(jobId)
       } catch (err) {
         console.warn('[focus] failed to cancel scheduled end job', err)

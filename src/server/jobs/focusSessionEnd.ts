@@ -3,11 +3,7 @@ import { db } from '../db/client'
 import { events, pushSubscriptions } from '../db/schema'
 import { sendWebPush } from '../push/web-push'
 import type { Job } from 'pg-boss'
-
-export interface FocusSessionEndJobData {
-  startEventId: string
-  userId: string
-}
+import type { FocusSessionEndJobData, FocusSessionExpireJobData } from './queues'
 
 // Fires when a pocket-mode focus session's expected end time arrives.
 // Sends a push to all of the user's devices with a deep link that opens
@@ -89,11 +85,6 @@ async function handleOne(data: FocusSessionEndJobData) {
 // Auto-expire sweep: fires 24h after the expected end if the user
 // never confirmed. Writes a focus.cancelled so the active-session
 // lookup stops returning this row.
-export interface FocusSessionExpireJobData {
-  startEventId: string
-  userId: string
-}
-
 export async function focusSessionExpireHandler(
   jobs: Job<FocusSessionExpireJobData>[],
 ): Promise<void> {

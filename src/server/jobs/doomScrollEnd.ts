@@ -3,12 +3,7 @@ import { db } from '../db/client'
 import { pushSubscriptions } from '../db/schema'
 import { sendWebPush } from '../push/web-push'
 import type { Job } from 'pg-boss'
-
-export interface DoomScrollEndJobData {
-  startEventId: string
-  userId: string
-  durationMin: number
-}
+import type { DoomScrollEndJobData } from './queues'
 
 // Fires when a doom-scroll break timer expires. Pushes the user to get
 // back to work. There's no confirm/cancel flow — the token was spent and

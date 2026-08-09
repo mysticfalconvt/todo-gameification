@@ -1,20 +1,27 @@
+// pg-boss *client*: owns the singleton connection, ensures the queues exist,
+// and exposes the schedule/cancel calls services use.
+//
+// It deliberately does NOT import job handlers. Registering workers lives in
+// `jobs/register.ts`, which the nitro startup plugin calls. Splitting the two
+// is what keeps this module importable from a service: handlers import
+// services, so a registrar that also owned scheduling would close the loop
+// boss.ts → jobs/* → services/* → boss.ts.
+//
+// Practical consequence: getBoss() gives you a live, queue-provisioned boss
+// that can send jobs but won't process them. Only the registrar starts
+// workers, and it runs once per server process.
 import { PgBoss } from 'pg-boss'
-import { sendReminderHandler, type SendReminderJobData } from './jobs/sendReminder'
-import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
-import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
-import { githubPollHandler } from './jobs/githubPoll'
-import { sendWeeklySummaryHandler } from './jobs/sendWeeklySummary'
 import {
-  focusSessionEndHandler,
-  focusSessionExpireHandler,
+  ALL_QUEUES,
+  DOOMSCROLL_END_QUEUE,
+  FOCUS_END_QUEUE,
+  FOCUS_EXPIRE_QUEUE,
+  REMINDER_QUEUE,
+  type DoomScrollEndJobData,
   type FocusSessionEndJobData,
   type FocusSessionExpireJobData,
-} from './jobs/focusSessionEnd'
-import { doomScrollEndHandler, type DoomScrollEndJobData } from './jobs/doomScrollEnd'
-
-const FOCUS_END_QUEUE = 'focus-session-end'
-const FOCUS_EXPIRE_QUEUE = 'focus-session-expire'
-const DOOMSCROLL_END_QUEUE = 'doomscroll-end'
+  type SendReminderJobData,
+} from './jobs/queues'
 
 let instance: PgBoss | null = null
 let booting: Promise<PgBoss> | null = null
@@ -25,33 +32,11 @@ async function boot(): Promise<PgBoss> {
   const boss = new PgBoss(url)
   boss.on('error', (e) => console.error('pg-boss error', e))
   await boss.start()
-  await boss.createQueue('send-reminder')
-  await boss.createQueue('cleanup-stale-subs')
-  await boss.createQueue('check-plant-risk')
-  await boss.createQueue('poll-github')
-  await boss.createQueue('send-weekly-summary')
-  await boss.createQueue(FOCUS_END_QUEUE)
-  await boss.createQueue(FOCUS_EXPIRE_QUEUE)
-  await boss.createQueue(DOOMSCROLL_END_QUEUE)
-  await boss.work('send-reminder', sendReminderHandler)
-  await boss.work('cleanup-stale-subs', async () => cleanupStaleSubsHandler())
-  await boss.work('check-plant-risk', async () => checkPlantRiskHandler())
-  await boss.work('poll-github', async () => githubPollHandler())
-  await boss.work('send-weekly-summary', async () => sendWeeklySummaryHandler())
-  await boss.work(FOCUS_END_QUEUE, focusSessionEndHandler)
-  await boss.work(FOCUS_EXPIRE_QUEUE, focusSessionExpireHandler)
-  await boss.work(DOOMSCROLL_END_QUEUE, doomScrollEndHandler)
-  await boss.schedule('cleanup-stale-subs', '0 3 * * *')
-  // Runs at :00 every hour, UTC. The handler filters to users whose
-  // local hour is 18 and only sends to those with at-risk plants.
-  await boss.schedule('check-plant-risk', '0 * * * *')
-  // Fires every minute; handler filters users by their per-integration
-  // poll_interval_minutes (so a user with 15-min interval only gets
-  // polled every 15 min, not every tick).
-  await boss.schedule('poll-github', '* * * * *')
-  // Runs at :00 every hour, UTC. The handler filters to opted-in members
-  // whose local time is Monday 08:00 and dedups via weekly_email_log.
-  await boss.schedule('send-weekly-summary', '0 * * * *')
+  // Queues must exist before anything can be sent to them, so this stays on
+  // the client side rather than in the registrar.
+  for (const queue of ALL_QUEUES) {
+    await boss.createQueue(queue)
+  }
   return boss
 }
 
@@ -74,7 +59,7 @@ export async function getBoss(): Promise<PgBoss> {
 export async function scheduleReminder(data: SendReminderJobData, fireAt: Date): Promise<void> {
   const boss = await getBoss()
   await boss.sendAfter(
-    'send-reminder',
+    REMINDER_QUEUE,
     data,
     {
       singletonKey: `reminder-${data.taskInstanceId}-${data.attempt ?? 1}`,

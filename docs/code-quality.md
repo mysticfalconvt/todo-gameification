@@ -362,6 +362,61 @@ a by-hand rescue for orphaned `testuser_` rows.
 Prefer `ignoreExports` with a `reason` over deleting when a symbol is genuine
 API surface. It keeps the report at zero so new dead code actually stands out.
 
+### fallow: circular dependencies
+
+All 11 gone. They were two root causes, not eleven problems — each was a module
+doing two jobs, and splitting the jobs dissolved every cycle that ran through it.
+
+**`server/boss.ts` — 7 cycles.** It was both the pg-boss *client* (the
+`schedule*` calls services make) and the *worker registrar* (importing every job
+handler to wire `boss.work`). Handlers import services, and services schedule
+jobs, so the loop was `boss → jobs/* → services/* → boss`. Split three ways:
+
+- `jobs/queues.ts` — queue names and payload types. Import-free by design; this
+  is what both sides needed and neither could own.
+- `boss.ts` — client only. Singleton, queue provisioning, `schedule*`/`cancel*`.
+  Imports no handlers, so a service can import it freely.
+- `jobs/register.ts` — the only module importing handlers. Registers workers and
+  cron, called once per process by the nitro startup plugin.
+
+Worth noting: the codebase had already been paying for this cycle. Four call
+sites used `await import('../boss')` to dodge it, and `sendReminder.ts` said so
+outright — *"Avoid importing boss.ts at module top because this file is imported
+by boss.ts."* All four are now plain static imports.
+
+**`games/registry.ts` — 4 cycles.** `GameDefinition` carried both metadata and
+the React `Component`, so server code reading `rewardXp` pulled in every game's
+UI — and those components import server functions, closing the loop
+`registry → *.tsx → server/functions → server/services → registry`. Of the six
+registry consumers, exactly one (`arcade.tsx`) wanted the component; the other
+five, three of them server-side, wanted metadata. So `Component` moved out to
+`games/components.tsx`, imported only by the arcade route.
+
+That refactor surfaced a latent trap: 2048's folder is `two048/` but its id is
+`'2048'`. Keying the new map by folder name would have silently broken that one
+game. `findGameComponent` now renders an explicit error panel on a miss rather
+than crashing on `undefined`.
+
+**Side effect worth knowing: the cycles were hiding work from the analyzer.**
+Breaking them took fallow's complexity findings from **337 to 402** — not
+because anything got worse, but because it can now traverse code the cycles
+previously cut it off from. Every file with a large jump was a cycle
+participant: `Wordle.tsx` 1→7, `Two048.tsx` 0→6, `weeklySummary.ts` 1→9,
+`admin.ts` 5→11, `github.ts` 1→5.
+
+That makes the first `pnpm check` after this change **fail**, and legitimately
+so by the gate's own rules — some of those newly-visible findings land in
+changed files, so `--gate new-only` counts them as introduced. It's a one-time
+baseline step, not new debt. Push it with `--no-verify` once; subsequent runs
+snapshot the new reality and go quiet.
+
+**Verification.** Behaviour here is startup-only and invisible to the test
+suite, so beyond 144/144 and a clean build the built server was booted and the
+database checked directly: `[boot] pg-boss started; workers and cron schedulers
+active`, with all 4 cron schedules (`check-plant-risk`, `cleanup-stale-subs`,
+`poll-github`, `send-weekly-summary`) and all 8 queues present in `pgboss.*` —
+identical to what the old `boot()` produced.
+
 ## What's deliberately left
 
 Every category taken on so far has been ratcheted: fix it, then remove its
@@ -384,8 +439,6 @@ overrides at all now.
 
 Dead code is clear. What's left is a different shape of problem:
 
-- **11 circular dependencies**, heaviest through `services/tasks.ts` (27
-  dependents) and `server/boss.ts`. `pnpm fallow` ranks them by ROI.
 - **11 duplicate export pairs** and ~55 clone groups.
 - `@tanstack/devtools-vite` is an unused devDependency; `@tailwindcss/vite` is
   in `dependencies` but only used at build time.

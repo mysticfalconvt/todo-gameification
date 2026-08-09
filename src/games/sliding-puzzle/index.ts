@@ -1,5 +1,4 @@
 import type { GameDefinition } from '../types'
-import { SlidingPuzzle } from './SlidingPuzzle'
 
 export const slidingPuzzle: GameDefinition = {
   id: 'sliding-puzzle',
@@ -16,5 +15,4 @@ export const slidingPuzzle: GameDefinition = {
     const penalty = Math.max(0, Math.floor((moves - 25) / 5))
     return Math.max(5, 20 - penalty)
   },
-  Component: SlidingPuzzle,
 }

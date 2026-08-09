@@ -42,6 +42,19 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 
 - Charts live in `src/components/stats/charts.tsx` — `XpLineSection` and `TimingDistributionSection`. `TimingDistributionSection` uses monotone cubic (Fritsch-Carlson) interpolation so the curve never dips below 0.
 
+## Arcade games: registry is metadata-only
+
+- Adding a game means **two** files: the definition in `src/games/registry.ts` (via its `games/<name>/index.ts`) and the component entry in `src/games/components.tsx`. They're split so server code can read `rewardXp`/`tokenCost`/`tier` without importing game UI — the components import server functions, so a combined registry creates the cycle `registry → *.tsx → server/functions → server/services → registry`.
+- Keys in `components.ts` are the game **id**, not the folder name (2048 lives in `two048/` but its id is `'2048'`). A missing entry renders an error panel in the arcade rather than crashing.
+- `GameDefinition` deliberately has no `Component` field. Don't add one back.
+
 ## Arcade games: onboarding migration
 
 - When adding a new game to `src/games/registry.ts`, ship a companion migration that (a) grants every existing user enough tokens to try it and (b) creates a `try-<gameId>` task (with `external_ref = 'onboarding-try-<gameId>'`) so users actually discover it. `0017_arcade_onboarding.sql` is the pattern — idempotent via the `external_ref` dedup and the `tokens.granted` event reason key.
+
+## Background jobs: client vs registrar
+
+- `src/server/boss.ts` is the pg-boss **client** — singleton, queue provisioning, and the `schedule*`/`cancel*` calls services use. It imports no job handlers.
+- `src/server/jobs/register.ts` is the **registrar** — the only module importing handlers. It calls `boss.work(...)` and registers the cron schedules, and runs once per process from `src/server/nitro/bootJobs.ts`.
+- `src/server/jobs/queues.ts` holds queue names and job payload types, and must stay import-free.
+- This split is what lets a service `import { scheduleReminder } from '../boss'` directly. Handlers import services, so putting worker registration back in `boss.ts` re-creates `boss → jobs → services → boss`. If you find yourself writing `await import('../boss')` to dodge a cycle, something has regressed.

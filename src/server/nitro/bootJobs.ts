@@ -9,16 +9,21 @@
 // miss that week's send. Booting here makes the scheduler live for the whole
 // process lifetime regardless of traffic shape.
 //
-// Fire-and-forget on purpose: getBoss() is idempotent and cached, so we don't
-// block server readiness on the DB handshake. A boot failure is logged, not
-// fatal — the existing lazy getBoss() callers will retry on the next request.
+// Fire-and-forget on purpose: registerJobWorkers() is idempotent and cached,
+// so we don't block server readiness on the DB handshake. A boot failure is
+// logged, not fatal — the lazy getBoss() callers still work for scheduling,
+// and the next process start retries registration.
+//
+// This is now the ONLY place workers get registered. boss.ts provisions the
+// queues and schedules jobs but starts no workers, so that services can import
+// it without pulling in every job handler (see the note there).
 import type { NitroApp } from 'nitro/types'
-import { getBoss } from '../boss'
+import { registerJobWorkers } from '../jobs/register'
 
 export default function bootJobsPlugin(_nitroApp: NitroApp): void {
-  getBoss()
+  registerJobWorkers()
     .then(() => {
-      console.log('[boot] pg-boss started; cron schedulers active')
+      console.log('[boot] pg-boss started; workers and cron schedulers active')
     })
     .catch((err) => {
       console.error('[boot] pg-boss failed to start', err)

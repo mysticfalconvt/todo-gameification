@@ -1,5 +1,4 @@
 import type { GameDefinition } from '../types'
-import { WordSearch } from './WordSearch'
 
 const SMALL_CAP = 12
 const LARGE_CAP = 24
@@ -19,5 +18,4 @@ export const wordSearch: GameDefinition = {
     const cap = result.meta?.size === 'large' ? LARGE_CAP : SMALL_CAP
     return Math.round(cap * ratio)
   },
-  Component: WordSearch,
 }

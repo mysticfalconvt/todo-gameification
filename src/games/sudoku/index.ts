@@ -1,5 +1,4 @@
 import type { GameDefinition } from '../types'
-import { Sudoku } from './Sudoku'
 
 export const sudoku: GameDefinition = {
   id: 'sudoku',
@@ -18,5 +17,4 @@ export const sudoku: GameDefinition = {
     const perHint = hard ? 10 : 6
     return Math.max(0, base - perMistake * mistakes - perHint * hints)
   },
-  Component: Sudoku,
 }
