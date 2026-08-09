@@ -230,6 +230,7 @@ export function Wordle({ onFinish, onExit }: GameProps) {
                 const state = states?.[i]
                 return (
                   <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed WORD_LENGTH slots per row; positions never move.
                     key={i}
                     role="img"
                     aria-label={ch ? `Letter ${ch}` : 'Empty slot'}
@@ -248,8 +249,8 @@ export function Wordle({ onFinish, onExit }: GameProps) {
       </div>
 
       <div className="flex w-full max-w-md flex-col gap-1.5">
-        {KEYBOARD_ROWS.map((row, rowIdx) => (
-          <div key={rowIdx} className="flex justify-center gap-1">
+        {KEYBOARD_ROWS.map((row) => (
+          <div key={row.join('')} className="flex justify-center gap-1">
             {row.map((key) => {
               const state = letterStates[key]
               const wide = key === 'ENTER' || key === 'BACK'

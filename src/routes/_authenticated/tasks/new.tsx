@@ -1121,7 +1121,7 @@ function WeekTargetPicker({
           const selected = targetDow === dow
           return (
             <button
-              key={dow}
+              key={label}
               type="button"
               role="radio"
               aria-checked={selected}
@@ -1298,26 +1298,49 @@ function ordinal(n: number): string {
 function StepsField({ steps, onChange }: { steps: string[]; onChange: (next: string[]) => void }) {
   const [newTitle, setNewTitle] = useState('')
 
+  // Stable per-row ids, tracked alongside `steps`.
+  //
+  // A step is just a string — there's nothing in the data to key on. Keying by
+  // array index means the <input> DOM node stays pinned to its position, so
+  // reordering a step you're editing leaves focus and the text caret behind on
+  // whatever step slid into that slot. The values still render correctly (the
+  // inputs are controlled), which is exactly why the bug is easy to miss.
+  //
+  // `steps` is only ever mutated through this component, so ids stay in sync.
+  const nextId = useRef(steps.length)
+  const [ids, setIds] = useState<number[]>(() => steps.map((_, i) => i))
+
+  function commit(nextSteps: string[], nextIds: number[]) {
+    setIds(nextIds)
+    onChange(nextSteps)
+  }
   function update(i: number, value: string) {
     const next = [...steps]
     next[i] = value
-    onChange(next)
+    onChange(next) // edit in place — row identity is unchanged
   }
   function remove(i: number) {
-    onChange(steps.filter((_, idx) => idx !== i))
+    commit(
+      steps.filter((_, idx) => idx !== i),
+      ids.filter((_, idx) => idx !== i),
+    )
   }
   function move(index: number, dir: -1 | 1) {
-    const next = [...steps]
     const target = index + dir
-    if (target < 0 || target >= next.length) return
-    const [moved] = next.splice(index, 1)
-    next.splice(target, 0, moved)
-    onChange(next)
+    if (target < 0 || target >= steps.length) return
+    const nextSteps = [...steps]
+    const nextIds = [...ids]
+    const [movedStep] = nextSteps.splice(index, 1)
+    const [movedId] = nextIds.splice(index, 1)
+    nextSteps.splice(target, 0, movedStep)
+    nextIds.splice(target, 0, movedId)
+    commit(nextSteps, nextIds)
   }
   function add() {
     const trimmed = newTitle.trim()
     if (!trimmed) return
-    onChange([...steps, trimmed])
+    nextId.current += 1
+    commit([...steps, trimmed], [...ids, nextId.current])
     setNewTitle('')
   }
 
@@ -1333,7 +1356,7 @@ function StepsField({ steps, onChange }: { steps: string[]; onChange: (next: str
         <ul className="mb-2 space-y-1">
           {steps.map((s, i) => (
             <li
-              key={i}
+              key={ids[i]}
               className="group flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-2 py-1.5"
             >
               <input

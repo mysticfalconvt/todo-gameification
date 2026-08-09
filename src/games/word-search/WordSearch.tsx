@@ -210,6 +210,7 @@ export function WordSearch({ onFinish }: GameProps) {
             const inFound = foundCellSet.has(`${r},${c}`)
             return (
               <button
+                // biome-ignore lint/suspicious/noArrayIndexKey: r/c IS the cell's identity in a fixed grid.
                 key={`${r}-${c}`}
                 type="button"
                 onClick={() => handleCellTap(r, c)}

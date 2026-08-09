@@ -25,7 +25,7 @@ export function WeekdayPicker({
         const on = selected.has(idx)
         return (
           <button
-            key={idx}
+            key={label}
             type="button"
             aria-pressed={on}
             aria-label={label}

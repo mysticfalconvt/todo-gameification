@@ -260,6 +260,7 @@ export function Boggle({ onFinish, onExit }: GameProps) {
           const isLast = inPath && order === path.length - 1
           return (
             <button
+              // biome-ignore lint/suspicious/noArrayIndexKey: board position is the tile's identity; the grid never reorders.
               key={i}
               type="button"
               disabled={over}

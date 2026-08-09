@@ -252,6 +252,7 @@ export function Two048({ onFinish, onExit }: GameProps) {
         {board.flatMap((row, r) =>
           row.map((value, c) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: r/c IS the cell's identity; tiles render by position, not by value.
               key={`${r}-${c}`}
               className={[
                 'flex h-16 w-16 items-center justify-center rounded-md border border-[var(--line)] font-bold transition sm:h-20 sm:w-20',

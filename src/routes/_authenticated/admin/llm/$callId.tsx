@@ -98,6 +98,7 @@ function Messages({ data }: { data: CallDetail }) {
       ) : (
         <div className="space-y-3">
           {data.messages.map((m, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a fetched conversation is immutable and ordered; position is identity.
             <article key={i} className="island-shell rounded-2xl p-3 text-sm">
               <div className="mb-2 text-xs uppercase tracking-wide text-[var(--kicker)]">
                 {m.role}

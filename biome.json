@@ -39,9 +39,6 @@
         "noAutofocus": "warn",
         "useKeyWithClickEvents": "warn",
         "useSemanticElements": "warn"
-      },
-      "suspicious": {
-        "noArrayIndexKey": "warn"
       }
     }
   },

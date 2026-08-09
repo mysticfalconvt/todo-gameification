@@ -228,6 +228,7 @@ function EmailToggleCard() {
               className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
             >
               {Array.from({ length: 24 }, (_, h) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: h IS the hour value (it's also the option's value), not a list position.
                 <option key={h} value={h}>
                   {weeklyHourLabel(h)}
                 </option>
@@ -429,6 +430,7 @@ function TopTasksSection({ tasks }: { tasks: SummaryData['summary']['topTasks'] 
         <ol className="space-y-2">
           {tasks.map((t, i) => (
             <li
+              // biome-ignore lint/suspicious/noArrayIndexKey: read-only list; taskId can repeat, so the index disambiguates.
               key={`${t.taskId}-${i}`}
               className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3"
             >

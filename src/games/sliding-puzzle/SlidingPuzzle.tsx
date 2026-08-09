@@ -127,7 +127,7 @@ export function SlidingPuzzle({ onFinish, onExit }: GameProps) {
           const movable = !isBlank && neighbors(blankIdx).includes(idx)
           return (
             <button
-              key={idx}
+              key={value}
               type="button"
               onClick={() => tryMove(idx)}
               disabled={isBlank || solved}

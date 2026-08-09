@@ -194,6 +194,46 @@ on the two scalars it reads — let all five callers become a plain
 Two dead `eslint-disable-next-line react-hooks/exhaustive-deps` comments were
 removed — the project has no ESLint, so they had been silently doing nothing.
 
+### List keys
+
+All 19 `noArrayIndexKey` cleared, 124 → 105 warnings. Only one was an actual
+bug; the value of the pass was separating it from 18 look-alikes.
+
+**The real one — the task steps editor** (`tasks/new.tsx`, `StepsField`). Steps
+are a plain `string[]` with move-up/move-down/remove controls and a controlled
+`<input>` per row. Keyed by index, the input DOM node stays pinned to its
+position, so reordering a step you're editing leaves focus and the text caret
+behind on whatever step slid into that slot. The *values* still render correctly
+— the inputs are controlled — which is exactly why this is easy to miss.
+
+Fixed by tracking a stable id per row alongside `steps`, mutated in lockstep by
+`add`/`remove`/`move`. The external contract stays `string[]` (that's the shape
+the server wants), and `setSteps` is only ever called from inside `StepsField`,
+so the ids can't drift.
+
+**Where a real key already existed** — swapped in: weekday labels in
+`WeekdayPicker` and the `tasks/new` day radio, `KEYBOARD_ROWS` content in
+Wordle, weekday names in the stats bar chart, and tile *value* in
+`SlidingPuzzle` (tiles genuinely move, and values 0–8 are unique, so React now
+tracks each tile through a slide instead of rewriting text in place).
+
+**Where the index is the identity** — suppressed with a per-site reason rather
+than contorted. Two distinct cases:
+
+- *Positional grids*, where `r`/`c` **is** the cell's identity and the grid
+  never reorders: Sudoku, Word Search, 2048, Boggle, Wordle letter slots.
+- *Index is a domain value, not a list position*: hour-of-day in the stats hour
+  chart and the weekly-summary hour `<select>` (there, `h` is literally the
+  option's `value`).
+
+Plus the append-only admin failure logs, which are rendered read-only and whose
+entries can share a timestamp — a composed key would risk duplicates, which is
+worse than an index.
+
+Suppression placement gotcha: a `biome-ignore` applies to the **next line only**,
+so on a multi-line JSX element it has to sit directly above the `key=` line, not
+above the opening tag. Comments placed above the tag silently do nothing.
+
 ## What's deliberately left
 
 These rules are set to `warn` in `biome.json`: visible, non-blocking, and
@@ -205,7 +245,6 @@ were already ratcheted to `error` this way.
 |---|---|---|
 | `style/noNonNullAssertion` | 60 | Style preference; each `!` needs a real decision about the null case. |
 | `a11y/useSemanticElements` | 32 | `<div role="button">` → `<button>`; real markup changes. |
-| `suspicious/noArrayIndexKey` | 19 | Index keys break React reconciliation on reorder; needs a stable id per list. |
 | `a11y/useKeyWithClickEvents` | 9 | Click handlers on non-interactive elements need keyboard equivalents. |
 | `a11y/noAutofocus` | 4 | Usually a deliberate UX call — suppress inline per site rather than blanket-fix. |
 
@@ -213,7 +252,7 @@ Already ratcheted to `error` and now enforced: `noUnreachable`,
 `noAssignInExpressions`, `noImplicitAnyLet`, `noShorthandPropertyOverrides`,
 `noDangerouslySetInnerHtml`, `noSvgWithoutTitle`, `noLabelWithoutControl`,
 `noStaticElementInteractions`, `noNoninteractiveElementToInteractiveRole`,
-`useAriaPropsSupportedByRole`, `useExhaustiveDependencies`.
+`useAriaPropsSupportedByRole`, `useExhaustiveDependencies`, `noArrayIndexKey`.
 
 ### fallow's remaining findings
 

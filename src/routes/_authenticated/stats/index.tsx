@@ -390,7 +390,7 @@ function WeekdaySection({ data }: { data: number[] }) {
           const h = Math.max(6, (count / max) * 96)
           return (
             <div
-              key={i}
+              key={full[i]}
               className="flex min-w-0 flex-1 flex-col items-center gap-1"
               title={`${full[i]}: ${count}`}
             >
@@ -421,6 +421,7 @@ function HourSection({ data }: { data: number[] }) {
           const tick = i !== 0 && i % 6 === 0
           return (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: i IS the hour of day (0-23), a stable domain value, not a list position.
               key={i}
               className="flex min-w-0 flex-1 flex-col items-center"
               title={`${i}:00 – ${count}`}
@@ -476,6 +477,7 @@ function TopTasksSection({
               </>
             )
             return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: read-only ranking; taskId can repeat or be null, so the index disambiguates.
               <li key={`${t.taskId}-${i}`}>
                 {t.taskId ? (
                   <Link

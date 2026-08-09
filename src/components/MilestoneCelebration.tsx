@@ -77,6 +77,7 @@ export function MilestoneCelebration({
           const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
           return (
             <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length decorative burst; pieces never reorder or get removed.
               key={i}
               className="confetti-piece"
               style={{

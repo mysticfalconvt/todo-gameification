@@ -351,6 +351,7 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
 
             return (
               <button
+                // biome-ignore lint/suspicious/noArrayIndexKey: row/col IS the cell's identity in a fixed 9x9 grid.
                 key={`${row}-${col}`}
                 type="button"
                 onClick={() => {

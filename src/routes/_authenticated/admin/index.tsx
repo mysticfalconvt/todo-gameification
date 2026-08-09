@@ -396,6 +396,7 @@ function JobsSection() {
           <ul className="mt-3 space-y-1 text-xs">
             {data.recentFailures.map((f, i) => (
               <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only failure log, rendered read-only; entries share timestamps so a composed key would collide.
                 key={i}
                 className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
               >
@@ -513,6 +514,7 @@ function LlmMetricsSection() {
           <ul className="mt-3 space-y-1 text-xs">
             {data.recentFailures.map((f, i) => (
               <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only failure log, rendered read-only; entries share timestamps so a composed key would collide.
                 key={i}
                 className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
               >
