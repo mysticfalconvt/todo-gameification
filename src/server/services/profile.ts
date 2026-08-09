@@ -4,13 +4,7 @@
 // right action buttons without another round-trip.
 import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  friendships,
-  memberships,
-  progression,
-  user as userTable,
-} from '../db/schema'
+import { events, friendships, memberships, progression, user as userTable } from '../db/schema'
 import { canView } from './social'
 import { normalizeHandle } from './handles'
 
@@ -96,21 +90,12 @@ export async function getPublicProfile(
   }
 }
 
-async function resolveRelation(
-  viewerId: string,
-  targetId: string,
-): Promise<ViewerRelation> {
+async function resolveRelation(viewerId: string, targetId: string): Promise<ViewerRelation> {
   if (viewerId === targetId) return 'self'
   const row = await db.query.friendships.findFirst({
     where: or(
-      and(
-        eq(friendships.requesterId, viewerId),
-        eq(friendships.addresseeId, targetId),
-      ),
-      and(
-        eq(friendships.requesterId, targetId),
-        eq(friendships.addresseeId, viewerId),
-      ),
+      and(eq(friendships.requesterId, viewerId), eq(friendships.addresseeId, targetId)),
+      and(eq(friendships.requesterId, targetId), eq(friendships.addresseeId, viewerId)),
     ),
   })
   if (!row) return 'none'
@@ -169,18 +154,10 @@ async function loadXpSeries(
   for (const r of rows) {
     if (!r.occurredAt) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const xpOverride =
-      typeof p['xpOverride'] === 'number'
-        ? (p['xpOverride'] as number)
-        : null
-    const difficulty =
-      typeof p['difficulty'] === 'string' ? p['difficulty'] : null
-    const xp =
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
+    const xp = xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     const key = dayFmt.format(r.occurredAt)
     totals.set(key, (totals.get(key) ?? 0) + xp)
   }

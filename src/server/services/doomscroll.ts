@@ -38,9 +38,7 @@ export async function recordDoomScrollStart(
     throw new Error('invalid doom scroll duration')
   }
   const startedAt = new Date()
-  const expectedEndAt = new Date(
-    startedAt.getTime() + doomScrollDurationMs(input.durationMin),
-  )
+  const expectedEndAt = new Date(startedAt.getTime() + doomScrollDurationMs(input.durationMin))
   const timeZone = await getUserTimeZone(input.userId)
 
   const event: DomainEvent = {

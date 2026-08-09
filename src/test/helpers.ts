@@ -25,9 +25,7 @@ import {
 
 function assertNotProd() {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      '[test/helpers] refusing to run against a production database',
-    )
+    throw new Error('[test/helpers] refusing to run against a production database')
   }
 }
 
@@ -45,9 +43,7 @@ export interface TestUser {
 // Inserts a minimal user row bypassing Better Auth's sign-up flow. Good
 // enough for service-level contract tests that only care about the
 // downstream app tables.
-export async function createTestUser(
-  overrides: Partial<TestUser> = {},
-): Promise<TestUser> {
+export async function createTestUser(overrides: Partial<TestUser> = {}): Promise<TestUser> {
   assertNotProd()
   const suffix = randomSuffix()
   const tu: TestUser = {
@@ -117,13 +113,8 @@ export async function withTestUsers<T>(
 // leaves orphan test_ rows behind. Safe to call between suites.
 export async function sweepOrphanTestUsers(): Promise<void> {
   assertNotProd()
-  const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.emailVerified, true))
-  const ids = rows
-    .map((r) => r.id)
-    .filter((id) => id.startsWith('testuser_'))
+  const rows = await db.select({ id: user.id }).from(user).where(eq(user.emailVerified, true))
+  const ids = rows.map((r) => r.id).filter((id) => id.startsWith('testuser_'))
   if (ids.length === 0) return
   await Promise.all([
     db.delete(events).where(inArray(events.userId, ids)),

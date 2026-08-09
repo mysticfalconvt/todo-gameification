@@ -1,10 +1,5 @@
 /// <reference types="vite/client" />
-import {
-  HeadContent,
-  Link,
-  Scripts,
-  createRootRoute,
-} from '@tanstack/react-router'
+import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -19,10 +14,7 @@ import { QUERY_PERSIST_KEY, getQueryClient } from '../lib/query'
 import { registerServiceWorker } from '../lib/sw-register'
 import { updateTimezone } from '../server/functions/user'
 import { listIncomingFn } from '../server/functions/social'
-import {
-  getMyHouseholdFn,
-  listMyInvitesFn,
-} from '../server/functions/households'
+import { getMyHouseholdFn, listMyInvitesFn } from '../server/functions/households'
 import { getIsAdminFn } from '../server/functions/admin'
 import { getMemberStatusFn } from '../server/functions/billing'
 import { InstallPrompt } from '../components/InstallPrompt'
@@ -36,9 +28,7 @@ const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('todo-xp-t
 // set. head() runs server-side for SSR, so `process.env` is available and
 // the resulting <script> tag is serialized into the initial HTML. Leaving
 // either env var blank fully opts out — no script, no extra request.
-function umamiScriptTag():
-  | { src: string; defer: true; 'data-website-id': string }
-  | null {
+function umamiScriptTag(): { src: string; defer: true; 'data-website-id': string } | null {
   const src = process.env.UMAMI_SCRIPT_URL?.trim()
   const id = process.env.UMAMI_WEBSITE_ID?.trim()
   if (!src || !id) return null
@@ -81,9 +71,7 @@ function NotFound() {
       <h1 className="display-title mb-4 text-4xl font-bold text-[var(--sea-ink)]">
         Page not found
       </h1>
-      <p className="mb-6 text-[var(--sea-ink-soft)]">
-        The URL didn't match anything we have.
-      </p>
+      <p className="mb-6 text-[var(--sea-ink-soft)]">The URL didn't match anything we have.</p>
       <Link
         to="/today"
         className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
@@ -132,9 +120,7 @@ function RootShell({ children }: { children: ReactNode }) {
           {import.meta.env.DEV ? (
             <TanStackDevtools
               config={{ position: 'bottom-right' }}
-              plugins={[
-                { name: 'TanStack Router', render: <TanStackRouterDevtoolsPanel /> },
-              ]}
+              plugins={[{ name: 'TanStack Router', render: <TanStackRouterDevtoolsPanel /> }]}
             />
           ) : null}
         </QueryClientProvider>
@@ -201,22 +187,46 @@ function AppNav() {
                 </Link>
               ) : (
                 <>
-                  <Link to="/today" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/today"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Today
                   </Link>
-                  <Link to="/tasks" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/tasks"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Tasks
                   </Link>
-                  <Link to="/stats" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/stats"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Stats
                   </Link>
-                  <Link to="/weekly-summary" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/weekly-summary"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Weekly
                   </Link>
-                  <Link to="/garden" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/garden"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Garden
                   </Link>
-                  <Link to="/arcade" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+                  <Link
+                    to="/arcade"
+                    className="nav-link"
+                    activeProps={{ className: 'nav-link is-active' }}
+                  >
                     Arcade
                   </Link>
                   <FriendsNavLink />
@@ -243,11 +253,7 @@ function AppNav() {
 function GuestNav() {
   return (
     <div className="flex items-center gap-2">
-      <Link
-        to="/auth/login"
-        className="nav-link"
-        activeProps={{ className: 'nav-link is-active' }}
-      >
+      <Link to="/auth/login" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
         Log in
       </Link>
       <Link
@@ -336,11 +342,7 @@ function AdminNavLink() {
   })
   if (!admin.data?.isAdmin) return null
   return (
-    <Link
-      to="/admin"
-      className="nav-link"
-      activeProps={{ className: 'nav-link is-active' }}
-    >
+    <Link to="/admin" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
       Admin
     </Link>
   )
@@ -418,12 +420,7 @@ function MobileTabBar() {
         <TabLink to="/stats" icon="📊" label="Stats" />
         <TabLink to="/friends" icon="👥" label="Friends" badge={friendCount} />
         {showHousehold ? (
-          <TabLink
-            to="/household"
-            icon="🏠"
-            label="Family"
-            badge={householdInviteCount}
-          />
+          <TabLink to="/household" icon="🏠" label="Family" badge={householdInviteCount} />
         ) : null}
         {isAdmin ? <TabLink to="/admin" icon="🛠" label="Admin" /> : null}
       </div>
@@ -478,8 +475,7 @@ function SessionNav() {
 
   useEffect(() => {
     if (!data?.user) return
-    const browserTz =
-      Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
     const storedTz = (data.user as { timezone?: string }).timezone
     if (storedTz && storedTz === browserTz) return
     updateTimezone({ data: { timezone: browserTz } }).catch(() => {

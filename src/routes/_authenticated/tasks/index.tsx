@@ -17,10 +17,7 @@ import { SortSelect } from '../../../components/SortSelect'
 import { CategoryHistogram } from '../../../components/CategoryHistogram'
 import { formatWeeklyLabel } from '../../../components/WeekdayPicker'
 import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
-import {
-  TaskDetailsDialog,
-  type TaskDetailsInstance,
-} from '../../../components/TaskDetailsDialog'
+import { TaskDetailsDialog, type TaskDetailsInstance } from '../../../components/TaskDetailsDialog'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
   component: AllTasksPage,
@@ -38,9 +35,7 @@ function AllTasksPage() {
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkPending, setBulkPending] = useState(false)
-  const [openDetails, setOpenDetails] = useState<TaskDetailsInstance | null>(
-    null,
-  )
+  const [openDetails, setOpenDetails] = useState<TaskDetailsInstance | null>(null)
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -64,9 +59,7 @@ function AllTasksPage() {
     onMutate: async (taskId) => {
       await qc.cancelQueries({ queryKey: ['tasks'] })
       const prev = qc.getQueryData<TaskRow[]>(['tasks'])
-      qc.setQueryData<TaskRow[]>(['tasks'], (old) =>
-        old?.filter((t) => t.id !== taskId),
-      )
+      qc.setQueryData<TaskRow[]>(['tasks'], (old) => old?.filter((t) => t.id !== taskId))
       return { prev }
     },
     onError: (err, _id, ctx) => {
@@ -80,23 +73,18 @@ function AllTasksPage() {
   })
 
   const surface = useMutation({
-    mutationFn: (instanceId: string) =>
-      surfaceInstanceNow({ data: { instanceId } }),
+    mutationFn: (instanceId: string) => surfaceInstanceNow({ data: { instanceId } }),
     onSuccess: () => {
       toast.success('Added to Today.')
       qc.invalidateQueries({ queryKey: ['tasks'] })
       qc.invalidateQueries({ queryKey: ['today'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not add to Today'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not add to Today'),
   })
 
   const tasks = Array.isArray(tasksQuery.data) ? tasksQuery.data : []
   const categories = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
-  const upcomingCount = useMemo(
-    () => tasks.filter((t) => t.upcoming).length,
-    [tasks],
-  )
+  const upcomingCount = useMemo(() => tasks.filter((t) => t.upcoming).length, [tasks])
 
   const catBySlug = useMemo(() => {
     const m = new Map<string, Category>()
@@ -123,11 +111,7 @@ function AllTasksPage() {
     return { counts, uncategorized }
   }, [tasks])
 
-  const [sortKey, setSortKey] = useStoredSort(
-    'todo-xp-sort-tasks',
-    TASKS_SORTS,
-    'created-desc',
-  )
+  const [sortKey, setSortKey] = useStoredSort('todo-xp-sort-tasks', TASKS_SORTS, 'created-desc')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -201,13 +185,9 @@ function AllTasksPage() {
         ids.map((taskId) => setTaskCategory({ data: { taskId, slug } })),
       )
       const failed = results.filter((r) => r.status === 'rejected').length
-      if (failed > 0)
-        toast.error(`${failed} update${failed === 1 ? '' : 's'} failed.`)
+      if (failed > 0) toast.error(`${failed} update${failed === 1 ? '' : 's'} failed.`)
       else {
-        const label =
-          slug === null
-            ? 'uncategorized'
-            : (catBySlug.get(slug)?.label ?? slug)
+        const label = slug === null ? 'uncategorized' : (catBySlug.get(slug)?.label ?? slug)
         toast.success(`Moved ${ids.length} to ${label}.`)
       }
       clearSelection()
@@ -224,9 +204,7 @@ function AllTasksPage() {
   return (
     <main className="page-wrap px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          All tasks
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">All tasks</h1>
         {!isKid && (
           <Link
             to="/tasks/new"
@@ -267,67 +245,65 @@ function AllTasksPage() {
             <span className="text-[10px] opacity-70">{upcomingCount}</span>
           </button>
           {categories.length > 0 ? (
-          <>
-          <button
-            type="button"
-            onClick={() => setSelectedCategory(null)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-              selectedCategory === null
-                ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
-                : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
-            }`}
-          >
-            All
-            <span className="ml-1 text-[10px] opacity-70">{tasks.length}</span>
-          </button>
-          {categories.map((c) => {
-            const count = categoryCounts.counts.get(c.slug) ?? 0
-            const on = selectedCategory === c.slug
-            // Empty categories aren't worth a chip — but keep one visible if
-            // it's the active filter so the user can still clear it.
-            if (count === 0 && !on) return null
-            return (
+            <>
               <button
-                key={c.slug}
                 type="button"
-                onClick={() => setSelectedCategory(on ? null : c.slug)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                  on
+                onClick={() => setSelectedCategory(null)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  selectedCategory === null
                     ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
                     : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
                 }`}
               >
-                <span
-                  aria-hidden
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: c.color }}
-                />
-                {c.label}
-                <span className="text-[10px] opacity-70">{count}</span>
+                All
+                <span className="ml-1 text-[10px] opacity-70">{tasks.length}</span>
               </button>
-            )
-          })}
-          {categoryCounts.uncategorized > 0 ? (
-            <button
-              type="button"
-              onClick={() =>
-                setSelectedCategory(
-                  selectedCategory === UNCATEGORIZED ? null : UNCATEGORIZED,
+              {categories.map((c) => {
+                const count = categoryCounts.counts.get(c.slug) ?? 0
+                const on = selectedCategory === c.slug
+                // Empty categories aren't worth a chip — but keep one visible if
+                // it's the active filter so the user can still clear it.
+                if (count === 0 && !on) return null
+                return (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => setSelectedCategory(on ? null : c.slug)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      on
+                        ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                        : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)] hover:bg-[var(--option-bg-hover)]'
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                    />
+                    {c.label}
+                    <span className="text-[10px] opacity-70">{count}</span>
+                  </button>
                 )
-              }
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                selectedCategory === UNCATEGORIZED
-                  ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
-                  : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
-              }`}
-            >
-              Uncategorized
-              <span className="ml-1 text-[10px] opacity-70">
-                {categoryCounts.uncategorized}
-              </span>
-            </button>
-          ) : null}
-          </>
+              })}
+              {categoryCounts.uncategorized > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedCategory(selectedCategory === UNCATEGORIZED ? null : UNCATEGORIZED)
+                  }
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    selectedCategory === UNCATEGORIZED
+                      ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.2)] text-[var(--lagoon-deep)]'
+                      : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
+                  }`}
+                >
+                  Uncategorized
+                  <span className="ml-1 text-[10px] opacity-70">
+                    {categoryCounts.uncategorized}
+                  </span>
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
       ) : null}
@@ -386,18 +362,16 @@ function AllTasksPage() {
             <>Nothing scheduled for later right now.</>
           ) : selectedCategory ? (
             <>No tasks in this category.</>
+          ) : isKid ? (
+            <>No tasks yet.</>
           ) : (
-            isKid ? (
-              <>No tasks yet.</>
-            ) : (
-              <>
-                No tasks yet.{' '}
-                <Link to="/tasks/new" className="font-semibold">
-                  Create one
-                </Link>
-                .
-              </>
-            )
+            <>
+              No tasks yet.{' '}
+              <Link to="/tasks/new" className="font-semibold">
+                Create one
+              </Link>
+              .
+            </>
           )}
         </p>
       ) : (
@@ -406,13 +380,10 @@ function AllTasksPage() {
             <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                checked={
-                  selectionCount > 0 && selectionCount === filtered.length
-                }
+                checked={selectionCount > 0 && selectionCount === filtered.length}
                 ref={(el) => {
                   if (el) {
-                    el.indeterminate =
-                      selectionCount > 0 && selectionCount < filtered.length
+                    el.indeterminate = selectionCount > 0 && selectionCount < filtered.length
                   }
                 }}
                 onChange={(e) => {
@@ -424,90 +395,91 @@ function AllTasksPage() {
             </label>
           </div>
           <ul className="space-y-2">
-          {filtered.map((t) => {
-            const cat = t.categorySlug ? catBySlug.get(t.categorySlug) : null
-            const checked = visibleSelectedIds.has(t.id)
-            return (
-              <li
-                key={t.id}
-                className={`island-shell flex items-center gap-3 rounded-xl p-3 ${
-                  checked ? 'ring-2 ring-[var(--lagoon-deep)]' : ''
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => toggleOne(t.id, e.target.checked)}
-                  aria-label={`Select ${t.title}`}
-                  className="flex-shrink-0"
-                />
-                <span
-                  aria-hidden
-                  title={cat?.label ?? 'Uncategorized'}
-                  className="h-3 w-3 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: cat?.color ?? 'transparent', border: cat ? 'none' : '1px dashed var(--line)' }}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenDetails({
-                      taskId: t.id,
-                      instanceId: null,
-                      title: t.title,
-                      difficulty: t.difficulty,
-                      xpOverride: t.xpOverride,
-                      categorySlug: t.categorySlug,
-                      dueAt: null,
-                      timeOfDay: t.timeOfDay,
-                    })
-                  }
-                  className="min-w-0 flex-1 cursor-pointer bg-transparent text-left"
+            {filtered.map((t) => {
+              const cat = t.categorySlug ? catBySlug.get(t.categorySlug) : null
+              const checked = visibleSelectedIds.has(t.id)
+              return (
+                <li
+                  key={t.id}
+                  className={`island-shell flex items-center gap-3 rounded-xl p-3 ${
+                    checked ? 'ring-2 ring-[var(--lagoon-deep)]' : ''
+                  }`}
                 >
-                  <p className="truncate font-semibold text-[var(--sea-ink)]">
-                    {t.title}
-                  </p>
-                  <p className="text-xs text-[var(--sea-ink-soft)]">
-                    {xpLabel(t.difficulty, t.xpOverride)}
-                    {' • '}
-                    {recurrenceLabel(t.recurrence)}
-                    {cat ? ` • ${cat.label}` : ''}
-                    {t.upcoming && t.nextDueAt
-                      ? ` • ${upcomingLabel(t.nextDueAt, t.timeOfDay)}`
-                      : ''}
-                  </p>
-                </button>
-                {showUpcomingOnly && t.upcoming && t.openInstanceId ? (
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => toggleOne(t.id, e.target.checked)}
+                    aria-label={`Select ${t.title}`}
+                    className="flex-shrink-0"
+                  />
+                  <span
+                    aria-hidden
+                    title={cat?.label ?? 'Uncategorized'}
+                    className="h-3 w-3 flex-shrink-0 rounded-full"
+                    style={{
+                      backgroundColor: cat?.color ?? 'transparent',
+                      border: cat ? 'none' : '1px dashed var(--line)',
+                    }}
+                  />
                   <button
                     type="button"
-                    onClick={() => surface.mutate(t.openInstanceId!)}
-                    disabled={surface.isPending}
-                    className="rounded-full border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.16)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] transition disabled:opacity-60"
-                  >
-                    Show now
-                  </button>
-                ) : null}
-                <Link
-                  to="/tasks/$taskId"
-                  params={{ taskId: t.id }}
-                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline"
-                >
-                  Edit
-                </Link>
-                <button
-                  type="button"
-                  aria-label={`Delete ${t.title}`}
-                  onClick={() => {
-                    if (confirm(`Delete "${t.title}"?`)) {
-                      remove.mutate(t.id)
+                    onClick={() =>
+                      setOpenDetails({
+                        taskId: t.id,
+                        instanceId: null,
+                        title: t.title,
+                        difficulty: t.difficulty,
+                        xpOverride: t.xpOverride,
+                        categorySlug: t.categorySlug,
+                        dueAt: null,
+                        timeOfDay: t.timeOfDay,
+                      })
                     }
-                  }}
-                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
-                >
-                  Delete
-                </button>
-              </li>
-            )
-          })}
+                    className="min-w-0 flex-1 cursor-pointer bg-transparent text-left"
+                  >
+                    <p className="truncate font-semibold text-[var(--sea-ink)]">{t.title}</p>
+                    <p className="text-xs text-[var(--sea-ink-soft)]">
+                      {xpLabel(t.difficulty, t.xpOverride)}
+                      {' • '}
+                      {recurrenceLabel(t.recurrence)}
+                      {cat ? ` • ${cat.label}` : ''}
+                      {t.upcoming && t.nextDueAt
+                        ? ` • ${upcomingLabel(t.nextDueAt, t.timeOfDay)}`
+                        : ''}
+                    </p>
+                  </button>
+                  {showUpcomingOnly && t.upcoming && t.openInstanceId ? (
+                    <button
+                      type="button"
+                      onClick={() => surface.mutate(t.openInstanceId!)}
+                      disabled={surface.isPending}
+                      className="rounded-full border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.16)] px-3 py-1 text-xs font-semibold text-[var(--lagoon-deep)] transition disabled:opacity-60"
+                    >
+                      Show now
+                    </button>
+                  ) : null}
+                  <Link
+                    to="/tasks/$taskId"
+                    params={{ taskId: t.id }}
+                    className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] no-underline"
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${t.title}`}
+                    onClick={() => {
+                      if (confirm(`Delete "${t.title}"?`)) {
+                        remove.mutate(t.id)
+                      }
+                    }}
+                    className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
+                  >
+                    Delete
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </>
       )}
@@ -558,18 +530,14 @@ function recurrenceLabel(r: Recurrence | null) {
 // only for time-pinned tasks; "anytime" tasks (no timeOfDay) just show the day.
 function upcomingLabel(iso: string, timeOfDay: string | null): string {
   const d = new Date(iso)
-  const startOfDay = (x: Date) =>
-    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const dayDiff = Math.round(
-    (startOfDay(d) - startOfDay(new Date())) / 86_400_000,
-  )
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const dayDiff = Math.round((startOfDay(d) - startOfDay(new Date())) / 86_400_000)
   const time = timeOfDay
     ? ` ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
     : ''
   if (dayDiff <= 0) return `Later today${time}`
   if (dayDiff === 1) return `Tomorrow${time}`
-  if (dayDiff < 7)
-    return `${d.toLocaleDateString(undefined, { weekday: 'long' })}${time}`
+  if (dayDiff < 7) return `${d.toLocaleDateString(undefined, { weekday: 'long' })}${time}`
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
@@ -591,7 +559,6 @@ function ordinalShort(n: number): string {
 }
 
 function shortUnit(amount: number, unit: 'minutes' | 'hours' | 'days'): string {
-  const base =
-    unit === 'minutes' ? 'min' : unit === 'hours' ? 'hr' : 'day'
+  const base = unit === 'minutes' ? 'min' : unit === 'hours' ? 'hr' : 'day'
   return amount === 1 ? base : `${base}s`
 }

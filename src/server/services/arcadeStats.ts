@@ -11,13 +11,7 @@
 // small (low thousands at most) and we already pay the cost for stats.
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  friendships,
-  householdMembers,
-  user as userTable,
-  userPrefs,
-} from '../db/schema'
+import { events, friendships, householdMembers, user as userTable, userPrefs } from '../db/schema'
 import { GAMES } from '../../games/registry'
 
 // Lower-is-better games: fewer moves / fewer guesses wins. Higher-is-better
@@ -62,9 +56,7 @@ function scoreCounts(gameId: string, won: boolean): boolean {
 }
 
 function isBetter(gameId: string, candidate: number, current: number): boolean {
-  return SCORE_DIRECTION[gameId] === 'lower'
-    ? candidate < current
-    : candidate > current
+  return SCORE_DIRECTION[gameId] === 'lower' ? candidate < current : candidate > current
 }
 
 export interface PersonalGameStats {
@@ -139,10 +131,7 @@ interface GameEventRow {
 }
 
 function payloadAsObj(payload: unknown): Record<string, unknown> {
-  return (payload && typeof payload === 'object' ? payload : {}) as Record<
-    string,
-    unknown
-  >
+  return (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
 }
 
 function readPlay(row: GameEventRow): {
@@ -157,21 +146,17 @@ function readPlay(row: GameEventRow): {
 } | null {
   if (!row.occurredAt) return null
   const p = payloadAsObj(row.payload)
-  const gameId = typeof p['gameId'] === 'string' ? (p['gameId'] as string) : null
+  const gameId = typeof p.gameId === 'string' ? (p.gameId as string) : null
   if (!gameId) return null
-  const result = payloadAsObj(p['result'])
-  const won = result['won'] === true
-  const rawScore = result['score']
+  const result = payloadAsObj(p.result)
+  const won = result.won === true
+  const rawScore = result.score
   const score = typeof rawScore === 'number' ? (rawScore as number) : null
-  const word = typeof p['word'] === 'string' ? (p['word'] as string) : null
-  const rawDifficulty = p['difficulty']
-  const difficulty =
-    rawDifficulty === 'easy' || rawDifficulty === 'hard'
-      ? rawDifficulty
-      : null
-  const seconds = typeof p['seconds'] === 'number' ? (p['seconds'] as number) : null
-  const mistakes =
-    typeof p['mistakes'] === 'number' ? (p['mistakes'] as number) : null
+  const word = typeof p.word === 'string' ? (p.word as string) : null
+  const rawDifficulty = p.difficulty
+  const difficulty = rawDifficulty === 'easy' || rawDifficulty === 'hard' ? rawDifficulty : null
+  const seconds = typeof p.seconds === 'number' ? (p.seconds as number) : null
+  const mistakes = typeof p.mistakes === 'number' ? (p.mistakes as number) : null
   return {
     gameId,
     won,
@@ -194,10 +179,7 @@ async function friendIdsFor(userId: string): Promise<string[]> {
     .where(
       and(
         eq(friendships.status, 'accepted'),
-        or(
-          eq(friendships.requesterId, userId),
-          eq(friendships.addresseeId, userId),
-        ),
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
       ),
     )
   return rows.map((r) => (r.requester === userId ? r.addressee : r.requester))
@@ -227,11 +209,7 @@ async function loadVisibleFriends(viewerId: string): Promise<FriendCandidate[]> 
     .leftJoin(userPrefs, eq(userPrefs.userId, userTable.id))
     .where(inArray(userTable.id, ids))
   return rows
-    .filter(
-      (r) =>
-        r.profileVisibility !== 'private' &&
-        (r.shareProgression ?? true) === true,
-    )
+    .filter((r) => r.profileVisibility !== 'private' && (r.shareProgression ?? true) === true)
     .map((r) => ({ id: r.id, handle: r.handle, name: r.name }))
 }
 
@@ -262,9 +240,7 @@ async function loadHouseholdMembers(userId: string): Promise<FriendCandidate[]> 
     .map((r) => ({ id: r.id, handle: r.handle, name: r.name }))
 }
 
-function aggregatePersonal(
-  plays: ReturnType<typeof readPlay>[],
-): PersonalGameStats[] {
+function aggregatePersonal(plays: ReturnType<typeof readPlay>[]): PersonalGameStats[] {
   const byGame = new Map<string, PersonalGameStats>()
   for (const p of plays) {
     if (!p) continue
@@ -285,15 +261,8 @@ function aggregatePersonal(
     // See SCORE_NEEDS_WIN. Sudoku has per-difficulty leaderboards instead
     // — a combined "overall best" would mix easy + hard times — so we
     // omit the top-line best here and let SudokuDetails carry the splits.
-    if (
-      p.gameId !== 'sudoku' &&
-      typeof p.score === 'number' &&
-      scoreCounts(p.gameId, p.won)
-    ) {
-      if (
-        existing.bestScore === null ||
-        isBetter(p.gameId, p.score, existing.bestScore)
-      ) {
+    if (p.gameId !== 'sudoku' && typeof p.score === 'number' && scoreCounts(p.gameId, p.won)) {
+      if (existing.bestScore === null || isBetter(p.gameId, p.score, existing.bestScore)) {
         existing.bestScore = p.score
         existing.bestAt = p.occurredAt.toISOString()
       }
@@ -328,17 +297,13 @@ interface FriendPlay {
   occurredAt: Date
 }
 
-function aggregateFriendBests(
-  friends: FriendCandidate[],
-  rows: FriendPlay[],
-): FriendBest[] {
+function aggregateFriendBests(friends: FriendCandidate[], rows: FriendPlay[]): FriendBest[] {
   // For each gameId, find the friend whose best winning score beats all
   // other friends'. One row per game. Friends with no winning plays for
   // a game contribute nothing.
   const bestByFriendByGame = new Map<string, Map<string, FriendPlay>>()
   for (const r of rows) {
-    const inner =
-      bestByFriendByGame.get(r.gameId) ?? new Map<string, FriendPlay>()
+    const inner = bestByFriendByGame.get(r.gameId) ?? new Map<string, FriendPlay>()
     const existing = inner.get(r.userId)
     if (!existing || isBetter(r.gameId, r.score, existing.score)) {
       inner.set(r.userId, r)
@@ -427,12 +392,9 @@ function emptyDifficultyStats(): SudokuDifficultyStats {
   }
 }
 
-function buildSudokuDetails(
-  plays: ReturnType<typeof readPlay>[],
-): SudokuDetails | null {
+function buildSudokuDetails(plays: ReturnType<typeof readPlay>[]): SudokuDetails | null {
   const sudokus = plays.filter(
-    (p): p is NonNullable<ReturnType<typeof readPlay>> =>
-      p !== null && p.gameId === 'sudoku',
+    (p): p is NonNullable<ReturnType<typeof readPlay>> => p !== null && p.gameId === 'sudoku',
   )
   if (sudokus.length === 0) return null
 
@@ -484,12 +446,9 @@ function buildSudokuDetails(
   return { easy: stats.easy, hard: stats.hard, totalSolved }
 }
 
-function buildWordleDetails(
-  plays: ReturnType<typeof readPlay>[],
-): WordleDetails | null {
+function buildWordleDetails(plays: ReturnType<typeof readPlay>[]): WordleDetails | null {
   const wordles = plays.filter(
-    (p): p is NonNullable<ReturnType<typeof readPlay>> =>
-      p !== null && p.gameId === 'wordle',
+    (p): p is NonNullable<ReturnType<typeof readPlay>> => p !== null && p.gameId === 'wordle',
   )
   if (wordles.length === 0) return null
 
@@ -528,9 +487,7 @@ function buildWordleDetails(
     won,
     bestGuesses,
     averageGuessesOnWin:
-      guessesCount > 0
-        ? Math.round((guessesSum / guessesCount) * 10) / 10
-        : null,
+      guessesCount > 0 ? Math.round((guessesSum / guessesCount) * 10) / 10 : null,
     uniqueWordsSolved: wordsSolved.size,
     currentWinStreak: currentStreak,
     longestWinStreak: longest,
@@ -572,9 +529,7 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
       occurredAt: events.occurredAt,
     })
     .from(events)
-    .where(
-      and(eq(events.type, 'game.played'), inArray(events.userId, allUserIds)),
-    )
+    .where(and(eq(events.type, 'game.played'), inArray(events.userId, allUserIds)))
 
   const myPlays: ReturnType<typeof readPlay>[] = []
   const friendPlays: FriendPlay[] = [] // friends only, single-best → friendBests
@@ -598,9 +553,7 @@ export async function getArcadeStats(userId: string): Promise<ArcadeStats> {
     }
     if (play.gameId === 'sudoku' && !play.difficulty) continue
     const aggregateGameId =
-      play.gameId === 'sudoku' && play.difficulty
-        ? `sudoku:${play.difficulty}`
-        : play.gameId
+      play.gameId === 'sudoku' && play.difficulty ? `sudoku:${play.difficulty}` : play.gameId
     const ranked: FriendPlay = {
       userId: r.userId,
       gameId: aggregateGameId,

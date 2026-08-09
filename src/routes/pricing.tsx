@@ -33,8 +33,8 @@ function PricingPage() {
           Simple pricing, generous free tier
         </h1>
         <p className="text-[var(--sea-ink-soft)]">
-          Memory Flip and Sliding Puzzle stay free forever. Upgrade for the AI
-          Coach personalities, the rest of the arcade, and the Garden.
+          Memory Flip and Sliding Puzzle stay free forever. Upgrade for the AI Coach personalities,
+          the rest of the arcade, and the Garden.
         </p>
       </section>
       <div className="mx-auto max-w-5xl">

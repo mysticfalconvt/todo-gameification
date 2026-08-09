@@ -10,12 +10,7 @@
 import { db } from '../db/client'
 import { llmCallLog } from '../db/schema'
 
-export type LlmCallKind =
-  | 'score'
-  | 'categorize'
-  | 'coach'
-  | 'word_search'
-  | 'weekly'
+export type LlmCallKind = 'score' | 'categorize' | 'coach' | 'word_search' | 'weekly'
 
 export function isLlmConfigured(): boolean {
   return Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL)
@@ -47,19 +42,14 @@ interface ChatResponseBody {
   model?: string
 }
 
-export async function callLlmChat(
-  options: LlmChatOptions,
-): Promise<string | null> {
+export async function callLlmChat(options: LlmChatOptions): Promise<string | null> {
   if (!isLlmConfigured()) return null
   const baseUrl = process.env.LLM_BASE_URL!.replace(/\/$/, '')
   const model = process.env.LLM_MODEL!
   const apiKey = process.env.LLM_API_KEY || 'lm-studio'
 
   const controller = new AbortController()
-  const timer = setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? 15_000,
-  )
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000)
 
   const startedAt = new Date()
   const t0 = performance.now()
@@ -79,9 +69,7 @@ export async function callLlmChat(
         model,
         temperature: options.temperature ?? 0.7,
         ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
-        ...(options.responseFormat
-          ? { response_format: options.responseFormat }
-          : {}),
+        ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
         messages: options.messages,
       }),
     })
@@ -98,8 +86,7 @@ export async function callLlmChat(
       errorMessage = 'timeout'
       console.error('[llm] chat call timed out')
     } else {
-      errorMessage =
-        err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500)
+      errorMessage = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500)
       console.error('[llm] chat call errored:', err)
     }
   } finally {

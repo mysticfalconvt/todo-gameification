@@ -28,17 +28,13 @@ describe('social service', () => {
 
   it('sendFriendRequest to yourself throws', async () => {
     await withTestUsers(1, async ([a]) => {
-      await expect(sendFriendRequest(a.id, a.handle)).rejects.toThrow(
-        /can't friend yourself/i,
-      )
+      await expect(sendFriendRequest(a.id, a.handle)).rejects.toThrow(/can't friend yourself/i)
     })
   })
 
   it('sendFriendRequest to unknown handle throws', async () => {
     await withTestUsers(1, async ([a]) => {
-      await expect(sendFriendRequest(a.id, 'no_such_handle_999')).rejects.toThrow(
-        /no user/i,
-      )
+      await expect(sendFriendRequest(a.id, 'no_such_handle_999')).rejects.toThrow(/no user/i)
     })
   })
 
@@ -63,9 +59,7 @@ describe('social service', () => {
 
   it('acceptFriendRequest throws when there is no pending row', async () => {
     await withTestUsers(2, async ([a, b]) => {
-      await expect(acceptFriendRequest(b.id, a.id)).rejects.toThrow(
-        /no pending request/i,
-      )
+      await expect(acceptFriendRequest(b.id, a.id)).rejects.toThrow(/no pending request/i)
     })
   })
 
@@ -100,10 +94,7 @@ describe('social service', () => {
         await import('../db/client').then(async ({ db }) => {
           const { user } = await import('../db/schema')
           const { eq } = await import('drizzle-orm')
-          await db
-            .update(user)
-            .set({ profileVisibility: 'private' })
-            .where(eq(user.id, b.id))
+          await db.update(user).set({ profileVisibility: 'private' }).where(eq(user.id, b.id))
         })
         expect(await canView(a.id, b.id)).toBe(false)
       })
@@ -114,10 +105,7 @@ describe('social service', () => {
         await import('../db/client').then(async ({ db }) => {
           const { user } = await import('../db/schema')
           const { eq } = await import('drizzle-orm')
-          await db
-            .update(user)
-            .set({ profileVisibility: 'public' })
-            .where(eq(user.id, b.id))
+          await db.update(user).set({ profileVisibility: 'public' }).where(eq(user.id, b.id))
         })
         expect(await canView(a.id, b.id)).toBe(true)
       })
@@ -139,10 +127,7 @@ describe('social service', () => {
         await import('../db/client').then(async ({ db }) => {
           const { user } = await import('../db/schema')
           const { eq } = await import('drizzle-orm')
-          await db
-            .update(user)
-            .set({ profileVisibility: 'public' })
-            .where(eq(user.id, a.id))
+          await db.update(user).set({ profileVisibility: 'public' }).where(eq(user.id, a.id))
         })
         // Even though a is public, a blocking b means b can't see a.
         await blockUser(a.id, b.id)

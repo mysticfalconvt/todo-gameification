@@ -63,10 +63,8 @@ export async function getGarden(userId: string): Promise<GardenView> {
       rows
         .map((r) => {
           const p =
-            r.payload && typeof r.payload === 'object'
-              ? (r.payload as Record<string, unknown>)
-              : {}
-          return typeof p['taskId'] === 'string' ? p['taskId'] : null
+            r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+          return typeof p.taskId === 'string' ? p.taskId : null
         })
         .filter((v): v is string => Boolean(v)),
     ),
@@ -87,12 +85,9 @@ export async function getGarden(userId: string): Promise<GardenView> {
 
   const gardenEvents = rows.map((r) => {
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const taskId =
-      typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
-    const categorySlug = taskId ? taskCatMap.get(taskId) ?? null : null
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const taskId = typeof p.taskId === 'string' ? (p.taskId as string) : null
+    const categorySlug = taskId ? (taskCatMap.get(taskId) ?? null) : null
     return {
       type: 'task.completed' as const,
       occurredAt: r.occurredAt!,

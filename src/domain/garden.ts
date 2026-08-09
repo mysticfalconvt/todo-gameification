@@ -30,10 +30,7 @@ export interface GardenState {
 
 export const INITIAL_GARDEN: GardenState = { plants: {} }
 
-function emptyPlant(
-  key: PlantKey,
-  categorySlug: string | null,
-): PlantState {
+function emptyPlant(key: PlantKey, categorySlug: string | null): PlantState {
   return {
     key,
     categorySlug,
@@ -78,9 +75,7 @@ export function applyGardenEvent(
   const key = event.categorySlug ?? UNCATEGORIZED_KEY
   const prev = state.plants[key] ?? emptyPlant(key, event.categorySlug)
 
-  const prevDay = prev.lastWateredAt
-    ? dayKey(prev.lastWateredAt, options.timeZone)
-    : null
+  const prevDay = prev.lastWateredAt ? dayKey(prev.lastWateredAt, options.timeZone) : null
   const thisDay = dayKey(event.occurredAt, options.timeZone)
 
   let currentStreak: number
@@ -109,10 +104,7 @@ export function replayGarden(
   events: readonly GardenCompletionEvent[],
   options: ApplyGardenOptions,
 ): GardenState {
-  return events.reduce(
-    (acc, e) => applyGardenEvent(acc, e, options),
-    INITIAL_GARDEN,
-  )
+  return events.reduce((acc, e) => applyGardenEvent(acc, e, options), INITIAL_GARDEN)
 }
 
 // Eight growth stages keyed by total waterings. Early thresholds are
@@ -160,19 +152,11 @@ export function milestoneDecorations(waterings: number): Decoration[] {
 // resets straight back to the top. This is the anti-guilt lever.
 // More levels give the community garden finer visual variety at a
 // glance without adding category-specific logic.
-export type Mood =
-  | 'thriving'
-  | 'perky'
-  | 'content'
-  | 'thirsty'
-  | 'wilting'
-  | 'parched'
-  | 'dormant'
+export type Mood = 'thriving' | 'perky' | 'content' | 'thirsty' | 'wilting' | 'parched' | 'dormant'
 
 export function mood(lastWateredAt: Date | null, now = new Date()): Mood {
   if (!lastWateredAt) return 'dormant'
-  const hours =
-    (now.getTime() - lastWateredAt.getTime()) / (60 * 60 * 1000)
+  const hours = (now.getTime() - lastWateredAt.getTime()) / (60 * 60 * 1000)
   if (hours < 12) return 'thriving'
   if (hours < 36) return 'perky'
   if (hours < 96) return 'content'

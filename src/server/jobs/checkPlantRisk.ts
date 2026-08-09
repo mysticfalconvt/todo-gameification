@@ -41,18 +41,11 @@ export async function checkPlantRiskHandler(): Promise<void> {
     if (localHour !== RISK_HOUR_LOCAL) continue
     // Quiet hours shouldn't matter at 18:00 but respect them anyway —
     // some users may have set an unusual window (sleep-shift work etc).
-    if (
-      isInQuietHours(
-        now,
-        u.quietHoursStart ?? null,
-        u.quietHoursEnd ?? null,
-        tz,
-      )
-    ) {
+    if (isInQuietHours(now, u.quietHoursStart ?? null, u.quietHoursEnd ?? null, tz)) {
       continue
     }
 
-    let garden
+    let garden: Awaited<ReturnType<typeof getGarden>>
     try {
       garden = await getGarden(u.id)
     } catch (err) {
@@ -65,11 +58,7 @@ export async function checkPlantRiskHandler(): Promise<void> {
 
     const atRisk = garden.plants.filter((p) => {
       if (!p.lastWateredAt) return false
-      const lastLocal = formatInTimeZone(
-        new Date(p.lastWateredAt),
-        tz,
-        'yyyy-MM-dd',
-      )
+      const lastLocal = formatInTimeZone(new Date(p.lastWateredAt), tz, 'yyyy-MM-dd')
       // Already watered today → safe.
       if (lastLocal === today) return false
       // Only warn for plants that had yesterday's watering — a plant

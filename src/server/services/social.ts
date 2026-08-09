@@ -35,9 +35,7 @@ async function fireSocialPush(
   }
 }
 
-async function loadDisplayName(
-  userId: string,
-): Promise<{ name: string; handle: string } | null> {
+async function loadDisplayName(userId: string): Promise<{ name: string; handle: string } | null> {
   const row = await db.query.user.findFirst({
     where: eq(userTable.id, userId),
     columns: { name: true, handle: true },
@@ -49,10 +47,7 @@ async function loadDisplayName(
 // its XP bump to their progression. Idempotent: if the user already has a
 // friend.added event for this pair, it no-ops. Protects against unfriend +
 // refriend cycles farming XP.
-async function grantFriendXpForSide(
-  userId: string,
-  otherUserId: string,
-): Promise<void> {
+async function grantFriendXpForSide(userId: string, otherUserId: string): Promise<void> {
   const existing = await db
     .select({ id: events.id })
     .from(events)
@@ -120,10 +115,7 @@ async function grantFriendXpForSide(
 
 // Award friendship XP to both sides. Best-effort — errors are logged but
 // never break the acceptance flow.
-async function awardFriendshipXp(
-  userIdA: string,
-  userIdB: string,
-): Promise<void> {
+async function awardFriendshipXp(userIdA: string, userIdB: string): Promise<void> {
   try {
     await Promise.all([
       grantFriendXpForSide(userIdA, userIdB),
@@ -186,14 +178,8 @@ async function findFriendshipEitherDirection(
     .from(friendships)
     .where(
       or(
-        and(
-          eq(friendships.requesterId, a),
-          eq(friendships.addresseeId, b),
-        ),
-        and(
-          eq(friendships.requesterId, b),
-          eq(friendships.addresseeId, a),
-        ),
+        and(eq(friendships.requesterId, a), eq(friendships.addresseeId, b)),
+        and(eq(friendships.requesterId, b), eq(friendships.addresseeId, a)),
       ),
     )
     .limit(1)
@@ -208,10 +194,7 @@ async function findFriendshipEitherDirection(
 // surfaces (leaderboard, activity). No-op if any friendship row
 // (pending / accepted / blocked) already exists in either direction, so
 // an existing real friendship or a block is never clobbered.
-export async function ensureAcceptedFriendship(
-  a: string,
-  b: string,
-): Promise<void> {
+export async function ensureAcceptedFriendship(a: string, b: string): Promise<void> {
   if (a === b) return
   const existing = await findFriendshipEitherDirection(a, b)
   if (existing) return
@@ -264,10 +247,7 @@ export async function sendFriendRequest(
     .where(
       and(
         eq(friendships.requesterId, meId),
-        gt(
-          friendships.createdAt,
-          new Date(Date.now() - 24 * 60 * 60 * 1000),
-        ),
+        gt(friendships.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
       ),
     )
   if ((recentCount[0]?.count ?? 0) >= MAX_REQUESTS_PER_DAY) {
@@ -284,20 +264,12 @@ export async function sendFriendRequest(
       return { status: 'already_friends', otherUserId: target.id }
     }
     // pending
-    if (
-      existing.requesterId === target.id &&
-      existing.addresseeId === meId
-    ) {
+    if (existing.requesterId === target.id && existing.addresseeId === meId) {
       // They already sent me one — accept it instead of sending a new one.
       await db
         .update(friendships)
         .set({ status: 'accepted', respondedAt: new Date() })
-        .where(
-          and(
-            eq(friendships.requesterId, target.id),
-            eq(friendships.addresseeId, meId),
-          ),
-        )
+        .where(and(eq(friendships.requesterId, target.id), eq(friendships.addresseeId, meId)))
       await awardFriendshipXp(meId, target.id)
       // Notify the original requester that we just accepted their request.
       const me = await loadDisplayName(meId)
@@ -331,10 +303,7 @@ export async function sendFriendRequest(
   return { status: 'sent', otherUserId: target.id }
 }
 
-export async function acceptFriendRequest(
-  meId: string,
-  requesterId: string,
-): Promise<void> {
+export async function acceptFriendRequest(meId: string, requesterId: string): Promise<void> {
   const res = await db
     .update(friendships)
     .set({ status: 'accepted', respondedAt: new Date() })
@@ -362,10 +331,7 @@ export async function acceptFriendRequest(
   }
 }
 
-export async function declineFriendRequest(
-  meId: string,
-  requesterId: string,
-): Promise<void> {
+export async function declineFriendRequest(meId: string, requesterId: string): Promise<void> {
   await db
     .delete(friendships)
     .where(
@@ -378,10 +344,7 @@ export async function declineFriendRequest(
 }
 
 // Cancel an outgoing request I sent.
-export async function cancelFriendRequest(
-  meId: string,
-  addresseeId: string,
-): Promise<void> {
+export async function cancelFriendRequest(meId: string, addresseeId: string): Promise<void> {
   await db
     .delete(friendships)
     .where(
@@ -393,23 +356,14 @@ export async function cancelFriendRequest(
     )
 }
 
-export async function removeFriend(
-  meId: string,
-  otherId: string,
-): Promise<void> {
+export async function removeFriend(meId: string, otherId: string): Promise<void> {
   await db
     .delete(friendships)
     .where(
       and(
         or(
-          and(
-            eq(friendships.requesterId, meId),
-            eq(friendships.addresseeId, otherId),
-          ),
-          and(
-            eq(friendships.requesterId, otherId),
-            eq(friendships.addresseeId, meId),
-          ),
+          and(eq(friendships.requesterId, meId), eq(friendships.addresseeId, otherId)),
+          and(eq(friendships.requesterId, otherId), eq(friendships.addresseeId, meId)),
         ),
         eq(friendships.status, 'accepted'),
       ),
@@ -423,14 +377,8 @@ export async function blockUser(meId: string, targetId: string): Promise<void> {
     .delete(friendships)
     .where(
       or(
-        and(
-          eq(friendships.requesterId, meId),
-          eq(friendships.addresseeId, targetId),
-        ),
-        and(
-          eq(friendships.requesterId, targetId),
-          eq(friendships.addresseeId, meId),
-        ),
+        and(eq(friendships.requesterId, meId), eq(friendships.addresseeId, targetId)),
+        and(eq(friendships.requesterId, targetId), eq(friendships.addresseeId, meId)),
       ),
     )
   await db.insert(friendships).values({
@@ -441,10 +389,7 @@ export async function blockUser(meId: string, targetId: string): Promise<void> {
   })
 }
 
-export async function unblockUser(
-  meId: string,
-  targetId: string,
-): Promise<void> {
+export async function unblockUser(meId: string, targetId: string): Promise<void> {
   await db
     .delete(friendships)
     .where(
@@ -471,14 +416,8 @@ export async function listFriends(meId: string): Promise<FriendRow[]> {
     .innerJoin(
       userTable,
       or(
-        and(
-          eq(friendships.requesterId, meId),
-          eq(userTable.id, friendships.addresseeId),
-        ),
-        and(
-          eq(friendships.addresseeId, meId),
-          eq(userTable.id, friendships.requesterId),
-        ),
+        and(eq(friendships.requesterId, meId), eq(userTable.id, friendships.addresseeId)),
+        and(eq(friendships.addresseeId, meId), eq(userTable.id, friendships.requesterId)),
       ),
     )
     .where(eq(friendships.status, 'accepted'))
@@ -503,12 +442,7 @@ export async function listIncomingRequests(meId: string): Promise<PendingRow[]> 
     })
     .from(friendships)
     .innerJoin(userTable, eq(userTable.id, friendships.requesterId))
-    .where(
-      and(
-        eq(friendships.addresseeId, meId),
-        eq(friendships.status, 'pending'),
-      ),
-    )
+    .where(and(eq(friendships.addresseeId, meId), eq(friendships.status, 'pending')))
     .orderBy(desc(friendships.createdAt))
   return rows.map((r) => ({
     userId: r.id,
@@ -528,12 +462,7 @@ export async function listOutgoingRequests(meId: string): Promise<PendingRow[]> 
     })
     .from(friendships)
     .innerJoin(userTable, eq(userTable.id, friendships.addresseeId))
-    .where(
-      and(
-        eq(friendships.requesterId, meId),
-        eq(friendships.status, 'pending'),
-      ),
-    )
+    .where(and(eq(friendships.requesterId, meId), eq(friendships.status, 'pending')))
     .orderBy(desc(friendships.createdAt))
   return rows.map((r) => ({
     userId: r.id,
@@ -556,12 +485,7 @@ export async function listBlocked(meId: string): Promise<FriendRow[]> {
     })
     .from(friendships)
     .innerJoin(userTable, eq(userTable.id, friendships.addresseeId))
-    .where(
-      and(
-        eq(friendships.requesterId, meId),
-        eq(friendships.status, 'blocked'),
-      ),
-    )
+    .where(and(eq(friendships.requesterId, meId), eq(friendships.status, 'blocked')))
   return rows.map((r) => ({
     userId: r.u.id,
     handle: r.u.handle,
@@ -572,10 +496,7 @@ export async function listBlocked(meId: string): Promise<FriendRow[]> {
 }
 
 // Privacy gate shared by profile, activity feed, and leaderboards.
-export async function canView(
-  viewerId: string,
-  targetId: string,
-): Promise<boolean> {
+export async function canView(viewerId: string, targetId: string): Promise<boolean> {
   if (viewerId === targetId) return true
   const target = await db.query.user.findFirst({
     where: eq(userTable.id, targetId),
@@ -602,10 +523,7 @@ export async function canView(
 // reads gardenVisibility instead of profileVisibility — users can share
 // their garden on a different axis than the rest of their profile.
 // Block enforcement is identical: a block on the viewer always wins.
-export async function canViewGarden(
-  viewerId: string,
-  targetId: string,
-): Promise<boolean> {
+export async function canViewGarden(viewerId: string, targetId: string): Promise<boolean> {
   if (viewerId === targetId) return true
   const target = await db.query.user.findFirst({
     where: eq(userTable.id, targetId),

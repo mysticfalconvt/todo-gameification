@@ -26,19 +26,11 @@ export function assertValidWeekdayTimes(map: WeekdayTimes): void {
 }
 
 // Resolve the effective HH:MM for a weekday: the override if present, else base.
-export function resolveTimeOfDay(
-  weekday: number,
-  base: string,
-  map?: WeekdayTimes | null,
-): string {
+export function resolveTimeOfDay(weekday: number, base: string, map?: WeekdayTimes | null): string {
   return map?.[String(weekday)] ?? base
 }
 
-export function setTimeInTz(
-  dayAnchor: Date,
-  timeOfDay: string,
-  timeZone: string,
-): Date {
+export function setTimeInTz(dayAnchor: Date, timeOfDay: string, timeZone: string): Date {
   assertValidTimeOfDay(timeOfDay)
   const localDate = formatInTimeZone(dayAnchor, timeZone, 'yyyy-MM-dd')
   return fromZonedTime(`${localDate}T${timeOfDay}:00`, timeZone)
@@ -61,12 +53,8 @@ export function pinDateInTz(
   return fromZonedTime(`${yyyy}-${mm}-${dd}T${timeOfDay}:00`, timeZone)
 }
 
-export function nextOccurrenceAt(
-  from: Date,
-  timeOfDay: string,
-  timeZone: string,
-): Date {
-  let candidate = setTimeInTz(from, timeOfDay, timeZone)
+export function nextOccurrenceAt(from: Date, timeOfDay: string, timeZone: string): Date {
+  const candidate = setTimeInTz(from, timeOfDay, timeZone)
   if (candidate > from) return candidate
 
   let anchor = new Date(from.getTime() + 86_400_000)

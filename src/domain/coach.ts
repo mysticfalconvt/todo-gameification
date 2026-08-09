@@ -7,20 +7,12 @@
 // validate an attitude without importing the coach service, which would
 // risk an import cycle (coach → tasks → households).
 
-export const COACH_ATTITUDES = [
-  'warm',
-  'snarky',
-  'stoic',
-  'drill',
-  'zen',
-] as const
+export const COACH_ATTITUDES = ['warm', 'snarky', 'stoic', 'drill', 'zen'] as const
 export type CoachAttitude = (typeof COACH_ATTITUDES)[number]
 export const DEFAULT_COACH_ATTITUDE: CoachAttitude = 'warm'
 
 export function isCoachAttitude(v: unknown): v is CoachAttitude {
-  return (
-    typeof v === 'string' && (COACH_ATTITUDES as readonly string[]).includes(v)
-  )
+  return typeof v === 'string' && (COACH_ATTITUDES as readonly string[]).includes(v)
 }
 
 export interface CoachAttitudeOption {

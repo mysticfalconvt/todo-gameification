@@ -33,18 +33,11 @@ export function CategoryHistogramView({
   bars: CategoryBar[]
   compact?: boolean
 }) {
-  const ordered = useMemo(
-    () => toBellOrder(bars.filter((b) => b.count > 0)),
-    [bars],
-  )
+  const ordered = useMemo(() => toBellOrder(bars.filter((b) => b.count > 0)), [bars])
   const max = ordered.reduce((acc, b) => Math.max(acc, b.count), 0)
 
   if (ordered.length === 0) {
-    return (
-      <p className="py-4 text-center text-xs text-[var(--sea-ink-soft)]">
-        Nothing to show.
-      </p>
-    )
+    return <p className="py-4 text-center text-xs text-[var(--sea-ink-soft)]">Nothing to show.</p>
   }
 
   const BAR_MAX_PX = compact ? 56 : 96
@@ -53,17 +46,14 @@ export function CategoryHistogramView({
   return (
     <div className="flex items-end gap-1.5">
       {ordered.map((b) => {
-        const barHeight =
-          max === 0 ? MIN_PX : Math.max((b.count / max) * BAR_MAX_PX, MIN_PX)
+        const barHeight = max === 0 ? MIN_PX : Math.max((b.count / max) * BAR_MAX_PX, MIN_PX)
         return (
           <div
             key={b.slug ?? 'uncategorized'}
             className="flex min-w-0 flex-1 flex-col items-center gap-1"
             title={`${b.label}: ${b.count}`}
           >
-            <span className="text-[10px] font-semibold text-[var(--sea-ink-soft)]">
-              {b.count}
-            </span>
+            <span className="text-[10px] font-semibold text-[var(--sea-ink-soft)]">{b.count}</span>
             <div
               className="w-full rounded-t-md"
               style={{

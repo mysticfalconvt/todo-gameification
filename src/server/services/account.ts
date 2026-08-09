@@ -26,9 +26,7 @@ export interface DeleteAccountResult {
   stripeSubscriptionCanceled: boolean
 }
 
-export async function deleteAccount(
-  userId: string,
-): Promise<DeleteAccountResult> {
+export async function deleteAccount(userId: string): Promise<DeleteAccountResult> {
   const target = await db.query.user.findFirst({
     where: eq(userTable.id, userId),
     columns: { id: true, email: true },
@@ -46,10 +44,7 @@ export async function deleteAccount(
   // the next period. Fire-and-log: if Stripe is unreachable we still
   // delete the user — they can dispute the charge if it lands.
   let stripeSubscriptionCanceled = false
-  if (
-    membership?.stripeSubscriptionId &&
-    membership.tier === 'annual'
-  ) {
+  if (membership?.stripeSubscriptionId && membership.tier === 'annual') {
     try {
       const stripe = getStripe()
       await stripe.subscriptions.cancel(membership.stripeSubscriptionId)
@@ -69,18 +64,12 @@ export async function deleteAccount(
     // Tables with no FK cascade: explicit delete.
     await tx.delete(events).where(eq(events.userId, userId))
     await tx.delete(progression).where(eq(progression.userId, userId))
-    await tx
-      .delete(pushSubscriptions)
-      .where(eq(pushSubscriptions.userId, userId))
+    await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
     await tx.delete(llmCallLog).where(eq(llmCallLog.userId, userId))
 
     // Email-keyed audit/verification rows.
-    await tx
-      .delete(emailSendLog)
-      .where(eq(emailSendLog.email, lowerEmail))
-    await tx
-      .delete(verification)
-      .where(eq(verification.identifier, target.email))
+    await tx.delete(emailSendLog).where(eq(emailSendLog.email, lowerEmail))
+    await tx.delete(verification).where(eq(verification.identifier, target.email))
 
     // Finally drop the user. This cascades to:
     //   account, session, tasks (and via tasks: task_instances,

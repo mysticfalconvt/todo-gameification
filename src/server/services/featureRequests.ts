@@ -51,9 +51,9 @@ export async function submitFeatureRequest(
   const submittedAt = new Date()
 
   const submissionId =
-    (typeof globalThis.crypto?.randomUUID === 'function'
+    typeof globalThis.crypto?.randomUUID === 'function'
       ? globalThis.crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
   const dateLabel = submittedAt.toISOString().slice(0, 10)
   const notesBody = [
@@ -78,10 +78,7 @@ export async function submitFeatureRequest(
       })
       adminTaskCount += 1
     } catch (err) {
-      console.error(
-        `[featureRequests] failed to create task for admin ${admin.id}:`,
-        err,
-      )
+      console.error(`[featureRequests] failed to create task for admin ${admin.id}:`, err)
     }
   }
 

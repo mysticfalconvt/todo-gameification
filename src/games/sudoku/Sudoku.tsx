@@ -38,9 +38,7 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
   const [given, setGiven] = useState<boolean[][]>(() =>
     Array.from({ length: 9 }, () => Array(9).fill(false)),
   )
-  const [selected, setSelected] = useState<{ row: number; col: number } | null>(
-    null,
-  )
+  const [selected, setSelected] = useState<{ row: number; col: number } | null>(null)
   const [mistakes, setMistakes] = useState(0)
   const [hintsUsed, setHintsUsed] = useState(0)
   const [startedAt, setStartedAt] = useState<number | null>(null)
@@ -234,13 +232,10 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
   if (phase === 'choose') {
     return (
       <div className="flex flex-col items-center gap-4 py-6">
-        <h2 className="text-lg font-semibold text-[var(--sea-ink)]">
-          Pick a difficulty
-        </h2>
+        <h2 className="text-lg font-semibold text-[var(--sea-ink)]">Pick a difficulty</h2>
         <p className="max-w-sm text-center text-xs text-[var(--sea-ink-soft)]">
-          Three mistakes ends the run. Score is your solve time + 30s per
-          mistake; lower wins. Up to 3 hints per run — each one reduces XP.
-          Easy and Hard have separate leaderboards.
+          Three mistakes ends the run. Score is your solve time + 30s per mistake; lower wins. Up to
+          3 hints per run — each one reduces XP. Easy and Hard have separate leaderboards.
         </p>
         <div className="flex w-full max-w-sm flex-col gap-3">
           <button
@@ -287,9 +282,7 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
           <span className="rounded-full bg-[var(--btn-subtle-bg)] px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[var(--sea-ink)]">
             {difficulty}
           </span>
-          <span className="tabular-nums text-[var(--sea-ink)]">
-            {formatTime(elapsedSec)}
-          </span>
+          <span className="tabular-nums text-[var(--sea-ink)]">{formatTime(elapsedSec)}</span>
           <span
             className={`tabular-nums ${
               mistakes >= 2 ? 'text-red-600' : 'text-[var(--sea-ink-soft)]'
@@ -333,31 +326,15 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
           Array.from({ length: 9 }, (_, col) => {
             const value = board[row][col]
             const isGiven = given[row][col]
-            const isSelected =
-              selected?.row === row && selected?.col === col
-            const isHighlighted =
-              selected !== null && isPeer(selected.row, selected.col, row, col)
-            const sameDigit =
-              selectedDigit !== null &&
-              value === selectedDigit &&
-              !isSelected
-            const isWrongFlash =
-              wrongFlash?.row === row && wrongFlash?.col === col
+            const isSelected = selected?.row === row && selected?.col === col
+            const isHighlighted = selected !== null && isPeer(selected.row, selected.col, row, col)
+            const sameDigit = selectedDigit !== null && value === selectedDigit && !isSelected
+            const isWrongFlash = wrongFlash?.row === row && wrongFlash?.col === col
 
             // 1px between every cell, 2px between 3x3 bands. Single color
             // (--sea-ink-soft) which adapts to dark mode.
-            const rightBorder =
-              col === 8
-                ? ''
-                : col % 3 === 2
-                  ? 'border-r-2'
-                  : 'border-r'
-            const bottomBorder =
-              row === 8
-                ? ''
-                : row % 3 === 2
-                  ? 'border-b-2'
-                  : 'border-b'
+            const rightBorder = col === 8 ? '' : col % 3 === 2 ? 'border-r-2' : 'border-r'
+            const bottomBorder = row === 8 ? '' : row % 3 === 2 ? 'border-b-2' : 'border-b'
 
             // Cell bg uses --surface-strong so it adapts to dark mode (light
             // text on a light cell was washed out before). Overlays are
@@ -418,9 +395,7 @@ export function Sudoku({ onFinish, onExit }: GameProps) {
         </p>
       ) : null}
       {phase === 'lost' ? (
-        <p className="text-sm font-semibold text-red-600">
-          3 mistakes — run over.
-        </p>
+        <p className="text-sm font-semibold text-red-600">3 mistakes — run over.</p>
       ) : null}
     </div>
   )

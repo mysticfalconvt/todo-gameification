@@ -4,14 +4,7 @@
 // mutual-cheer farming bounded.
 import { and, desc, eq, gte, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  friendships,
-  progression,
-  tasks,
-  user as userTable,
-  userPrefs,
-} from '../db/schema'
+import { events, friendships, progression, tasks, user as userTable, userPrefs } from '../db/schema'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import type { DomainEvent } from '../../domain/events'
 import { sendPushToUser } from '../push/broadcast'
@@ -42,15 +35,10 @@ async function friendIdsFor(userId: string): Promise<string[]> {
     .where(
       and(
         eq(friendships.status, 'accepted'),
-        or(
-          eq(friendships.requesterId, userId),
-          eq(friendships.addresseeId, userId),
-        ),
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
       ),
     )
-  return rows.map((r) =>
-    r.requester === userId ? r.addressee : r.requester,
-  )
+  return rows.map((r) => (r.requester === userId ? r.addressee : r.requester))
 }
 
 export async function getFriendActivity(
@@ -78,12 +66,8 @@ export async function getFriendActivity(
   const allowed = sharers.filter((s) => (s.shareActivity ?? true) !== false)
   if (allowed.length === 0) return []
   const allowedIds = allowed.map((a) => a.id)
-  const shareTitlesByUser = new Map(
-    allowed.map((a) => [a.id, a.shareTaskTitles ?? false]),
-  )
-  const profileByUser = new Map(
-    allowed.map((a) => [a.id, { handle: a.handle, name: a.name }]),
-  )
+  const shareTitlesByUser = new Map(allowed.map((a) => [a.id, a.shareTaskTitles ?? false]))
+  const profileByUser = new Map(allowed.map((a) => [a.id, { handle: a.handle, name: a.name }]))
 
   const completions = await db
     .select({
@@ -126,16 +110,12 @@ export async function getFriendActivity(
       ),
     )
 
-  const cheersByCompletion = new Map<
-    string,
-    { count: number; viewerCheered: boolean }
-  >()
+  const cheersByCompletion = new Map<string, { count: number; viewerCheered: boolean }>()
   for (const c of cheers) {
-    const bucket =
-      cheersByCompletion.get(c.completionEventId) ?? {
-        count: 0,
-        viewerCheered: false,
-      }
+    const bucket = cheersByCompletion.get(c.completionEventId) ?? {
+      count: 0,
+      viewerCheered: false,
+    }
     bucket.count += 1
     if (c.giverUserId === viewerId) bucket.viewerCheered = true
     cheersByCompletion.set(c.completionEventId, bucket)
@@ -149,18 +129,10 @@ export async function getFriendActivity(
     )
     .map((c): ActivityRow => {
       const p =
-        c.payload && typeof c.payload === 'object'
-          ? (c.payload as Record<string, unknown>)
-          : {}
-      const xpOverride =
-        typeof p['xpOverride'] === 'number'
-          ? (p['xpOverride'] as number)
-          : null
-      const difficulty =
-        typeof p['difficulty'] === 'string' ? p['difficulty'] : null
-      const xp =
-        xpOverride ??
-        (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+        c.payload && typeof c.payload === 'object' ? (c.payload as Record<string, unknown>) : {}
+      const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+      const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
+      const xp = xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
       const showTitle = shareTitlesByUser.get(c.userId) ?? false
       const prof = profileByUser.get(c.userId) ?? { handle: '', name: '' }
       const cheerBucket = cheersByCompletion.get(c.id) ?? {
@@ -172,7 +144,7 @@ export async function getFriendActivity(
         userId: c.userId,
         handle: prof.handle,
         name: prof.name,
-        taskTitle: showTitle ? c.taskTitle ?? null : null,
+        taskTitle: showTitle ? (c.taskTitle ?? null) : null,
         xp,
         occurredAt: c.occurredAt!,
         cheerCount: cheerBucket.count,
@@ -200,14 +172,8 @@ export async function cheerCompletion(
     where: and(
       eq(friendships.status, 'accepted'),
       or(
-        and(
-          eq(friendships.requesterId, giverId),
-          eq(friendships.addresseeId, recipientId),
-        ),
-        and(
-          eq(friendships.requesterId, recipientId),
-          eq(friendships.addresseeId, giverId),
-        ),
+        and(eq(friendships.requesterId, giverId), eq(friendships.addresseeId, recipientId)),
+        and(eq(friendships.requesterId, recipientId), eq(friendships.addresseeId, giverId)),
       ),
     ),
   })
@@ -312,7 +278,7 @@ export async function cheerCompletion(
   try {
     const taskId =
       completion.payload && typeof completion.payload === 'object'
-        ? (completion.payload as Record<string, unknown>)['taskId']
+        ? (completion.payload as Record<string, unknown>).taskId
         : null
     const [giver, task] = await Promise.all([
       db.query.user.findFirst({
@@ -388,12 +354,9 @@ export async function getReceivedCheers(
   const completionIds: string[] = []
   for (const r of rows) {
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const giver = typeof p['giverUserId'] === 'string' ? p['giverUserId'] : null
-    const comp =
-      typeof p['completionEventId'] === 'string' ? p['completionEventId'] : null
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const giver = typeof p.giverUserId === 'string' ? p.giverUserId : null
+    const comp = typeof p.completionEventId === 'string' ? p.completionEventId : null
     if (giver) giverIds.push(giver)
     if (comp) completionIds.push(comp)
   }
@@ -417,10 +380,7 @@ export async function getReceivedCheers(
             taskVisibility: tasks.visibility,
           })
           .from(events)
-          .leftJoin(
-            tasks,
-            eq(tasks.id, sql`(${events.payload}->>'taskId')::uuid`),
-          )
+          .leftJoin(tasks, eq(tasks.id, sql`(${events.payload}->>'taskId')::uuid`))
           .where(inArray(events.id, completionIds))
       : Promise.resolve(
           [] as Array<{
@@ -437,23 +397,16 @@ export async function getReceivedCheers(
   return rows
     .map((r): ReceivedCheer | null => {
       const p =
-        r.payload && typeof r.payload === 'object'
-          ? (r.payload as Record<string, unknown>)
-          : {}
-      const giverId =
-        typeof p['giverUserId'] === 'string' ? (p['giverUserId'] as string) : ''
-      const compId =
-        typeof p['completionEventId'] === 'string'
-          ? (p['completionEventId'] as string)
-          : ''
-      const xp = typeof p['xp'] === 'number' ? (p['xp'] as number) : CHEER_XP
+        r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+      const giverId = typeof p.giverUserId === 'string' ? (p.giverUserId as string) : ''
+      const compId = typeof p.completionEventId === 'string' ? (p.completionEventId as string) : ''
+      const xp = typeof p.xp === 'number' ? (p.xp as number) : CHEER_XP
       const giver = giverById.get(giverId)
       if (!giver) return null
       const comp = completionById.get(compId)
       // Don't surface titles from private tasks even to the owner here —
       // keeps the behavior consistent with the activity feed.
-      const title =
-        comp && comp.taskVisibility !== 'private' ? comp.taskTitle : null
+      const title = comp && comp.taskVisibility !== 'private' ? comp.taskTitle : null
       return {
         eventId: r.id,
         giverUserId: giverId,

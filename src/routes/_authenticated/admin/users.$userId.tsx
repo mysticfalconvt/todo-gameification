@@ -45,9 +45,7 @@ function AdminUserDetailPage() {
               {data.user.isAdmin ? ' · admin' : ''}
               {!data.user.emailVerified ? ' · unverified' : ''}
             </span>
-            {!data.user.emailVerified ? (
-              <VerifyEmailButton userId={data.user.id} />
-            ) : null}
+            {!data.user.emailVerified ? <VerifyEmailButton userId={data.user.id} /> : null}
           </div>
         ) : null}
       </header>
@@ -107,11 +105,7 @@ function SummaryGrid({ data }: { data: UserDetail }) {
         <Stat
           label="Push devices"
           value={data.pushSubscriptions.length}
-          hint={
-            data.pushSubscriptions.some((p) => p.failureCount > 0)
-              ? 'some failing'
-              : undefined
-          }
+          hint={data.pushSubscriptions.some((p) => p.failureCount > 0) ? 'some failing' : undefined}
         />
         <Stat
           label="Timezone"
@@ -126,8 +120,7 @@ function SummaryGrid({ data }: { data: UserDetail }) {
       </div>
       <div className="island-shell rounded-2xl p-4 text-sm text-[var(--sea-ink-soft)]">
         <p>
-          Joined {formatDate(data.user.createdAt)} · visibility{' '}
-          {data.user.profileVisibility}
+          Joined {formatDate(data.user.createdAt)} · visibility {data.user.profileVisibility}
         </p>
         <Link
           to="/u/$handle"
@@ -145,9 +138,7 @@ function MotivationSection({ data }: { data: UserDetail }) {
   const m = data.motivation
   if (!m) return null
   const completionRate =
-    m.focus.started > 0
-      ? Math.round((m.focus.completed / m.focus.started) * 100)
-      : null
+    m.focus.started > 0 ? Math.round((m.focus.completed / m.focus.started) * 100) : null
 
   return (
     <section className="space-y-3">
@@ -164,15 +155,10 @@ function MotivationSection({ data }: { data: UserDetail }) {
           value={m.focus.minutesCompleted}
           hint="sum of completed sessions"
         />
-        <Stat
-          label="Games played"
-          value={m.games.reduce((acc, g) => acc + g.played, 0)}
-        />
+        <Stat label="Games played" value={m.games.reduce((acc, g) => acc + g.played, 0)} />
       </div>
       {m.games.length === 0 ? (
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          No games played yet.
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">No games played yet.</p>
       ) : (
         <div className="island-shell overflow-x-auto rounded-2xl">
           <table className="min-w-full text-left text-sm">
@@ -186,21 +172,13 @@ function MotivationSection({ data }: { data: UserDetail }) {
             </thead>
             <tbody>
               {m.games.map((g) => {
-                const rate =
-                  g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
+                const rate = g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
                 return (
-                  <tr
-                    key={g.gameId}
-                    className="border-b border-[var(--line)] last:border-none"
-                  >
-                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                      {g.gameId}
-                    </td>
+                  <tr key={g.gameId} className="border-b border-[var(--line)] last:border-none">
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{g.gameId}</td>
                     <td className="px-3 py-2">{g.played}</td>
                     <td className="px-3 py-2">{g.won}</td>
-                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                      {rate}%
-                    </td>
+                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{rate}%</td>
                   </tr>
                 )
               })}
@@ -294,14 +272,12 @@ function GrantTokensForm({ data }: { data: UserDetail }) {
 function VerifyEmailButton({ userId }: { userId: string }) {
   const qc = useQueryClient()
   const verify = useMutation({
-    mutationFn: () =>
-      setEmailVerifiedFn({ data: { userId, verified: true } }),
+    mutationFn: () => setEmailVerifiedFn({ data: { userId, verified: true } }),
     onSuccess: () => {
       toast.success('Email marked verified')
       qc.invalidateQueries({ queryKey: ['admin', 'user-detail', userId] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Verify failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Verify failed'),
   })
   return (
     <button
@@ -339,8 +315,7 @@ function MembershipSection({ data }: { data: UserDetail }) {
       setReason('')
       qc.invalidateQueries({ queryKey: ['admin', 'user-detail', data.user.id] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Grant failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Grant failed'),
   })
 
   const revoke = useMutation({
@@ -351,18 +326,12 @@ function MembershipSection({ data }: { data: UserDetail }) {
       setReason('')
       qc.invalidateQueries({ queryKey: ['admin', 'user-detail', data.user.id] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Revoke failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Revoke failed'),
   })
 
   const isStripeSourced = m.source === 'stripe'
   const canRevoke = m.tier !== 'free' && !isStripeSourced
-  const tierLabel =
-    m.tier === 'lifetime'
-      ? 'Lifetime'
-      : m.tier === 'annual'
-        ? 'Annual'
-        : 'Free'
+  const tierLabel = m.tier === 'lifetime' ? 'Lifetime' : m.tier === 'annual' ? 'Annual' : 'Free'
   const statusBits: string[] = []
   if (m.tier !== 'free') statusBits.push(m.status)
   if (m.cancelAtPeriodEnd && m.currentPeriodEnd) {
@@ -426,9 +395,7 @@ function MembershipSection({ data }: { data: UserDetail }) {
             }
             disabled={!canRevoke || revoke.isPending}
             title={
-              isStripeSourced
-                ? 'Refund this user in the Stripe dashboard instead.'
-                : undefined
+              isStripeSourced ? 'Refund this user in the Stripe dashboard instead.' : undefined
             }
             className="rounded-full border border-[rgba(230,90,90,0.3)] bg-[rgba(230,90,90,0.1)] px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-40"
           >
@@ -436,10 +403,9 @@ function MembershipSection({ data }: { data: UserDetail }) {
           </button>
         </div>
         <p className="text-xs text-[var(--sea-ink-soft)]">
-          Grants are recorded as <code>membership.granted</code> events and
-          rebuild deterministically from the event log. Stripe-sourced
-          memberships must be refunded in Stripe — that fires a webhook which
-          drops this user back to free.
+          Grants are recorded as <code>membership.granted</code> events and rebuild
+          deterministically from the event log. Stripe-sourced memberships must be refunded in
+          Stripe — that fires a webhook which drops this user back to free.
         </p>
       </div>
     </section>
@@ -467,13 +433,8 @@ function OpenInstancesTable({ data }: { data: UserDetail }) {
             </thead>
             <tbody>
               {data.openInstances.map((i) => (
-                <tr
-                  key={i.id}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
-                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                    {i.title}
-                  </td>
+                <tr key={i.id} className="border-b border-[var(--line)] last:border-none">
+                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{i.title}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {i.dueAt ? formatDateTime(i.dueAt) : 'someday'}
                   </td>
@@ -516,18 +477,11 @@ function RecentTasksTable({ data }: { data: UserDetail }) {
             </thead>
             <tbody>
               {data.recentTasks.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
-                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                    {t.title}
-                  </td>
+                <tr key={t.id} className="border-b border-[var(--line)] last:border-none">
+                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{t.title}</td>
                   <td className="px-3 py-2">{t.difficulty}</td>
                   <td className="px-3 py-2">{t.xpOverride ?? '—'}</td>
-                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                    {t.categorySlug ?? '—'}
-                  </td>
+                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{t.categorySlug ?? '—'}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {relativeTime(t.createdAt)}
                   </td>
@@ -560,9 +514,7 @@ function RecentEventsList({ data }: { data: UserDetail }) {
               <span className="text-xs text-[var(--sea-ink-soft)]">
                 {relativeTime(e.occurredAt)}
               </span>
-              <span className="font-semibold text-[var(--sea-ink)]">
-                {e.type}
-              </span>
+              <span className="font-semibold text-[var(--sea-ink)]">{e.type}</span>
               <code className="min-w-0 flex-1 truncate text-[11px] text-[var(--sea-ink-soft)]">
                 {e.payload}
               </code>
@@ -610,11 +562,7 @@ function PushSubscriptionsTable({ data }: { data: UserDetail }) {
                     <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
                       <code className="truncate">{shortEndpoint(p.endpoint)}</code>
                     </td>
-                    <td
-                      className={`px-3 py-2 ${
-                        danger ? 'font-semibold text-red-600' : ''
-                      }`}
-                    >
+                    <td className={`px-3 py-2 ${danger ? 'font-semibold text-red-600' : ''}`}>
                       {p.failureCount}
                     </td>
                     <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
@@ -665,10 +613,7 @@ function RecentLlmCallsTable({ data }: { data: UserDetail }) {
             </thead>
             <tbody>
               {data.recentLlmCalls.map((l) => (
-                <tr
-                  key={l.id}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
+                <tr key={l.id} className="border-b border-[var(--line)] last:border-none">
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     <Link
                       to="/admin/llm/$callId"
@@ -681,11 +626,7 @@ function RecentLlmCallsTable({ data }: { data: UserDetail }) {
                   <td className="px-3 py-2">{l.kind}</td>
                   <td className="px-3 py-2">{formatMs(l.durationMs)}</td>
                   <td className="px-3 py-2">{l.totalTokens ?? '—'}</td>
-                  <td
-                    className={`px-3 py-2 ${
-                      l.success ? '' : 'text-red-600'
-                    }`}
-                  >
+                  <td className={`px-3 py-2 ${l.success ? '' : 'text-red-600'}`}>
                     {l.success ? 'ok' : (l.errorMessage ?? 'fail')}
                   </td>
                 </tr>
@@ -698,9 +639,7 @@ function RecentLlmCallsTable({ data }: { data: UserDetail }) {
   )
 }
 
-type UserDetail = NonNullable<
-  Awaited<ReturnType<typeof getAdminUserDetailFn>>
->
+type UserDetail = NonNullable<Awaited<ReturnType<typeof getAdminUserDetailFn>>>
 
 function Stat({
   label,
@@ -717,9 +656,7 @@ function Stat({
 }) {
   return (
     <div className="island-shell overflow-hidden rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
       <div
         className={`mt-1 break-words font-bold text-[var(--sea-ink)] ${
           small ? 'text-base' : 'text-2xl'
@@ -727,9 +664,7 @@ function Stat({
       >
         {value}
       </div>
-      {hint ? (
-        <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div>
-      ) : null}
+      {hint ? <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div> : null}
     </div>
   )
 }

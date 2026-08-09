@@ -19,9 +19,7 @@ interface CompleteBody {
 // household chores, an optional `{ creditUserId }` body lets the
 // caller redirect credit (subject to role-based permissions enforced
 // by the service).
-export const Route = createFileRoute(
-  '/api/v1/instances/$instanceId/complete',
-)({
+export const Route = createFileRoute('/api/v1/instances/$instanceId/complete')({
   server: {
     handlers: {
       POST: authedRoute(async ({ request, userId, params }) => {
@@ -35,11 +33,10 @@ export const Route = createFileRoute(
             body = {}
           }
         }
-        const data = await service.completeInstance(
-          userId,
-          params.instanceId,
-          { creditUserId: body.creditUserId, force: body.force },
-        )
+        const data = await service.completeInstance(userId, params.instanceId, {
+          creditUserId: body.creditUserId,
+          force: body.force,
+        })
         return jsonOk(data)
       }),
     },

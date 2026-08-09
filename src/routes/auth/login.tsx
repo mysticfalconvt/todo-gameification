@@ -67,9 +67,7 @@ function LoginPage() {
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
-        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">
-          Log in
-        </h1>
+        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">Log in</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Email or handle">
             <input
@@ -102,8 +100,8 @@ function LoginPage() {
               className="rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] p-3 text-sm text-[var(--sea-ink)]"
               role="status"
             >
-              Your email isn't verified yet. We just sent a fresh verification
-              link — click it and you'll be signed in automatically.
+              Your email isn't verified yet. We just sent a fresh verification link — click it and
+              you'll be signed in automatically.
             </p>
           ) : null}
           <button
@@ -121,10 +119,7 @@ function LoginPage() {
               Sign up
             </Link>
           </span>
-          <Link
-            to="/auth/forgot-password"
-            className="font-semibold text-[var(--lagoon-deep)]"
-          >
+          <Link to="/auth/forgot-password" className="font-semibold text-[var(--lagoon-deep)]">
             Forgot password?
           </Link>
         </p>

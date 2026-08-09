@@ -6,11 +6,7 @@
 // from tasks the target wanted hidden.
 import { and, eq, gte, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  tasks,
-  userPrefs,
-} from '../db/schema'
+import { events, tasks, userPrefs } from '../db/schema'
 import { canView } from './social'
 import { listCategories } from './categories'
 
@@ -67,8 +63,7 @@ export async function getCategoryHistogramForUser(
   }
 
   const counts = new Map<string | null, number>()
-  const bump = (slug: string | null) =>
-    counts.set(slug, (counts.get(slug) ?? 0) + 1)
+  const bump = (slug: string | null) => counts.set(slug, (counts.get(slug) ?? 0) + 1)
 
   if (scope === 'active') {
     // Non-self viewers never see private tasks — they effectively don't
@@ -109,9 +104,7 @@ export async function getCategoryHistogramForUser(
               e.payload && typeof e.payload === 'object'
                 ? (e.payload as Record<string, unknown>)
                 : {}
-            return typeof p['taskId'] === 'string'
-              ? (p['taskId'] as string)
-              : null
+            return typeof p.taskId === 'string' ? (p.taskId as string) : null
           })
           .filter((v): v is string => Boolean(v)),
       ),
@@ -128,11 +121,8 @@ export async function getCategoryHistogramForUser(
       const meta = new Map(taskRows.map((t) => [t.id, t]))
       for (const e of completions) {
         const p =
-          e.payload && typeof e.payload === 'object'
-            ? (e.payload as Record<string, unknown>)
-            : {}
-        const taskId =
-          typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+          e.payload && typeof e.payload === 'object' ? (e.payload as Record<string, unknown>) : {}
+        const taskId = typeof p.taskId === 'string' ? (p.taskId as string) : null
         if (!taskId) {
           bump(null)
           continue

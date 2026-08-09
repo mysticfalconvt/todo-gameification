@@ -10,10 +10,8 @@ export const sudoku: GameDefinition = {
   tier: 'member',
   rewardXp: (result) => {
     if (!result.won) return 0
-    const mistakes =
-      typeof result.meta?.mistakes === 'number' ? result.meta.mistakes : 0
-    const hints =
-      typeof result.meta?.hints === 'number' ? result.meta.hints : 0
+    const mistakes = typeof result.meta?.mistakes === 'number' ? result.meta.mistakes : 0
+    const hints = typeof result.meta?.hints === 'number' ? result.meta.hints : 0
     const hard = result.meta?.difficulty === 'hard'
     const base = hard ? 60 : 30
     const perMistake = hard ? 10 : 6

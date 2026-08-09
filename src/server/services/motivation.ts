@@ -68,11 +68,7 @@ export async function getMotivationStats(
   const since = cutoff(days)
   const whereFor = (type: string) =>
     since
-      ? and(
-          eq(events.userId, userId),
-          eq(events.type, type),
-          gte(events.occurredAt, since),
-        )
+      ? and(eq(events.userId, userId), eq(events.type, type), gte(events.occurredAt, since))
       : and(eq(events.userId, userId), eq(events.type, type))
 
   const [startedRows, completedRows, gameRows, recentRows] = await Promise.all([
@@ -128,8 +124,7 @@ export async function getMotivationStats(
         id: r.id,
         type: 'focus.started',
         occurredAt: iso,
-        durationMin:
-          typeof p['durationMin'] === 'number' ? (p['durationMin'] as number) : null,
+        durationMin: typeof p.durationMin === 'number' ? (p.durationMin as number) : null,
       }
     }
     if (r.type === 'focus.completed') {
@@ -137,33 +132,24 @@ export async function getMotivationStats(
         id: r.id,
         type: 'focus.completed',
         occurredAt: iso,
-        durationMin:
-          typeof p['durationMin'] === 'number' ? (p['durationMin'] as number) : null,
-        xpEarned:
-          typeof p['xpEarned'] === 'number' ? (p['xpEarned'] as number) : 0,
-        tokensEarned:
-          typeof p['tokensEarned'] === 'number'
-            ? (p['tokensEarned'] as number)
-            : 0,
+        durationMin: typeof p.durationMin === 'number' ? (p.durationMin as number) : null,
+        xpEarned: typeof p.xpEarned === 'number' ? (p.xpEarned as number) : 0,
+        tokensEarned: typeof p.tokensEarned === 'number' ? (p.tokensEarned as number) : 0,
       }
     }
     // game.played
-    const gameId = typeof p['gameId'] === 'string' ? (p['gameId'] as string) : ''
+    const gameId = typeof p.gameId === 'string' ? (p.gameId as string) : ''
     const result =
-      p['result'] && typeof p['result'] === 'object'
-        ? (p['result'] as Record<string, unknown>)
-        : {}
+      p.result && typeof p.result === 'object' ? (p.result as Record<string, unknown>) : {}
     return {
       id: r.id,
       type: 'game.played',
       occurredAt: iso,
       gameId,
       gameName: gameName(gameId),
-      won: result['won'] === true,
-      tokenCost:
-        typeof p['tokenCost'] === 'number' ? (p['tokenCost'] as number) : 0,
-      xpReward:
-        typeof p['xpReward'] === 'number' ? (p['xpReward'] as number) : 0,
+      won: result.won === true,
+      tokenCost: typeof p.tokenCost === 'number' ? (p.tokenCost as number) : 0,
+      xpReward: typeof p.xpReward === 'number' ? (p.xpReward as number) : 0,
     }
   })
 

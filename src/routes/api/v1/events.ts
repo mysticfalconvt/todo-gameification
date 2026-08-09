@@ -27,10 +27,7 @@ export const Route = createFileRoute('/api/v1/events')({
           since = parsed
         }
 
-        const limit = Math.min(
-          Math.max(Number.parseInt(rawLimit ?? '50', 10) || 50, 1),
-          200,
-        )
+        const limit = Math.min(Math.max(Number.parseInt(rawLimit ?? '50', 10) || 50, 1), 200)
 
         const conditions = [eq(events.userId, userId)]
         if (since) conditions.push(gt(events.occurredAt, since))

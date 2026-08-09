@@ -9,11 +9,7 @@ const MAX_ROWS = 5
 // Read-only glance at what's on deck today, shown on the general (task-less)
 // focus timer. Reuses the Today page's cached ['today'] + ['categories']
 // queries — no new data source.
-export function UpcomingTasksPreview({
-  excludeInstanceId,
-}: {
-  excludeInstanceId?: string
-}) {
+export function UpcomingTasksPreview({ excludeInstanceId }: { excludeInstanceId?: string }) {
   const todayQuery = useQuery({
     queryKey: ['today'],
     queryFn: () => listTodayInstances(),
@@ -34,9 +30,7 @@ export function UpcomingTasksPreview({
   const rows = useMemo(() => {
     const raw = todayQuery.data
     const list = Array.isArray(raw) ? raw : []
-    return list
-      .filter((i) => i.instanceId !== excludeInstanceId)
-      .slice(0, MAX_ROWS)
+    return list.filter((i) => i.instanceId !== excludeInstanceId).slice(0, MAX_ROWS)
   }, [todayQuery.data, excludeInstanceId])
 
   if (rows.length === 0) return null
@@ -48,9 +42,7 @@ export function UpcomingTasksPreview({
       </div>
       <ul className="space-y-1.5">
         {rows.map((inst) => {
-          const cat = inst.categorySlug
-            ? catBySlug.get(inst.categorySlug)
-            : undefined
+          const cat = inst.categorySlug ? catBySlug.get(inst.categorySlug) : undefined
           const xp = baseXp(inst.difficulty, inst.xpOverride)
           return (
             <li

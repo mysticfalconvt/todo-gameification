@@ -9,10 +9,7 @@ import {
 } from '../../../server/functions/weeklySummary'
 import { getProfile, updatePrefs } from '../../../server/functions/user'
 import { XpLineSection } from '../../../components/stats/charts'
-import {
-  HouseholdCompletionBar,
-  HouseholdXpMultiLine,
-} from '../../../components/household/charts'
+import { HouseholdCompletionBar, HouseholdXpMultiLine } from '../../../components/household/charts'
 import { MembersOnlyUpsell } from '../../../components/membership/MembersOnlyUpsell'
 import { findGame } from '../../../games/registry'
 
@@ -20,10 +17,7 @@ export const Route = createFileRoute('/_authenticated/weekly-summary/')({
   component: WeeklySummaryPage,
 })
 
-type SummaryData = Extract<
-  Awaited<ReturnType<typeof getWeeklySummaryFn>>,
-  { gated: false }
->
+type SummaryData = Extract<Awaited<ReturnType<typeof getWeeklySummaryFn>>, { gated: false }>
 
 function WeeklySummaryPage() {
   const query = useQuery({
@@ -42,8 +36,8 @@ function WeeklySummaryPage() {
             : 'Your week, recapped'}
         </h1>
         <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-          A recap of the 7 days before your weekly email goes out. This is
-          exactly what lands in your inbox if you turn it on in{' '}
+          A recap of the 7 days before your weekly email goes out. This is exactly what lands in
+          your inbox if you turn it on in{' '}
           <Link to="/settings" className="underline">
             settings
           </Link>
@@ -70,9 +64,9 @@ function GatedCard() {
         The weekly summary is a members feature
       </h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Get a Monday-morning recap of your completions, streaks, habits, arcade
-        runs, and how you stack up against friends — topped with a short AI
-        review of how the week went and one nudge for the next one.
+        Get a Monday-morning recap of your completions, streaks, habits, arcade runs, and how you
+        stack up against friends — topped with a short AI review of how the week went and one nudge
+        for the next one.
       </p>
       <button
         type="button"
@@ -117,11 +111,7 @@ function SummaryBody({ data }: { data: SummaryData }) {
           value={`${k.currentStreak}d`}
           hint={`longest ${k.longestStreak}d`}
         />
-        <StatCard
-          label="Tokens"
-          value={k.tokens}
-          hint={`level ${k.level} · ${k.totalXp} XP`}
-        />
+        <StatCard label="Tokens" value={k.tokens} hint={`level ${k.level} · ${k.totalXp} XP`} />
       </div>
 
       <XpLineSection data={summary.xpByDay} label="XP this week" />
@@ -132,10 +122,7 @@ function SummaryBody({ data }: { data: SummaryData }) {
       <ArcadeSection arcade={summary.arcade} />
       <LeaderboardSection rows={summary.leaderboard} />
       {summary.household ? (
-        <HouseholdSection
-          household={summary.household}
-          analysis={data.householdAnalysis}
-        />
+        <HouseholdSection household={summary.household} analysis={data.householdAnalysis} />
       ) : null}
     </>
   )
@@ -179,8 +166,7 @@ function EmailToggleCard() {
         toast.success('Schedule updated.')
       }
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   return (
@@ -223,9 +209,7 @@ function EmailToggleCard() {
             <select
               value={dow}
               disabled={setPref.isPending}
-              onChange={(e) =>
-                setPref.mutate({ weeklyEmailDow: Number(e.target.value) })
-              }
+              onChange={(e) => setPref.mutate({ weeklyEmailDow: Number(e.target.value) })}
               className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
             >
               {WEEKLY_WEEKDAYS.map((w) => (
@@ -240,9 +224,7 @@ function EmailToggleCard() {
             <select
               value={hour}
               disabled={setPref.isPending}
-              onChange={(e) =>
-                setPref.mutate({ weeklyEmailHour: Number(e.target.value) })
-              }
+              onChange={(e) => setPref.mutate({ weeklyEmailHour: Number(e.target.value) })}
               className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
             >
               {Array.from({ length: 24 }, (_, h) => (
@@ -258,31 +240,23 @@ function EmailToggleCard() {
   )
 }
 
-function AnalysisCard({
-  analysis,
-}: {
-  analysis: SummaryData['analysis']
-}) {
+function AnalysisCard({ analysis }: { analysis: SummaryData['analysis'] }) {
   const qc = useQueryClient()
   const regenerate = useMutation({
     mutationFn: () => regenerateWeeklyAnalysisFn(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['weekly-summary'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not regenerate'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not regenerate'),
   })
 
   if (!analysis && !regenerate.isPending) {
     return (
       <section className="island-shell rounded-2xl p-4">
         <header className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            Your week in review
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">Your week in review</h2>
           <RegenerateButton regenerate={regenerate} />
         </header>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          No AI review available right now. Try regenerating, or check the LLM
-          connection.
+          No AI review available right now. Try regenerating, or check the LLM connection.
         </p>
       </section>
     )
@@ -291,9 +265,7 @@ function AnalysisCard({
   return (
     <section className="island-shell rounded-2xl p-5">
       <header className="mb-2 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Your week in review
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Your week in review</h2>
         <RegenerateButton regenerate={regenerate} />
       </header>
       {regenerate.isPending ? (
@@ -347,9 +319,7 @@ function KpiCard({
         : 'text-[var(--sea-ink-soft)]'
   return (
     <div className="island-shell rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
       <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">
         {value}
         {unit ? <span className="ml-1 text-sm font-semibold">{unit}</span> : null}
@@ -370,15 +340,9 @@ function StatCard({
 }) {
   return (
     <div className="island-shell rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">
-        {value}
-      </div>
-      {hint ? (
-        <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div>
-      ) : null}
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div> : null}
     </div>
   )
 }
@@ -400,11 +364,7 @@ function weekdayShort(dateKey: string): string {
   })
 }
 
-function WeekdayBar({
-  days,
-}: {
-  days: Array<{ date: string; xp: number; count: number }>
-}) {
+function WeekdayBar({ days }: { days: Array<{ date: string; xp: number; count: number }> }) {
   const maxXp = days.reduce((a, d) => Math.max(a, d.xp), 0) || 1
   const maxCount = days.reduce((a, d) => Math.max(a, d.count), 0) || 1
   return (
@@ -425,10 +385,7 @@ function WeekdayBar({
       <div className="flex items-end gap-1.5">
         {days.map((d, i) => {
           const hXp = Math.max(d.xp > 0 ? 6 : 2, (d.xp / maxXp) * 96)
-          const hCount = Math.max(
-            d.count > 0 ? 6 : 2,
-            (d.count / maxCount) * 96,
-          )
+          const hCount = Math.max(d.count > 0 ? 6 : 2, (d.count / maxCount) * 96)
           return (
             <div
               key={d.date || i}
@@ -448,9 +405,7 @@ function WeekdayBar({
                   style={{ height: `${hCount}px` }}
                 />
               </div>
-              <span className="text-[10px] tabular-nums text-[var(--sea-ink-soft)]">
-                {d.count}
-              </span>
+              <span className="text-[10px] tabular-nums text-[var(--sea-ink-soft)]">{d.count}</span>
               <span className="text-[10px] text-[var(--sea-ink-soft)]">
                 {d.date ? weekdayNarrow(d.date) : ''}
               </span>
@@ -462,22 +417,14 @@ function WeekdayBar({
   )
 }
 
-function TopTasksSection({
-  tasks,
-}: {
-  tasks: SummaryData['summary']['topTasks']
-}) {
+function TopTasksSection({ tasks }: { tasks: SummaryData['summary']['topTasks'] }) {
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Most-completed this week
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Most-completed this week</h2>
       </header>
       {tasks.length === 0 ? (
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          No completions this week.
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">No completions this week.</p>
       ) : (
         <ol className="space-y-2">
           {tasks.map((t, i) => (
@@ -491,9 +438,7 @@ function TopTasksSection({
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--sea-ink)]">
                 {t.title}
               </span>
-              <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">
-                {t.count}×
-              </span>
+              <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">{t.count}×</span>
             </li>
           ))}
         </ol>
@@ -502,17 +447,11 @@ function TopTasksSection({
   )
 }
 
-function RepeatingSection({
-  rows,
-}: {
-  rows: SummaryData['summary']['repeatingTasks']
-}) {
+function RepeatingSection({ rows }: { rows: SummaryData['summary']['repeatingTasks'] }) {
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Repeating habits
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Repeating habits</h2>
         <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
           All-time completions, with this week in focus.
         </p>
@@ -545,20 +484,13 @@ function RepeatingSection({
   )
 }
 
-function ArcadeSection({
-  arcade,
-}: {
-  arcade: SummaryData['summary']['arcade']
-}) {
+function ArcadeSection({ arcade }: { arcade: SummaryData['summary']['arcade'] }) {
   const played = arcade.personal.filter((g) => g.played > 0)
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
         <h2 className="text-lg font-bold text-[var(--sea-ink)]">Arcade</h2>
-        <Link
-          to="/arcade"
-          className="text-xs font-semibold text-[var(--lagoon-deep)] underline"
-        >
+        <Link to="/arcade" className="text-xs font-semibold text-[var(--lagoon-deep)] underline">
           Play →
         </Link>
       </header>
@@ -580,18 +512,13 @@ function ArcadeSection({
             </thead>
             <tbody>
               {played.map((g) => (
-                <tr
-                  key={g.gameId}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
+                <tr key={g.gameId} className="border-b border-[var(--line)] last:border-none">
                   <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
                     {findGame(g.gameId)?.name ?? g.gameId}
                   </td>
                   <td className="px-3 py-2">{g.played}</td>
                   <td className="px-3 py-2">{g.won}</td>
-                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                    {g.bestScore ?? '—'}
-                  </td>
+                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{g.bestScore ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -601,9 +528,7 @@ function ArcadeSection({
 
       {arcade.friendBests.length > 0 ? (
         <div className="island-shell rounded-2xl p-4">
-          <h3 className="mb-2 text-sm font-bold text-[var(--sea-ink)]">
-            Friends' best scores
-          </h3>
+          <h3 className="mb-2 text-sm font-bold text-[var(--sea-ink)]">Friends' best scores</h3>
           <ul className="space-y-1.5">
             {arcade.friendBests.map((f) => (
               <li
@@ -616,9 +541,7 @@ function ArcadeSection({
                   </span>{' '}
                   · {f.name}
                 </span>
-                <span className="tabular-nums text-[var(--sea-ink-soft)]">
-                  {f.bestScore}
-                </span>
+                <span className="tabular-nums text-[var(--sea-ink-soft)]">{f.bestScore}</span>
               </li>
             ))}
           </ul>
@@ -628,18 +551,12 @@ function ArcadeSection({
   )
 }
 
-function LeaderboardSection({
-  rows,
-}: {
-  rows: SummaryData['summary']['leaderboard']
-}) {
+function LeaderboardSection({ rows }: { rows: SummaryData['summary']['leaderboard'] }) {
   if (rows.length <= 1) {
     return (
       <section className="island-shell rounded-2xl p-4">
         <header className="mb-2">
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            Friends leaderboard
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">Friends leaderboard</h2>
         </header>
         <p className="text-sm text-[var(--sea-ink-soft)]">
           Add friends to see how your week's XP stacks up.{' '}
@@ -653,9 +570,7 @@ function LeaderboardSection({
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Friends leaderboard
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Friends leaderboard</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">XP · last 7 days</p>
       </header>
       <ol className="space-y-1.5">
@@ -695,20 +610,14 @@ function HouseholdSection({
   const regenerate = useMutation({
     mutationFn: () => regenerateHouseholdAnalysisFn(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['weekly-summary'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not regenerate'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not regenerate'),
   })
 
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          {household.name}
-        </h2>
-        <Link
-          to="/household"
-          className="text-xs font-semibold text-[var(--lagoon-deep)] underline"
-        >
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">{household.name}</h2>
+        <Link to="/household" className="text-xs font-semibold text-[var(--lagoon-deep)] underline">
           Open →
         </Link>
       </header>
@@ -716,9 +625,7 @@ function HouseholdSection({
       {analysis || regenerate.isPending ? (
         <section className="island-shell rounded-2xl p-5">
           <header className="mb-2 flex items-baseline justify-between gap-3">
-            <h3 className="text-sm font-bold text-[var(--sea-ink)]">
-              Your family's week
-            </h3>
+            <h3 className="text-sm font-bold text-[var(--sea-ink)]">Your family's week</h3>
             <RegenerateButton regenerate={regenerate} />
           </header>
           {regenerate.isPending ? (
@@ -773,9 +680,7 @@ function HouseholdWeeklyCompare({
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-bold text-[var(--sea-ink)]">
-          This week vs last week
-        </h3>
+        <h3 className="text-sm font-bold text-[var(--sea-ink)]">This week vs last week</h3>
         <p className="text-xs text-[var(--sea-ink-soft)]">
           Family: {totalThisWeekCount} chores · {totalThisWeekXp} XP{' '}
           <span className={totalDelta.tone}>({totalDelta.label} XP)</span>
@@ -786,10 +691,7 @@ function HouseholdWeeklyCompare({
           const choreDelta = delta(m.thisWeekCount, m.lastWeekCount)
           const xpDelta = delta(m.thisWeekXp, m.lastWeekXp)
           return (
-            <li
-              key={m.userId}
-              className="flex items-center justify-between gap-3 text-sm"
-            >
+            <li key={m.userId} className="flex items-center justify-between gap-3 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <span
                   aria-hidden
@@ -799,9 +701,7 @@ function HouseholdWeeklyCompare({
                 <span className="truncate font-semibold text-[var(--sea-ink)]">
                   {m.isMe ? `${m.name} (you)` : m.name}
                   {m.role === 'kid' ? (
-                    <span className="ml-1 text-xs font-normal text-[var(--sea-ink-soft)]">
-                      kid
-                    </span>
+                    <span className="ml-1 text-xs font-normal text-[var(--sea-ink-soft)]">kid</span>
                   ) : null}
                 </span>
               </span>
@@ -811,8 +711,7 @@ function HouseholdWeeklyCompare({
                   <span className={choreDelta.tone}>{choreDelta.label}</span>
                 </span>
                 <span>
-                  {m.thisWeekXp} XP{' '}
-                  <span className={xpDelta.tone}>{xpDelta.label}</span>
+                  {m.thisWeekXp} XP <span className={xpDelta.tone}>{xpDelta.label}</span>
                 </span>
               </span>
             </li>

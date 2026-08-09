@@ -5,10 +5,7 @@ import type { WeeklySummary } from '../services/weeklySummary'
 import { findGame } from '../../games/registry'
 
 function appUrl(): string {
-  return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(
-    /\/$/,
-    '',
-  )
+  return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 }
 
 function esc(s: string): string {
@@ -51,9 +48,7 @@ export function renderWeeklyEmail(
   textLines.push(
     `Completions: ${k.completionsThisWeek} (${deltaText(k.completionsThisWeek - k.completionsLastWeek, '')})`,
   )
-  textLines.push(
-    `XP earned: ${k.xpThisWeek} (${deltaText(k.xpThisWeek - k.xpLastWeek, 'XP')})`,
-  )
+  textLines.push(`XP earned: ${k.xpThisWeek} (${deltaText(k.xpThisWeek - k.xpLastWeek, 'XP')})`)
   textLines.push(`Current streak: ${k.currentStreak} days (longest ${k.longestStreak})`)
   textLines.push(`Level ${k.level} · ${k.totalXp} total XP · ${k.tokens} tokens`)
   if (summary.topTasks.length > 0) {
@@ -68,9 +63,7 @@ export function renderWeeklyEmail(
     textLines.push('')
     textLines.push('By weekday:')
     summary.xpByDay.forEach((d, i) => {
-      textLines.push(
-        `  ${weekdayLabels[i] ?? `Day ${i + 1}`}: ${d.count} chores · ${d.xp} XP`,
-      )
+      textLines.push(`  ${weekdayLabels[i] ?? `Day ${i + 1}`}: ${d.count} chores · ${d.xp} XP`)
     })
   }
   const me = summary.leaderboard.find((r) => r.isMe)
@@ -120,7 +113,10 @@ export function renderWeeklyEmail(
          <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
            ${summary.topTasks
              .slice(0, 5)
-             .map((t) => `<li style="margin:3px 0;">${esc(t.title)} <span style="color:${soft};">(${t.count}×)</span></li>`)
+             .map(
+               (t) =>
+                 `<li style="margin:3px 0;">${esc(t.title)} <span style="color:${soft};">(${t.count}×)</span></li>`,
+             )
              .join('')}
          </ul>`
       : ''
@@ -131,7 +127,10 @@ export function renderWeeklyEmail(
       ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Habits you kept up</h3>
          <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
            ${repeating
-             .map((r) => `<li style="margin:3px 0;">${esc(r.title)} <span style="color:${soft};">— ${r.thisWeekCount}× this week, ${r.allTimeCount} all-time</span></li>`)
+             .map(
+               (r) =>
+                 `<li style="margin:3px 0;">${esc(r.title)} <span style="color:${soft};">— ${r.thisWeekCount}× this week, ${r.allTimeCount} all-time</span></li>`,
+             )
              .join('')}
          </ul>`
       : ''
@@ -142,7 +141,10 @@ export function renderWeeklyEmail(
       ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">Arcade</h3>
          <ul style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
            ${playedGames
-             .map((g) => `<li style="margin:3px 0;">${esc(findGame(g.gameId)?.name ?? g.gameId)} <span style="color:${soft};">— ${g.won}/${g.played} won</span></li>`)
+             .map(
+               (g) =>
+                 `<li style="margin:3px 0;">${esc(findGame(g.gameId)?.name ?? g.gameId)} <span style="color:${soft};">— ${g.won}/${g.played} won</span></li>`,
+             )
              .join('')}
          </ul>`
       : ''
@@ -153,7 +155,10 @@ export function renderWeeklyEmail(
          <ol style="margin:0;padding-left:18px;color:${ink};font-size:14px;">
            ${summary.leaderboard
              .slice(0, 8)
-             .map((r) => `<li style="margin:3px 0;${r.isMe ? `font-weight:700;color:${lagoon};` : ''}">${esc(r.isMe ? 'You' : r.name || '@' + r.handle)} <span style="color:${soft};font-weight:400;">— ${r.value} XP</span></li>`)
+             .map(
+               (r) =>
+                 `<li style="margin:3px 0;${r.isMe ? `font-weight:700;color:${lagoon};` : ''}">${esc(r.isMe ? 'You' : r.name || `@${r.handle}`)} <span style="color:${soft};font-weight:400;">— ${r.value} XP</span></li>`,
+             )
              .join('')}
          </ol>`
       : ''
@@ -200,8 +205,7 @@ export function renderWeeklyEmail(
   // sized with inline width percentages; no SVG.
   const palm = '#3f9d6b'
   const maxXpDay = summary.xpByDay.reduce((a, d) => Math.max(a, d.xp), 0) || 1
-  const maxCountDay =
-    summary.xpByDay.reduce((a, d) => Math.max(a, d.count), 0) || 1
+  const maxCountDay = summary.xpByDay.reduce((a, d) => Math.max(a, d.count), 0) || 1
   const byDayHtml = summary.xpByDay.some((d) => d.xp > 0 || d.count > 0)
     ? `<h3 style="font-size:14px;color:${ink};margin:24px 0 8px;">By weekday</h3>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;color:${soft};">

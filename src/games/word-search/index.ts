@@ -13,9 +13,7 @@ export const wordSearch: GameDefinition = {
   tier: 'member',
   rewardXp: (result) => {
     const total =
-      typeof result.meta?.total === 'number' && result.meta.total > 0
-        ? result.meta.total
-        : 1
+      typeof result.meta?.total === 'number' && result.meta.total > 0 ? result.meta.total : 1
     const found = result.score ?? 0
     const ratio = Math.min(1, Math.max(0, found / total))
     const cap = result.meta?.size === 'large' ? LARGE_CAP : SMALL_CAP

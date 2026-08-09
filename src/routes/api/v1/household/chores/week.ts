@@ -2,10 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { formatInTimeZone } from 'date-fns-tz'
 import { authedRoute, jsonError, jsonOk } from '../../../../../server/api/rest'
 import { getMyMembership } from '../../../../../server/services/households'
-import {
-  getUserTimeZone,
-  listHouseholdChoresWeek,
-} from '../../../../../server/services/tasks'
+import { getUserTimeZone, listHouseholdChoresWeek } from '../../../../../server/services/tasks'
 
 // Returns the yyyy-MM-dd of the most recent Sunday in the user's
 // timezone — same anchor the in-app Week view uses, so a client that
@@ -44,11 +41,7 @@ export const Route = createFileRoute('/api/v1/household/chores/week')({
       GET: authedRoute(async ({ request, userId }) => {
         const m = await getMyMembership(userId)
         if (!m) {
-          return jsonError(
-            'not_found',
-            'You are not in a household.',
-            404,
-          )
+          return jsonError('not_found', 'You are not in a household.', 404)
         }
         const url = new URL(request.url)
         let startDate = url.searchParams.get('startDate')
@@ -60,11 +53,7 @@ export const Route = createFileRoute('/api/v1/household/chores/week')({
           const timeZone = await getUserTimeZone(userId)
           startDate = currentWeekStartLocal(timeZone)
         }
-        const data = await listHouseholdChoresWeek(
-          userId,
-          m.householdId,
-          startDate,
-        )
+        const data = await listHouseholdChoresWeek(userId, m.householdId, startDate)
         return jsonOk({ startDate, occurrences: data })
       }),
     },

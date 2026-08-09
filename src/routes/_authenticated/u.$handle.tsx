@@ -41,41 +41,33 @@ function ProfilePage() {
     onSuccess: (res) => {
       invalidate()
       if (res.status === 'sent') toast.success('Request sent.')
-      else if (res.status === 'accepted')
-        toast.success('You’re now friends.')
+      else if (res.status === 'accepted') toast.success('You’re now friends.')
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Request failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Request failed'),
   })
 
   const cancel = useMutation({
-    mutationFn: (addresseeId: string) =>
-      cancelFriendRequestFn({ data: { addresseeId } }),
+    mutationFn: (addresseeId: string) => cancelFriendRequestFn({ data: { addresseeId } }),
     onSuccess: invalidate,
   })
   const accept = useMutation({
-    mutationFn: (requesterId: string) =>
-      acceptFriendRequestFn({ data: { requesterId } }),
+    mutationFn: (requesterId: string) => acceptFriendRequestFn({ data: { requesterId } }),
     onSuccess: invalidate,
   })
   const decline = useMutation({
-    mutationFn: (requesterId: string) =>
-      declineFriendRequestFn({ data: { requesterId } }),
+    mutationFn: (requesterId: string) => declineFriendRequestFn({ data: { requesterId } }),
     onSuccess: invalidate,
   })
   const remove = useMutation({
-    mutationFn: (otherUserId: string) =>
-      removeFriendFn({ data: { otherUserId } }),
+    mutationFn: (otherUserId: string) => removeFriendFn({ data: { otherUserId } }),
     onSuccess: invalidate,
   })
   const block = useMutation({
-    mutationFn: (targetUserId: string) =>
-      blockUserFn({ data: { targetUserId } }),
+    mutationFn: (targetUserId: string) => blockUserFn({ data: { targetUserId } }),
     onSuccess: invalidate,
   })
   const unblock = useMutation({
-    mutationFn: (targetUserId: string) =>
-      unblockUserFn({ data: { targetUserId } }),
+    mutationFn: (targetUserId: string) => unblockUserFn({ data: { targetUserId } }),
     onSuccess: invalidate,
   })
 
@@ -114,9 +106,7 @@ function ProfilePage() {
         <Avatar name={p.name} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
-              {p.name}
-            </h1>
+            <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">{p.name}</h1>
             <MemberBadge tier={p.membershipTier} size="large" />
           </div>
           <p className="text-sm text-[var(--sea-ink-soft)]">@{p.handle}</p>
@@ -164,14 +154,8 @@ function ProfilePage() {
             <div className="grid grid-cols-4 gap-4 text-center">
               <Stat label="Level" value={p.progression!.level} />
               <Stat label="XP" value={p.progression!.xp} />
-              <Stat
-                label="Streak"
-                value={`${p.progression!.currentStreak}d`}
-              />
-              <Stat
-                label="Longest"
-                value={`${p.progression!.longestStreak}d`}
-              />
+              <Stat label="Streak" value={`${p.progression!.currentStreak}d`} />
+              <Stat label="Longest" value={`${p.progression!.longestStreak}d`} />
             </div>
             {earnedBadges(p.progression!.longestStreak).length > 0 ? (
               <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-[var(--line)] pt-4">
@@ -210,13 +194,9 @@ function CategorySection({ userId }: { userId: string }) {
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            By category
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">By category</h2>
           <p className="text-xs text-[var(--sea-ink-soft)]">
-            {data
-              ? `${data.total} ${scope === 'active' ? 'active' : 'completed in 30d'}`
-              : '…'}
+            {data ? `${data.total} ${scope === 'active' ? 'active' : 'completed in 30d'}` : '…'}
           </p>
         </div>
         <div
@@ -243,13 +223,9 @@ function CategorySection({ userId }: { userId: string }) {
         </div>
       </header>
       {query.isLoading || !data ? (
-        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">
-          Loading…
-        </p>
+        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">Loading…</p>
       ) : !data.shared ? (
-        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">
-          Not shared.
-        </p>
+        <p className="py-6 text-center text-xs text-[var(--sea-ink-soft)]">Not shared.</p>
       ) : (
         <CategoryHistogramView bars={data.bars} />
       )}
@@ -261,18 +237,12 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
       <div className="text-2xl font-bold text-[var(--sea-ink)]">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
     </div>
   )
 }
 
-function XpSection({
-  data,
-}: {
-  data: Array<{ date: string; xp: number }>
-}) {
+function XpSection({ data }: { data: Array<{ date: string; xp: number }> }) {
   const total = data.reduce((acc, d) => acc + d.xp, 0)
   const max = data.reduce((acc, d) => Math.max(acc, d.xp), 0) || 1
   const width = 600
@@ -292,16 +262,10 @@ function XpSection({
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          XP (last 30 days)
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">XP (last 30 days)</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">total {total}</p>
       </header>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-32 w-full"
-        preserveAspectRatio="none"
-      >
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
         <polygon points={area} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <polyline
           points={points}
@@ -396,20 +360,10 @@ function ActionButtons({
   if (profile.viewerRelation === 'incoming_request') {
     return (
       <div className="flex gap-2">
-        <button
-          type="button"
-          className={primary}
-          onClick={onAccept}
-          disabled={pending}
-        >
+        <button type="button" className={primary} onClick={onAccept} disabled={pending}>
           Accept
         </button>
-        <button
-          type="button"
-          className={btn}
-          onClick={onDecline}
-          disabled={pending}
-        >
+        <button type="button" className={btn} onClick={onDecline} disabled={pending}>
           Decline
         </button>
       </div>

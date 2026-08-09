@@ -8,9 +8,7 @@ function configure() {
   const publicKey = process.env.VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   if (!subject || !publicKey || !privateKey) {
-    throw new Error(
-      'VAPID_SUBJECT, VAPID_PUBLIC_KEY, and VAPID_PRIVATE_KEY must all be set',
-    )
+    throw new Error('VAPID_SUBJECT, VAPID_PUBLIC_KEY, and VAPID_PRIVATE_KEY must all be set')
   }
   webpush.setVapidDetails(subject, publicKey, privateKey)
   configured = true
@@ -29,14 +27,9 @@ export interface PushTarget {
   keys: { p256dh: string; auth: string }
 }
 
-export type SendResult =
-  | { ok: true }
-  | { ok: false; statusCode: number | undefined; gone: boolean }
+export type SendResult = { ok: true } | { ok: false; statusCode: number | undefined; gone: boolean }
 
-export async function sendWebPush(
-  target: PushTarget,
-  payload: PushPayload,
-): Promise<SendResult> {
+export async function sendWebPush(target: PushTarget, payload: PushPayload): Promise<SendResult> {
   configure()
   try {
     await webpush.sendNotification(

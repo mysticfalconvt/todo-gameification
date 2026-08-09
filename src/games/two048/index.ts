@@ -4,8 +4,7 @@ import { Two048 } from './Two048'
 export const two048: GameDefinition = {
   id: '2048',
   name: '2048',
-  description:
-    'Slide tiles to merge matching pairs. Reach 1024 to win — higher tiles = more XP.',
+  description: 'Slide tiles to merge matching pairs. Reach 1024 to win — higher tiles = more XP.',
   tokenCost: 1,
   tier: 'member',
   rewardXp: (result) => {

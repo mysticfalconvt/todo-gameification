@@ -2,11 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  listGames,
-  finishGame,
-  getArcadeStats,
-} from '../../server/functions/games'
+import { listGames, finishGame, getArcadeStats } from '../../server/functions/games'
 import { getMemberStatusFn } from '../../server/functions/billing'
 import { getProgression } from '../../server/functions/tasks'
 import { findGame } from '../../games/registry'
@@ -115,8 +111,7 @@ function ArcadePage() {
   })
 
   const finish = useMutation({
-    mutationFn: (input: { gameId: string; result: GameResult }) =>
-      finishGame({ data: input }),
+    mutationFn: (input: { gameId: string; result: GameResult }) => finishGame({ data: input }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['progression'] })
       qc.invalidateQueries({ queryKey: ['arcade-stats'] })
@@ -142,17 +137,11 @@ function ArcadePage() {
     return (
       <main className="page-wrap px-4 py-8">
         <header className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-[var(--sea-ink)]">
-            {activeGame.name}
-          </h1>
-          <span className="text-sm text-[var(--sea-ink-soft)]">
-            🪙 {balance}
-          </span>
+          <h1 className="text-xl font-semibold text-[var(--sea-ink)]">{activeGame.name}</h1>
+          <span className="text-sm text-[var(--sea-ink-soft)]">🪙 {balance}</span>
         </header>
         <ActiveComponent
-          onFinish={(result) =>
-            finish.mutate({ gameId: activeGame.id, result })
-          }
+          onFinish={(result) => finish.mutate({ gameId: activeGame.id, result })}
           onExit={() =>
             finish.mutate({
               gameId: activeGame.id,
@@ -186,20 +175,16 @@ function ArcadePage() {
         {games.map((g) => {
           const affordable = balance >= g.tokenCost
           const locked = g.tier === 'member' && !isMember
-          const personal = statsQuery.data?.personal.find(
-            (p) => p.gameId === g.id,
-          ) as PersonalGameStats | undefined
+          const personal = statsQuery.data?.personal.find((p) => p.gameId === g.id) as
+            | PersonalGameStats
+            | undefined
           const leaderboard = statsQuery.data?.leaderboards?.[g.id] as
             | LeaderboardEntry[]
             | undefined
           const wordle =
-            g.id === 'wordle'
-              ? (statsQuery.data?.wordle as WordleDetails | null | undefined)
-              : null
+            g.id === 'wordle' ? (statsQuery.data?.wordle as WordleDetails | null | undefined) : null
           const sudoku =
-            g.id === 'sudoku'
-              ? (statsQuery.data?.sudoku as SudokuDetails | null | undefined)
-              : null
+            g.id === 'sudoku' ? (statsQuery.data?.sudoku as SudokuDetails | null | undefined) : null
           const sudokuLeaderboards =
             g.id === 'sudoku'
               ? {
@@ -212,10 +197,7 @@ function ArcadePage() {
                 }
               : null
           return (
-            <li
-              key={g.id}
-              className="island-shell rounded-xl p-4"
-            >
+            <li key={g.id} className="island-shell rounded-xl p-4">
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 font-semibold text-[var(--sea-ink)]">
@@ -226,9 +208,7 @@ function ArcadePage() {
                       </span>
                     ) : null}
                   </p>
-                  <p className="text-xs text-[var(--sea-ink-soft)]">
-                    {g.description}
-                  </p>
+                  <p className="text-xs text-[var(--sea-ink-soft)]">{g.description}</p>
                 </div>
                 {locked ? (
                   <button
@@ -250,15 +230,10 @@ function ArcadePage() {
                 )}
               </div>
               <GameStatsRow personal={personal} gameId={g.id} />
-              {g.id !== 'sudoku' ? (
-                <GameLeaderboard gameId={g.id} entries={leaderboard} />
-              ) : null}
+              {g.id !== 'sudoku' ? <GameLeaderboard gameId={g.id} entries={leaderboard} /> : null}
               {wordle && !locked ? <WordlePanel details={wordle} /> : null}
               {sudoku && !locked ? (
-                <SudokuPanel
-                  details={sudoku}
-                  leaderboards={sudokuLeaderboards}
-                />
+                <SudokuPanel details={sudoku} leaderboards={sudokuLeaderboards} />
               ) : null}
             </li>
           )
@@ -266,9 +241,7 @@ function ArcadePage() {
       </ul>
 
       {games.length === 0 ? (
-        <p className="mt-6 text-sm text-[var(--sea-ink-soft)]">
-          No games yet.
-        </p>
+        <p className="mt-6 text-sm text-[var(--sea-ink-soft)]">No games yet.</p>
       ) : null}
 
       <MembersOnlyUpsell
@@ -304,10 +277,7 @@ function GameStatsRow({
       <span>
         {personal!.played} {personal!.played === 1 ? 'play' : 'plays'}
         {personal!.won > 0
-          ? ` · ${personal!.won} won (${formatWinRate(
-              personal!.played,
-              personal!.won,
-            )})`
+          ? ` · ${personal!.won} won (${formatWinRate(personal!.played, personal!.won)})`
           : null}
       </span>
     </div>
@@ -358,14 +328,10 @@ function GameLeaderboard({
           >
             <span className="min-w-0 truncate">
               <span className="tabular-nums">#{i + 1}</span>{' '}
-              <span className={e.isViewer ? '' : 'text-[var(--sea-ink)]'}>
-                @{e.handle}
-              </span>
+              <span className={e.isViewer ? '' : 'text-[var(--sea-ink)]'}>@{e.handle}</span>
               {e.isViewer ? ' (you)' : ''}
             </span>
-            <span className="tabular-nums">
-              {formatScore(gameId, e.bestScore)}
-            </span>
+            <span className="tabular-nums">{formatScore(gameId, e.bestScore)}</span>
           </li>
         ))}
       </ol>
@@ -392,11 +358,7 @@ function WordlePanel({ details }: { details: WordleDetails }) {
         />
         <Stat
           label="Avg on win"
-          value={
-            details.averageGuessesOnWin !== null
-              ? `${details.averageGuessesOnWin}`
-              : '—'
-          }
+          value={details.averageGuessesOnWin !== null ? `${details.averageGuessesOnWin}` : '—'}
         />
         <Stat label="Words solved" value={`${details.uniqueWordsSolved}`} />
         <Stat label="Current streak" value={`${details.currentWinStreak}`} />
@@ -459,16 +421,12 @@ function SudokuDifficultyColumn({
           <Stat label="Win rate" value={formatWinRate(stats.played, stats.won)} />
           <Stat
             label="Best"
-            value={
-              stats.bestScore !== null ? formatSeconds(stats.bestScore) : '—'
-            }
+            value={stats.bestScore !== null ? formatSeconds(stats.bestScore) : '—'}
           />
           <Stat
             label="Avg time"
             value={
-              stats.averageSecondsOnWin !== null
-                ? formatSeconds(stats.averageSecondsOnWin)
-                : '—'
+              stats.averageSecondsOnWin !== null ? formatSeconds(stats.averageSecondsOnWin) : '—'
             }
           />
           <Stat label="Solved" value={`${stats.won}`} />
@@ -496,9 +454,7 @@ function SudokuLeaderboard({ entries }: { entries: LeaderboardEntry[] | undefine
             key={e.userId}
             className={classNames(
               'flex items-baseline justify-between gap-2',
-              e.isViewer
-                ? 'font-semibold text-[var(--sea-ink)]'
-                : 'text-[var(--sea-ink-soft)]',
+              e.isViewer ? 'font-semibold text-[var(--sea-ink)]' : 'text-[var(--sea-ink-soft)]',
             )}
           >
             <span className="min-w-0 truncate">

@@ -4,9 +4,7 @@ import type { GameProps } from '../types'
 const SIZE = 3
 const TOTAL = SIZE * SIZE
 // 0 represents the blank cell.
-const SOLVED: number[] = Array.from({ length: TOTAL }, (_, i) =>
-  i === TOTAL - 1 ? 0 : i + 1,
-)
+const SOLVED: number[] = Array.from({ length: TOTAL }, (_, i) => (i === TOTAL - 1 ? 0 : i + 1))
 
 function indexToRC(i: number): [number, number] {
   return [Math.floor(i / SIZE), i % SIZE]
@@ -150,9 +148,7 @@ export function SlidingPuzzle({ onFinish, onExit }: GameProps) {
       </p>
 
       {solved ? (
-        <p className="text-sm font-semibold text-[var(--lagoon-deep)]">
-          Solved in {moves} moves!
-        </p>
+        <p className="text-sm font-semibold text-[var(--lagoon-deep)]">Solved in {moves} moves!</p>
       ) : null}
     </div>
   )

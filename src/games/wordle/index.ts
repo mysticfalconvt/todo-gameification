@@ -4,8 +4,7 @@ import { Wordle } from './Wordle'
 export const wordle: GameDefinition = {
   id: 'wordle',
   name: 'Wordle',
-  description:
-    'Guess the 5-letter word in 6 tries. Fewer guesses = more XP (20 → 5).',
+  description: 'Guess the 5-letter word in 6 tries. Fewer guesses = more XP (20 → 5).',
   tokenCost: 1,
   tier: 'member',
   rewardXp: (result) => {

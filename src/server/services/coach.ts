@@ -11,11 +11,7 @@ import { callLlmChat } from '../llm/client'
 import { getEffectiveMemberStatus } from './membership'
 import * as taskService from './tasks'
 import { DAY_PART_LABEL, currentDayPart } from '../../domain/dayParts'
-import {
-  COACH_ATTITUDES,
-  DEFAULT_COACH_ATTITUDE,
-  type CoachAttitude,
-} from '../../domain/coach'
+import { COACH_ATTITUDES, DEFAULT_COACH_ATTITUDE, type CoachAttitude } from '../../domain/coach'
 import {
   DEFAULT_MOTIVATION_STYLE,
   isMotivationStyle,
@@ -140,10 +136,7 @@ export interface CoachSummary {
 }
 
 function payloadAsObj(payload: unknown): Record<string, unknown> {
-  return (payload && typeof payload === 'object' ? payload : {}) as Record<
-    string,
-    unknown
-  >
+  return (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
 }
 
 async function loadRecentEvents(userId: string, since: Date) {
@@ -161,7 +154,7 @@ async function loadRecentEvents(userId: string, since: Date) {
   const taskIds = Array.from(
     new Set(
       rows
-        .map((r) => payloadAsObj(r.payload)['taskId'])
+        .map((r) => payloadAsObj(r.payload).taskId)
         .filter((v): v is string => typeof v === 'string'),
     ),
   )
@@ -176,12 +169,12 @@ async function loadRecentEvents(userId: string, since: Date) {
 
   return rows.map((r) => {
     const p = payloadAsObj(r.payload)
-    const taskId = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+    const taskId = typeof p.taskId === 'string' ? (p.taskId as string) : null
     return {
       type: r.type,
       occurredAt: r.occurredAt,
       taskId,
-      title: taskId ? titleMap.get(taskId) ?? null : null,
+      title: taskId ? (titleMap.get(taskId) ?? null) : null,
     }
   })
 }
@@ -252,10 +245,7 @@ async function loadCompletionCadence(
       ),
     )
   const todayKey = localDayKey(new Date(), timeZone)
-  const yesterdayKey = localDayKey(
-    new Date(Date.now() - 86_400_000),
-    timeZone,
-  )
+  const yesterdayKey = localDayKey(new Date(Date.now() - 86_400_000), timeZone)
   const counts = new Map<string, number>()
   for (const r of rows) {
     if (!r.occurredAt) continue
@@ -363,10 +353,7 @@ function buildUserPrompt(input: {
   // newline-instructions can't (self-attack only since coach is per-user,
   // but cheap to harden).
   if (bio) {
-    const safeBio = bio
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n')
+    const safeBio = bio.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
     parts.push(`About the user (their words): "${safeBio}"`)
   }
 
@@ -383,10 +370,7 @@ function buildUserPrompt(input: {
   } else {
     const lines = today.slice(0, limits.today).map((t) => {
       const when = t.timeOfDay ? `due ${t.timeOfDay}` : 'anytime'
-      const overdue =
-        t.dueAt && new Date(t.dueAt).getTime() < now.getTime()
-          ? ', overdue'
-          : ''
+      const overdue = t.dueAt && new Date(t.dueAt).getTime() < now.getTime() ? ', overdue' : ''
       const xp = t.xpOverride ?? '?'
       return `- "${t.title}" (${when}${overdue}, ${xp} XP)`
     })
@@ -397,24 +381,16 @@ function buildUserPrompt(input: {
   if (someday.length > 0) {
     // Sort oldest first so the coach can zero in on the ones that have been
     // sitting longest. Cap the list so the prompt stays bounded.
-    const sorted = [...someday].sort((a, b) =>
-      a.createdAt < b.createdAt ? -1 : 1,
-    )
+    const sorted = [...someday].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
     const shown = sorted.slice(0, limits.someday)
     const lines = shown.map((s) => {
       const age = daysAgo(s.createdAt)
-      const ageLabel =
-        age < 1 ? 'today' : age === 1 ? '1 day' : `${age} days`
+      const ageLabel = age < 1 ? 'today' : age === 1 ? '1 day' : `${age} days`
       const xp = s.xpOverride ?? '?'
       return `- "${s.title}" (waiting ${ageLabel}, ${xp} XP)`
     })
-    const extra =
-      someday.length > shown.length
-        ? ` (+${someday.length - shown.length} more)`
-        : ''
-    parts.push(
-      `Someday backlog (${someday.length} total${extra}); oldest first:`,
-    )
+    const extra = someday.length > shown.length ? ` (+${someday.length - shown.length} more)` : ''
+    parts.push(`Someday backlog (${someday.length} total${extra}); oldest first:`)
     parts.push(lines.join('\n'))
   }
 
@@ -432,17 +408,14 @@ function buildUserPrompt(input: {
 
   if (limits.weeklyTrend) {
     const delta = cadence.thisWeek - cadence.lastWeek
-    const direction =
-      delta > 0 ? `up ${delta}` : delta < 0 ? `down ${Math.abs(delta)}` : 'flat'
+    const direction = delta > 0 ? `up ${delta}` : delta < 0 ? `down ${Math.abs(delta)}` : 'flat'
     parts.push(
       `Weekly trend — last 7 days: ${cadence.thisWeek} completions; previous 7 days: ${cadence.lastWeek}; ${direction} vs. previous week.`,
     )
   }
 
   const daysWithActivity = activityDays.length
-  parts.push(
-    `This week: completed tasks on ${daysWithActivity} of the last 7 days.`,
-  )
+  parts.push(`This week: completed tasks on ${daysWithActivity} of the last 7 days.`)
 
   const recentCompletions = recentEvents
     .filter((e) => e.type === 'task.completed')
@@ -457,21 +430,15 @@ function buildUserPrompt(input: {
   }
 
   const veryRecent = recentEvents.find(
-    (e) =>
-      e.type === 'task.completed' &&
-      Date.now() - e.occurredAt.getTime() < 10 * 60_000,
+    (e) => e.type === 'task.completed' && Date.now() - e.occurredAt.getTime() < 10 * 60_000,
   )
-  if (veryRecent && veryRecent.title) {
-    parts.push(
-      `Just happened (last 10 min): user completed "${veryRecent.title}".`,
-    )
+  if (veryRecent?.title) {
+    parts.push(`Just happened (last 10 min): user completed "${veryRecent.title}".`)
   }
 
   // What this person wants their list to give them — steer emphasis (not
   // tone; the attitude owns tone). Emphasis only; never invent rewards.
-  parts.push(
-    `Motivation emphasis: ${motivationStyleOption(motivationStyle).coachEmphasis}`,
-  )
+  parts.push(`Motivation emphasis: ${motivationStyleOption(motivationStyle).coachEmphasis}`)
 
   parts.push(
     `Selected attitude: ${attitude}. Detailed mode: ${detailed ? 'on' : 'off'}. Write the coach message now.`,
@@ -503,9 +470,7 @@ function buildCoachSignature(
   return `${t}:${s}:${motivationStyle}`
 }
 
-export async function generateCoachSummary(
-  userId: string,
-): Promise<CoachSummary | null> {
+export async function generateCoachSummary(userId: string): Promise<CoachSummary | null> {
   const [timeZone, prefs, member] = await Promise.all([
     taskService.getUserTimeZone(userId),
     loadCoachPrefs(userId),
@@ -570,10 +535,7 @@ export async function generateCoachSummary(
   // so it sits adjacent to the personality's own STYLE block and the
   // strict-output rules still come last.
   const systemPrompt = detailed
-    ? COACH_PROMPTS[attitude].replace(
-        OUTPUT_RULES,
-        `${DETAILED_ADDENDUM}\n\n${OUTPUT_RULES}`,
-      )
+    ? COACH_PROMPTS[attitude].replace(OUTPUT_RULES, `${DETAILED_ADDENDUM}\n\n${OUTPUT_RULES}`)
     : COACH_PROMPTS[attitude]
 
   // Detailed mode writes longer paragraphs; short mode stays tight.
@@ -635,10 +597,11 @@ export function sanitizeCoachOutput(raw: string | null): string | null {
   // Drop everything before and including a closing reasoning/channel tag
   // (e.g. a stray "...</analysis>Actual message" pattern).
   const closeTag = /<\/[a-z_-]{2,20}>/gi
-  let match: RegExpExecArray | null
   let lastClose = -1
-  while ((match = closeTag.exec(s)) !== null) {
+  let match: RegExpExecArray | null = closeTag.exec(s)
+  while (match !== null) {
     lastClose = match.index + match[0].length
+    match = closeTag.exec(s)
   }
   if (lastClose >= 0) s = s.slice(lastClose)
 
@@ -646,10 +609,7 @@ export function sanitizeCoachOutput(raw: string | null): string | null {
   s = s.replace(/<[a-z_\s-]{2,40}\/?>/gi, '')
 
   // Strip common reasoning-model control tokens.
-  s = s.replace(
-    /<\|[^>|]{1,40}\|>/g,
-    '',
-  )
+  s = s.replace(/<\|[^>|]{1,40}\|>/g, '')
 
   // Strip markdown formatting the model occasionally adds despite the
   // OUTPUT RULES — tables, bullets, numbered lists, blockquotes. The
@@ -666,11 +626,7 @@ export function sanitizeCoachOutput(raw: string | null): string | null {
         .replace(/\|\s*$/, '')
         .replace(/\s*\|\s*/g, ' '),
     )
-    .map((line) =>
-      line
-        .replace(/^\s*[-*+>]\s+/, '')
-        .replace(/^\s*\d+[.)]\s+/, ''),
-    )
+    .map((line) => line.replace(/^\s*[-*+>]\s+/, '').replace(/^\s*\d+[.)]\s+/, ''))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
@@ -681,7 +637,10 @@ export function sanitizeCoachOutput(raw: string | null): string | null {
   // If the first line is a short label and there's a longer line after,
   // drop the label. Catches the "Coach\nActual message…" pattern that
   // falls out of the markdown-table cleanup above.
-  const lines = s.split(/\n+/).map((l) => l.trim()).filter(Boolean)
+  const lines = s
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean)
   if (lines.length >= 2 && lines[0].length <= 25 && !/[.!?]$/.test(lines[0])) {
     s = lines.slice(1).join('\n').trim()
   }

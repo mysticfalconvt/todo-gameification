@@ -5,10 +5,7 @@ import { db } from '../db/client'
 import { pushSubscriptions } from '../db/schema'
 import { sendWebPush, type PushPayload } from './web-push'
 
-export async function sendPushToUser(
-  userId: string,
-  payload: PushPayload,
-): Promise<void> {
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
   const subs = await db.query.pushSubscriptions.findMany({
     where: eq(pushSubscriptions.userId, userId),
   })
@@ -24,9 +21,7 @@ export async function sendPushToUser(
       )
       if (!result.ok) {
         if (result.gone) {
-          await db
-            .delete(pushSubscriptions)
-            .where(eq(pushSubscriptions.id, sub.id))
+          await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id))
         } else {
           await db
             .update(pushSubscriptions)

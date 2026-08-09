@@ -47,8 +47,8 @@ function SignupPage() {
             Check your email
           </h1>
           <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-            We sent a verification link to <strong>{email}</strong>. Click
-            it, and you'll be signed in automatically.
+            We sent a verification link to <strong>{email}</strong>. Click it, and you'll be signed
+            in automatically.
           </p>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             Didn't get it? Check your spam folder, or{' '}
@@ -65,9 +65,7 @@ function SignupPage() {
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
-        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">
-          Sign up
-        </h1>
+        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">Sign up</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Name">
             <input

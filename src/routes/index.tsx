@@ -19,14 +19,11 @@ function LandingPage() {
           A todo app that rewards showing up.
         </h1>
         <p className="mx-auto mb-8 max-w-xl text-lg text-[var(--sea-ink-soft)]">
-          Built for ADHD brains. Gentle streaks, no guilt, no metric to beat
-          — just a consistent nudge toward the smallest next thing.
+          Built for ADHD brains. Gentle streaks, no guilt, no metric to beat — just a consistent
+          nudge toward the smallest next thing.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link
-            to="/auth/signup"
-            className="btn-primary"
-          >
+          <Link to="/auth/signup" className="btn-primary">
             Create account
           </Link>
           <Link
@@ -72,8 +69,8 @@ function LandingPage() {
             Free tier you can actually live in
           </h2>
           <p className="text-[var(--sea-ink-soft)]">
-            Memory Flip and Sliding Puzzle stay free. Upgrade unlocks the rest
-            of the arcade, the AI Coach personalities, and the Garden.
+            Memory Flip and Sliding Puzzle stay free. Upgrade unlocks the rest of the arcade, the AI
+            Coach personalities, and the Garden.
           </p>
         </header>
         <PricingTable publicVariant />
@@ -83,13 +80,8 @@ function LandingPage() {
         <h2 className="display-title mb-3 text-2xl font-bold text-[var(--sea-ink)]">
           Ready to start?
         </h2>
-        <p className="mb-5 text-[var(--sea-ink-soft)]">
-          Free. No card. Takes 30 seconds.
-        </p>
-        <Link
-          to="/auth/signup"
-          className="btn-primary"
-        >
+        <p className="mb-5 text-[var(--sea-ink-soft)]">Free. No card. Takes 30 seconds.</p>
+        <Link to="/auth/signup" className="btn-primary">
           Create account
         </Link>
       </section>
@@ -100,9 +92,7 @@ function LandingPage() {
 function Feature({ title, body }: { title: string; body: string }) {
   return (
     <div className="island-shell rounded-2xl p-5">
-      <h3 className="mb-1 text-base font-bold text-[var(--sea-ink)]">
-        {title}
-      </h3>
+      <h3 className="mb-1 text-base font-bold text-[var(--sea-ink)]">{title}</h3>
       <p className="text-sm text-[var(--sea-ink-soft)]">{body}</p>
     </div>
   )

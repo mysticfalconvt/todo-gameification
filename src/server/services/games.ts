@@ -58,9 +58,7 @@ export interface FinishGameResult {
 
 // Single source of truth per play: writes `game.played` event, applies it.
 // Debits `tokenCost` and credits `xpReward` (0 on loss/quit). Replay-safe.
-export async function finishGame(
-  input: FinishGameInput,
-): Promise<FinishGameResult> {
+export async function finishGame(input: FinishGameInput): Promise<FinishGameResult> {
   const game = findGame(input.gameId)
   if (!game) throw new Error('unknown game')
 
@@ -87,92 +85,94 @@ export async function finishGame(
     occurredAt: now,
   }
 
-  return await db.transaction(async (tx) => {
-    const current = await tx.query.progression.findFirst({
-      where: eq(progression.userId, input.userId),
-    })
-    if ((current?.tokens ?? 0) < game.tokenCost) {
-      throw new Error('not enough tokens')
-    }
-
-    // Wordle stores the played word in `payload.word` (promoted from meta)
-    // so the per-user "seen words" query can match on it directly.
-    const basePayload: Record<string, unknown> = {
-      gameId: event.gameId,
-      tokenCost: event.tokenCost,
-      xpReward: event.xpReward,
-      result: event.result,
-    }
-    const word = event.meta?.word
-    if (typeof word === 'string') basePayload.word = word
-    // Word Search promotes theme + size so per-user variety queries
-    // ("don't repeat the same theme on Surprise me") can be a flat lookup.
-    const theme = event.meta?.theme
-    if (typeof theme === 'string') basePayload.theme = theme
-    const size = event.meta?.size
-    if (size === 'small' || size === 'large') basePayload.size = size
-    // Sudoku promotes difficulty so per-difficulty leaderboards are a flat
-    // payload lookup; seconds + mistakes feed the detail panel.
-    const difficulty = event.meta?.difficulty
-    if (difficulty === 'easy' || difficulty === 'hard') {
-      basePayload.difficulty = difficulty
-    }
-    const seconds = event.meta?.seconds
-    if (typeof seconds === 'number') basePayload.seconds = seconds
-    const mistakes = event.meta?.mistakes
-    if (typeof mistakes === 'number') basePayload.mistakes = mistakes
-    const hints = event.meta?.hints
-    if (typeof hints === 'number') basePayload.hints = hints
-
-    await tx.insert(events).values({
-      userId: input.userId,
-      type: event.type,
-      payload: basePayload,
-      occurredAt: now,
-    })
-
-    const prevState = current
-      ? {
-          xp: current.xp,
-          level: current.level,
-          currentStreak: current.currentStreak,
-          longestStreak: current.longestStreak,
-          tokens: current.tokens,
-          streakFreezes: current.streakFreezes,
-          lastCompletionAt: current.lastCompletionAt,
-        }
-      : INITIAL_PROGRESSION
-
-    const next = applyEvent(prevState, event, { timeZone })
-
-    await tx
-      .insert(progression)
-      .values({
-        userId: input.userId,
-        xp: next.xp,
-        level: next.level,
-        tokens: next.tokens,
+  return await db
+    .transaction(async (tx) => {
+      const current = await tx.query.progression.findFirst({
+        where: eq(progression.userId, input.userId),
       })
-      .onConflictDoUpdate({
-        target: progression.userId,
-        set: {
+      if ((current?.tokens ?? 0) < game.tokenCost) {
+        throw new Error('not enough tokens')
+      }
+
+      // Wordle stores the played word in `payload.word` (promoted from meta)
+      // so the per-user "seen words" query can match on it directly.
+      const basePayload: Record<string, unknown> = {
+        gameId: event.gameId,
+        tokenCost: event.tokenCost,
+        xpReward: event.xpReward,
+        result: event.result,
+      }
+      const word = event.meta?.word
+      if (typeof word === 'string') basePayload.word = word
+      // Word Search promotes theme + size so per-user variety queries
+      // ("don't repeat the same theme on Surprise me") can be a flat lookup.
+      const theme = event.meta?.theme
+      if (typeof theme === 'string') basePayload.theme = theme
+      const size = event.meta?.size
+      if (size === 'small' || size === 'large') basePayload.size = size
+      // Sudoku promotes difficulty so per-difficulty leaderboards are a flat
+      // payload lookup; seconds + mistakes feed the detail panel.
+      const difficulty = event.meta?.difficulty
+      if (difficulty === 'easy' || difficulty === 'hard') {
+        basePayload.difficulty = difficulty
+      }
+      const seconds = event.meta?.seconds
+      if (typeof seconds === 'number') basePayload.seconds = seconds
+      const mistakes = event.meta?.mistakes
+      if (typeof mistakes === 'number') basePayload.mistakes = mistakes
+      const hints = event.meta?.hints
+      if (typeof hints === 'number') basePayload.hints = hints
+
+      await tx.insert(events).values({
+        userId: input.userId,
+        type: event.type,
+        payload: basePayload,
+        occurredAt: now,
+      })
+
+      const prevState = current
+        ? {
+            xp: current.xp,
+            level: current.level,
+            currentStreak: current.currentStreak,
+            longestStreak: current.longestStreak,
+            tokens: current.tokens,
+            streakFreezes: current.streakFreezes,
+            lastCompletionAt: current.lastCompletionAt,
+          }
+        : INITIAL_PROGRESSION
+
+      const next = applyEvent(prevState, event, { timeZone })
+
+      await tx
+        .insert(progression)
+        .values({
+          userId: input.userId,
           xp: next.xp,
           level: next.level,
           tokens: next.tokens,
-          updatedAt: now,
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: progression.userId,
+          set: {
+            xp: next.xp,
+            level: next.level,
+            tokens: next.tokens,
+            updatedAt: now,
+          },
+        })
 
-    return { xp: next.xp, level: next.level, tokens: next.tokens, xpReward }
-  }).then(async (out) => {
-    // Post-commit side effect: if this was a wordle play, check whether the
-    // user has run low on unseen words and nudge the admin. Fire-and-forget;
-    // a failure here shouldn't roll back the play.
-    if (input.gameId === 'wordle') {
-      await checkAndNotifyLowPool(input.userId).catch((err) => {
-        console.error('[games] wordle low-pool check failed', err)
-      })
-    }
-    return out
-  })
+      return { xp: next.xp, level: next.level, tokens: next.tokens, xpReward }
+    })
+    .then(async (out) => {
+      // Post-commit side effect: if this was a wordle play, check whether the
+      // user has run low on unseen words and nudge the admin. Fire-and-forget;
+      // a failure here shouldn't roll back the play.
+      if (input.gameId === 'wordle') {
+        await checkAndNotifyLowPool(input.userId).catch((err) => {
+          console.error('[games] wordle low-pool check failed', err)
+        })
+      }
+      return out
+    })
 }

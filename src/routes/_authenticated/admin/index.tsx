@@ -32,9 +32,7 @@ function AdminPage() {
     <main className="page-wrap space-y-6 px-4 py-8">
       <header>
         <p className="island-kicker mb-1">Admin</p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          Dashboard
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">Dashboard</h1>
       </header>
       <SummaryGrid />
       <MotivationSection />
@@ -65,9 +63,7 @@ function SessionsSection() {
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Sessions & logins
-        </h2>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Sessions & logins</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">
           One session = one sign-in. Refreshed every 30s.
         </p>
@@ -98,10 +94,9 @@ function SessionsSection() {
 
           {ttlLooksShort ? (
             <div className="rounded-2xl border border-[rgba(230,90,90,0.4)] bg-[rgba(230,90,90,0.08)] p-3 text-sm text-red-700">
-              Shortest recent session TTL is {data.ttlDaysMin}d, well under the
-              configured 30d. Sessions are being minted short — check the
-              Better Auth <code>session.expiresIn</code> and any cookie{' '}
-              <code>maxAge</code> override.
+              Shortest recent session TTL is {data.ttlDaysMin}d, well under the configured 30d.
+              Sessions are being minted short — check the Better Auth <code>session.expiresIn</code>{' '}
+              and any cookie <code>maxAge</code> override.
             </div>
           ) : null}
 
@@ -110,9 +105,9 @@ function SessionsSection() {
               Login churn — most sessions created in last 24h
             </summary>
             <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
-              A user with many logins but few devices/IPs is re-authenticating
-              on the same device — the signature of a dropped-cookie bug.
-              Highlighted rows have 5+ logins across ≤2 devices.
+              A user with many logins but few devices/IPs is re-authenticating on the same device —
+              the signature of a dropped-cookie bug. Highlighted rows have 5+ logins across ≤2
+              devices.
             </p>
             {data.churn.length === 0 ? (
               <p className="mt-3 text-[var(--sea-ink-soft)]">
@@ -132,8 +127,7 @@ function SessionsSection() {
                   </thead>
                   <tbody>
                     {data.churn.map((c) => {
-                      const suspicious =
-                        c.sessionsLast24h >= 5 && c.distinctUserAgents <= 2
+                      const suspicious = c.sessionsLast24h >= 5 && c.distinctUserAgents <= 2
                       return (
                         <tr
                           key={c.userId}
@@ -149,9 +143,7 @@ function SessionsSection() {
                             >
                               {c.name || c.email}
                             </Link>
-                            <div className="text-xs text-[var(--sea-ink-soft)]">
-                              {c.email}
-                            </div>
+                            <div className="text-xs text-[var(--sea-ink-soft)]">{c.email}</div>
                           </td>
                           <td
                             className={`px-3 py-2 ${
@@ -209,21 +201,17 @@ function WeeklyEmailSection() {
       }
       qc.invalidateQueries({ queryKey: ['admin', 'weekly-email'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Send failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Send failed'),
   })
-  const sendingId =
-    send.isPending && typeof send.variables === 'string' ? send.variables : null
+  const sendingId = send.isPending && typeof send.variables === 'string' ? send.variables : null
 
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Weekly email
-        </h2>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Weekly email</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">
-          Opted-in users, next scheduled send (their timezone), and last
-          delivery. Refreshed every 30s.
+          Opted-in users, next scheduled send (their timezone), and last delivery. Refreshed every
+          30s.
         </p>
       </header>
 
@@ -233,8 +221,8 @@ function WeeklyEmailSection() {
         <>
           {!data.smtpConfigured ? (
             <div className="rounded-2xl border border-[rgba(230,90,90,0.4)] bg-[rgba(230,90,90,0.08)] p-3 text-sm text-red-700">
-              SMTP is not configured, so no weekly emails are being sent. Set
-              the <code>SMTP_*</code> env vars.
+              SMTP is not configured, so no weekly emails are being sent. Set the{' '}
+              <code>SMTP_*</code> env vars.
             </div>
           ) : null}
 
@@ -251,9 +239,7 @@ function WeeklyEmailSection() {
             />
             <Stat label="Sent 7d" value={data.sentLast7d} />
             <div className="island-shell rounded-2xl p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-                SMTP
-              </div>
+              <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">SMTP</div>
               <div className="mt-2">
                 <Flag label="SMTP" on={data.smtpConfigured} />
               </div>
@@ -261,9 +247,7 @@ function WeeklyEmailSection() {
           </div>
 
           {data.users.length === 0 ? (
-            <p className="text-[var(--sea-ink-soft)]">
-              No users have opted into the weekly email.
-            </p>
+            <p className="text-[var(--sea-ink-soft)]">No users have opted into the weekly email.</p>
           ) : (
             <div className="island-shell overflow-x-auto rounded-2xl">
               <table className="min-w-full text-left text-sm">
@@ -295,9 +279,7 @@ function WeeklyEmailSection() {
                         <div className="text-xs text-[var(--sea-ink-soft)]">
                           {u.email}
                           {!u.emailVerified ? (
-                            <span className="ml-1 font-semibold text-red-600">
-                              · unverified
-                            </span>
+                            <span className="ml-1 font-semibold text-red-600">· unverified</span>
                           ) : null}
                         </div>
                       </td>
@@ -306,9 +288,7 @@ function WeeklyEmailSection() {
                         <div className="text-xs">{u.timezone}</div>
                       </td>
                       <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
-                        {u.nextScheduledAt
-                          ? formatDateTime(u.nextScheduledAt)
-                          : '—'}
+                        {u.nextScheduledAt ? formatDateTime(u.nextScheduledAt) : '—'}
                       </td>
                       <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
                         {u.lastSentAt ? (
@@ -352,12 +332,8 @@ function JobsSection() {
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Background jobs
-        </h2>
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          pg-boss queues, refreshed every 15s.
-        </p>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Background jobs</h2>
+        <p className="text-xs text-[var(--sea-ink-soft)]">pg-boss queues, refreshed every 15s.</p>
       </header>
       {query.isLoading || !data ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
@@ -387,26 +363,17 @@ function JobsSection() {
                       danger ? 'bg-[rgba(230,90,90,0.08)]' : ''
                     }`}
                   >
-                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                      {q.name}
-                    </td>
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{q.name}</td>
                     <td className="px-3 py-2">{q.queuedCount}</td>
                     <td className="px-3 py-2">{q.activeCount}</td>
                     <td className="px-3 py-2">{q.deferredCount}</td>
                     <td className="px-3 py-2">{q.completedLast24h}</td>
-                    <td
-                      className={`px-3 py-2 ${
-                        danger ? 'font-semibold text-red-600' : ''
-                      }`}
-                    >
+                    <td className={`px-3 py-2 ${danger ? 'font-semibold text-red-600' : ''}`}>
                       {q.failedLast24h}
                     </td>
                     <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
                       {q.lastFailureAt ? (
-                        <span
-                          title={q.lastFailureMessage ?? undefined}
-                          className="truncate"
-                        >
+                        <span title={q.lastFailureMessage ?? undefined} className="truncate">
                           {relativeTime(q.lastFailureAt)}
                         </span>
                       ) : (
@@ -432,17 +399,11 @@ function JobsSection() {
                 key={i}
                 className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
               >
-                <span>
-                  {f.completedOn ? relativeTime(f.completedOn) : '—'}
-                </span>
-                <span className="font-semibold text-[var(--sea-ink)]">
-                  {f.name}
-                </span>
+                <span>{f.completedOn ? relativeTime(f.completedOn) : '—'}</span>
+                <span className="font-semibold text-[var(--sea-ink)]">{f.name}</span>
                 <span>retries {f.retryCount}</span>
                 {f.errorMessage ? (
-                  <code className="min-w-0 flex-1 truncate text-[11px]">
-                    {f.errorMessage}
-                  </code>
+                  <code className="min-w-0 flex-1 truncate text-[11px]">{f.errorMessage}</code>
                 ) : null}
               </li>
             ))}
@@ -467,18 +428,13 @@ function LlmMetricsSection() {
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          LLM latency
-        </h2>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">LLM latency</h2>
         <div className="flex items-baseline gap-3">
           <p className="text-xs text-[var(--sea-ink-soft)]">
-            Average + p95 per call kind, per window. Failures are calls that
-            errored or returned no usable output.
+            Average + p95 per call kind, per window. Failures are calls that errored or returned no
+            usable output.
           </p>
-          <Link
-            to="/admin/llm"
-            className="text-xs text-[var(--lagoon-deep)] no-underline"
-          >
+          <Link to="/admin/llm" className="text-xs text-[var(--lagoon-deep)] no-underline">
             Usage + call log →
           </Link>
         </div>
@@ -512,14 +468,10 @@ function LlmMetricsSection() {
                 <tr
                   key={r.kind}
                   className={`border-b border-[var(--line)] last:border-none ${
-                    r.kind === 'all'
-                      ? 'bg-[rgba(79,184,178,0.06)] font-semibold'
-                      : ''
+                    r.kind === 'all' ? 'bg-[rgba(79,184,178,0.06)] font-semibold' : ''
                   }`}
                 >
-                  <td className="px-3 py-2 text-[var(--sea-ink)]">
-                    {r.kind}
-                  </td>
+                  <td className="px-3 py-2 text-[var(--sea-ink)]">{r.kind}</td>
                   {windows.map((w) => {
                     const cell = r.windows[w]
                     const okPct =
@@ -530,9 +482,7 @@ function LlmMetricsSection() {
                       <Fragment key={w}>
                         <td className="px-3 py-2">
                           {cell.count === 0 ? (
-                            <span className="text-[var(--sea-ink-soft)]">
-                              —
-                            </span>
+                            <span className="text-[var(--sea-ink-soft)]">—</span>
                           ) : (
                             <span>
                               {formatMs(cell.avgMs)} /{' '}
@@ -542,12 +492,8 @@ function LlmMetricsSection() {
                             </span>
                           )}
                         </td>
-                        <td
-                          className="px-3 py-2 text-[var(--sea-ink-soft)]"
-                        >
-                          {cell.count === 0
-                            ? '—'
-                            : `${cell.count} · ${okPct}`}
+                        <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
+                          {cell.count === 0 ? '—' : `${cell.count} · ${okPct}`}
                         </td>
                       </Fragment>
                     )
@@ -571,14 +517,10 @@ function LlmMetricsSection() {
                 className="flex flex-wrap items-baseline gap-2 text-[var(--sea-ink-soft)]"
               >
                 <span>{relativeTime(f.startedAt)}</span>
-                <span className="font-semibold text-[var(--sea-ink)]">
-                  {f.kind}
-                </span>
+                <span className="font-semibold text-[var(--sea-ink)]">{f.kind}</span>
                 <span>{formatMs(f.durationMs)}</span>
                 {f.errorMessage ? (
-                  <code className="min-w-0 flex-1 truncate text-[11px]">
-                    {f.errorMessage}
-                  </code>
+                  <code className="min-w-0 flex-1 truncate text-[11px]">{f.errorMessage}</code>
                 ) : null}
               </li>
             ))}
@@ -603,20 +545,13 @@ function MotivationSection() {
   const m = summary.data.motivation
   if (!m) return null
   const completionRate =
-    m.focus.started > 0
-      ? Math.round((m.focus.completed / m.focus.started) * 100)
-      : null
+    m.focus.started > 0 ? Math.round((m.focus.completed / m.focus.started) * 100) : null
 
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Focus & games
-        </h2>
-        <Link
-          to="/admin/wordle"
-          className="text-xs text-[var(--lagoon-deep)] no-underline"
-        >
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Focus & games</h2>
+        <Link to="/admin/wordle" className="text-xs text-[var(--lagoon-deep)] no-underline">
           Manage Wordle words →
         </Link>
       </header>
@@ -632,10 +567,7 @@ function MotivationSection() {
           value={m.focus.minutesCompleted}
           hint="sum of completed sessions"
         />
-        <Stat
-          label="Games played"
-          value={m.games.reduce((acc, g) => acc + g.played, 0)}
-        />
+        <Stat label="Games played" value={m.games.reduce((acc, g) => acc + g.played, 0)} />
       </div>
       {m.games.length === 0 ? (
         <p className="text-sm text-[var(--sea-ink-soft)]">No games played yet.</p>
@@ -654,18 +586,11 @@ function MotivationSection() {
               {m.games.map((g) => {
                 const rate = g.played > 0 ? Math.round((g.won / g.played) * 100) : 0
                 return (
-                  <tr
-                    key={g.gameId}
-                    className="border-b border-[var(--line)] last:border-none"
-                  >
-                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                      {g.gameId}
-                    </td>
+                  <tr key={g.gameId} className="border-b border-[var(--line)] last:border-none">
+                    <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{g.gameId}</td>
                     <td className="px-3 py-2">{g.played}</td>
                     <td className="px-3 py-2">{g.won}</td>
-                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                      {rate}%
-                    </td>
+                    <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{rate}%</td>
                   </tr>
                 )
               })}
@@ -698,26 +623,16 @@ function SummaryGrid() {
         <Stat label="Signups today" value={s.signupsToday} />
         <Stat label="Signups 7d" value={s.signupsLast7} />
         <Stat label="Signups 30d" value={s.signupsLast30} />
-        <Stat
-          label="Active 7d"
-          value={s.activeLast7}
-          hint={`${s.activeLast30} in 30d`}
-        />
-        <Stat
-          label="Inactive"
-          value={s.inactiveCount}
-          hint="No completion in 30d"
-        />
+        <Stat label="Active 7d" value={s.activeLast7} hint={`${s.activeLast30} in 30d`} />
+        <Stat label="Inactive" value={s.inactiveCount} hint="No completion in 30d" />
         <Stat label="Active tasks" value={s.totalTasks} />
         <Stat label="Total completions" value={s.totalCompletions} />
         {o ? (
-          <>
-            <Stat
-              label="Open instances"
-              value={o.count}
-              hint={`${o.withDueAt} timed · ${o.someday} someday`}
-            />
-          </>
+          <Stat
+            label="Open instances"
+            value={o.count}
+            hint={`${o.withDueAt} timed · ${o.someday} someday`}
+          />
         ) : null}
         <Stat label="Push subs" value={s.pushSubscriptions} />
       </div>
@@ -741,9 +656,9 @@ function UsersTable() {
     queryKey: ['admin', 'users'],
     queryFn: () => listAdminUsersFn(),
   })
-  const [sort, setSort] = useState<
-    'created-desc' | 'xp-desc' | 'completions-desc' | 'active-desc'
-  >('created-desc')
+  const [sort, setSort] = useState<'created-desc' | 'xp-desc' | 'completions-desc' | 'active-desc'>(
+    'created-desc',
+  )
 
   const rows = [...(Array.isArray(query.data) ? query.data : [])].sort((a, b) => {
     switch (sort) {
@@ -756,7 +671,6 @@ function UsersTable() {
         const bx = b.lastCompletionAt ?? ''
         return bx.localeCompare(ax)
       }
-      case 'created-desc':
       default:
         return b.createdAt.localeCompare(a.createdAt)
     }
@@ -765,9 +679,7 @@ function UsersTable() {
   return (
     <section className="space-y-3">
       <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Users ({rows.length})
-        </h2>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Users ({rows.length})</h2>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as typeof sort)}
@@ -803,10 +715,7 @@ function UsersTable() {
             </thead>
             <tbody>
               {rows.map((u) => (
-                <tr
-                  key={u.id}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
+                <tr key={u.id} className="border-b border-[var(--line)] last:border-none">
                   <td className="px-3 py-2">
                     <Link
                       to="/admin/users/$userId"
@@ -827,9 +736,7 @@ function UsersTable() {
                       {!u.emailVerified ? ' · unverified' : ''}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                    {u.email}
-                  </td>
+                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{u.email}</td>
                   <td className="px-3 py-2">
                     {u.membershipTier === 'free' ? (
                       <span className="text-xs text-[var(--sea-ink-soft)]">Free</span>
@@ -837,32 +744,24 @@ function UsersTable() {
                       <MemberBadge tier={u.membershipTier} />
                     )}
                     {u.membershipSource === 'admin' ? (
-                      <span className="ml-1 text-[10px] text-[var(--sea-ink-soft)]">
-                        (granted)
-                      </span>
+                      <span className="ml-1 text-[10px] text-[var(--sea-ink-soft)]">(granted)</span>
                     ) : null}
                   </td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {formatDate(u.createdAt)}
                   </td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                    {u.lastCompletionAt
-                      ? relativeTime(u.lastCompletionAt)
-                      : '—'}
+                    {u.lastCompletionAt ? relativeTime(u.lastCompletionAt) : '—'}
                   </td>
                   <td className="px-3 py-2">{u.level}</td>
                   <td className="px-3 py-2">{u.xp}</td>
                   <td className="px-3 py-2">
                     {u.currentStreak}
-                    {u.longestStreak > u.currentStreak
-                      ? ` (max ${u.longestStreak})`
-                      : ''}
+                    {u.longestStreak > u.currentStreak ? ` (max ${u.longestStreak})` : ''}
                   </td>
                   <td className="px-3 py-2">{u.activeTaskCount}</td>
                   <td className="px-3 py-2">{u.totalCompletions}</td>
-                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
-                    {u.profileVisibility}
-                  </td>
+                  <td className="px-3 py-2 text-[var(--sea-ink-soft)]">{u.profileVisibility}</td>
                 </tr>
               ))}
             </tbody>
@@ -882,9 +781,7 @@ function RecentEvents() {
   const rows = Array.isArray(query.data) ? query.data : []
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-        Recent events
-      </h2>
+      <h2 className="text-lg font-bold text-[var(--sea-ink)]">Recent events</h2>
       {query.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : rows.length === 0 ? (
@@ -899,9 +796,7 @@ function RecentEvents() {
               <span className="text-xs text-[var(--sea-ink-soft)]">
                 {relativeTime(e.occurredAt)}
               </span>
-              <span className="font-semibold text-[var(--sea-ink)]">
-                {e.type}
-              </span>
+              <span className="font-semibold text-[var(--sea-ink)]">{e.type}</span>
               {e.userHandle ? (
                 <Link
                   to="/u/$handle"
@@ -911,9 +806,7 @@ function RecentEvents() {
                   @{e.userHandle}
                 </Link>
               ) : (
-                <span className="text-xs text-[var(--sea-ink-soft)]">
-                  ({e.userName})
-                </span>
+                <span className="text-xs text-[var(--sea-ink-soft)]">({e.userName})</span>
               )}
               <code className="min-w-0 flex-1 truncate text-[11px] text-[var(--sea-ink-soft)]">
                 {e.payload}
@@ -926,26 +819,12 @@ function RecentEvents() {
   )
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: number | string
-  hint?: string
-}) {
+function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
     <div className="island-shell rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">
-        {value}
-      </div>
-      {hint ? (
-        <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div>
-      ) : null}
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div> : null}
     </div>
   )
 }

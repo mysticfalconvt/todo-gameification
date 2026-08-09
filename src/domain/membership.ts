@@ -5,12 +5,7 @@
 import type { DomainEvent } from './events'
 
 export type MembershipTier = 'free' | 'trial' | 'annual' | 'lifetime'
-export type MembershipStatus =
-  | 'active'
-  | 'canceled'
-  | 'past_due'
-  | 'lapsed'
-  | 'none'
+export type MembershipStatus = 'active' | 'canceled' | 'past_due' | 'lapsed' | 'none'
 export type MembershipSource = 'stripe' | 'admin' | 'system' | 'none'
 
 export interface MembershipState {
@@ -43,8 +38,7 @@ export const INITIAL_MEMBERSHIP: MembershipState = {
 // expiry is computed lazily so no cron is needed to flip the projection.
 export function isMember(state: MembershipState): boolean {
   if (state.tier === 'lifetime') return true
-  if (state.tier === 'annual')
-    return state.status === 'active' || state.status === 'canceled'
+  if (state.tier === 'annual') return state.status === 'active' || state.status === 'canceled'
   if (state.tier === 'trial')
     return (
       state.status === 'active' &&
@@ -54,10 +48,7 @@ export function isMember(state: MembershipState): boolean {
   return false
 }
 
-export function applyMembershipEvent(
-  state: MembershipState,
-  event: DomainEvent,
-): MembershipState {
+export function applyMembershipEvent(state: MembershipState, event: DomainEvent): MembershipState {
   switch (event.type) {
     case 'membership.granted':
       // Admin grant retains a stripeCustomerId if one already existed
@@ -148,9 +139,7 @@ export function applyMembershipEvent(
   }
 }
 
-export function replayMembershipEvents(
-  events: ReadonlyArray<DomainEvent>,
-): MembershipState {
+export function replayMembershipEvents(events: ReadonlyArray<DomainEvent>): MembershipState {
   let state: MembershipState = INITIAL_MEMBERSHIP
   for (const e of events) {
     state = applyMembershipEvent(state, e)

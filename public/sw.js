@@ -31,9 +31,11 @@ self.addEventListener('activate', (event) => {
 })
 
 function isAuthRequest(url) {
-  return url.pathname.startsWith('/api/auth/') ||
+  return (
+    url.pathname.startsWith('/api/auth/') ||
     url.pathname.startsWith('/api/push/') ||
     url.pathname.startsWith('/api/stripe-webhook')
+  )
 }
 
 function isHashedAsset(url) {

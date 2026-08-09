@@ -13,10 +13,7 @@ import {
   startFocusSession,
 } from '../../server/functions/focus'
 import { completeInstance, listTodayInstances } from '../../server/functions/tasks'
-import {
-  focusRewardsFor,
-  type FocusMode,
-} from '../../domain/events'
+import { focusRewardsFor, type FocusMode } from '../../domain/events'
 import { isIosNonStandalone } from '../../lib/platform'
 import { currentPushStatus } from '../../lib/push'
 
@@ -37,13 +34,10 @@ interface FocusSearch {
 export const Route = createFileRoute('/_authenticated/focus')({
   component: FocusPage,
   validateSearch: (s: Record<string, unknown>): FocusSearch => ({
-    taskInstanceId:
-      typeof s.taskInstanceId === 'string' ? s.taskInstanceId : undefined,
-    taskTitle:
-      typeof s.taskTitle === 'string' ? s.taskTitle : undefined,
+    taskInstanceId: typeof s.taskInstanceId === 'string' ? s.taskInstanceId : undefined,
+    taskTitle: typeof s.taskTitle === 'string' ? s.taskTitle : undefined,
     taskId: typeof s.taskId === 'string' ? s.taskId : undefined,
-    focus_confirm:
-      typeof s.focus_confirm === 'string' ? s.focus_confirm : undefined,
+    focus_confirm: typeof s.focus_confirm === 'string' ? s.focus_confirm : undefined,
   }),
 })
 
@@ -87,9 +81,7 @@ function FocusPage() {
     enabled: !search.taskId && !!instanceId,
   })
   const taskId =
-    search.taskId ??
-    today.data?.find((i) => i.instanceId === instanceId)?.taskId ??
-    null
+    search.taskId ?? today.data?.find((i) => i.instanceId === instanceId)?.taskId ?? null
 
   const didRestoreRef = useRef(false)
   useEffect(() => {
@@ -152,9 +144,7 @@ function FocusPage() {
         toast('Already counted on another device.')
         return
       }
-      toast.success(
-        `Focus logged! +${result.xpEarned} XP, +${result.tokensEarned} 🪙`,
-      )
+      toast.success(`Focus logged! +${result.xpEarned} XP, +${result.tokensEarned} 🪙`)
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Focus log failed')
@@ -162,8 +152,7 @@ function FocusPage() {
   })
 
   const completeTask = useMutation({
-    mutationFn: (instanceId: string) =>
-      completeInstance({ data: { instanceId } }),
+    mutationFn: (instanceId: string) => completeInstance({ data: { instanceId } }),
     onSuccess: () => {
       invalidateAll()
     },
@@ -173,8 +162,7 @@ function FocusPage() {
   })
 
   const cancelSession = useMutation({
-    mutationFn: (startEventId: string) =>
-      cancelFocusSession({ data: { startEventId } }),
+    mutationFn: (startEventId: string) => cancelFocusSession({ data: { startEventId } }),
     onSuccess: () => invalidateAll(),
   })
 
@@ -250,9 +238,7 @@ function FocusPage() {
     return (
       <main className="page-wrap px-4 py-8">
         <ConfirmationPrompt
-          taskLinked={Boolean(
-            activeStart?.taskInstanceId ?? search.taskInstanceId,
-          )}
+          taskLinked={Boolean(activeStart?.taskInstanceId ?? search.taskInstanceId)}
           taskTitle={search.taskTitle}
           taskId={taskId}
           instanceId={instanceId}
@@ -300,9 +286,7 @@ function FocusPage() {
     <main className="page-wrap px-4 py-8">
       <header className="mb-6">
         <p className="island-kicker mb-1">Focus</p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          Pick a duration
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">Pick a duration</h1>
         <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
           Earn tokens for uninterrupted focus time.
         </p>
@@ -311,7 +295,11 @@ function FocusPage() {
       <ModePicker mode={mode} onChange={setMode} />
 
       <section className="island-shell mb-4 rounded-2xl p-4">
-        <div role="radiogroup" aria-label="Session duration" className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        <div
+          role="radiogroup"
+          aria-label="Session duration"
+          className="grid grid-cols-5 gap-1.5 sm:gap-2"
+        >
           {DURATIONS.map((d) => {
             const reward = focusRewardsFor(mode)[d]
             return (
@@ -366,13 +354,7 @@ function FocusPage() {
   )
 }
 
-function ModePicker({
-  mode,
-  onChange,
-}: {
-  mode: FocusMode
-  onChange: (m: FocusMode) => void
-}) {
+function ModePicker({ mode, onChange }: { mode: FocusMode; onChange: (m: FocusMode) => void }) {
   return (
     <section className="island-shell mb-4 rounded-2xl p-4">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
@@ -441,9 +423,8 @@ function PocketReadinessHints() {
       <div className="mb-4 rounded-xl border border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] p-3 text-xs text-[var(--sea-ink)]">
         <div className="font-semibold">📲 Install to home screen for Pocket mode</div>
         <div className="mt-1 opacity-80">
-          iOS Safari only delivers push notifications when this app is
-          installed. Tap <span className="font-mono">Share → Add to Home Screen</span>,
-          then come back.
+          iOS Safari only delivers push notifications when this app is installed. Tap{' '}
+          <span className="font-mono">Share → Add to Home Screen</span>, then come back.
         </div>
       </div>
     )
@@ -453,9 +434,8 @@ function PocketReadinessHints() {
       <div className="mb-4 rounded-xl border border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] p-3 text-xs text-[var(--sea-ink)]">
         <div className="font-semibold">🔔 Enable notifications first</div>
         <div className="mt-1 opacity-80">
-          Pocket sessions notify you when the timer ends. Turn on push in
-          Settings before starting — without it, you'll have to reopen the
-          app to confirm.
+          Pocket sessions notify you when the timer ends. Turn on push in Settings before starting —
+          without it, you'll have to reopen the app to confirm.
         </div>
       </div>
     )
@@ -465,9 +445,8 @@ function PocketReadinessHints() {
       <div className="mb-4 rounded-xl border border-[var(--btn-subtle-border)] bg-[var(--btn-subtle-bg)] p-3 text-xs text-[var(--sea-ink)]">
         <div className="font-semibold">⚠️ Push not supported here</div>
         <div className="mt-1 opacity-80">
-          This browser can't receive push notifications. The session will
-          still track on the server — you'll just have to come back to the
-          app to confirm.
+          This browser can't receive push notifications. The session will still track on the server
+          — you'll just have to come back to the app to confirm.
         </div>
       </div>
     )
@@ -513,8 +492,8 @@ function PocketWaiting({
         Pocket session running
       </h2>
       <p className="text-sm text-[var(--sea-ink-soft)]">
-        {durationMin}-min focus. Phone can be locked or away — we'll push
-        you at <span className="font-semibold">{endTimeLabel}</span>.
+        {durationMin}-min focus. Phone can be locked or away — we'll push you at{' '}
+        <span className="font-semibold">{endTimeLabel}</span>.
       </p>
       {taskId || taskTitle ? (
         <TaskContextCard
@@ -586,24 +565,14 @@ function ConfirmationPrompt({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6 text-center">
       <div className="text-5xl">⏰</div>
-      <h2 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
-        Time's up!
-      </h2>
-      <p className="text-xs text-[var(--sea-ink-soft)]">
-        {durationMin}-min session
-      </p>
+      <h2 className="display-title text-3xl font-bold text-[var(--sea-ink)]">Time's up!</h2>
+      <p className="text-xs text-[var(--sea-ink-soft)]">{durationMin}-min session</p>
       {taskLinked ? (
         <>
           {taskId || taskTitle ? (
-            <TaskContextCard
-              taskId={taskId}
-              instanceId={instanceId}
-              fallbackTitle={taskTitle}
-            />
+            <TaskContextCard taskId={taskId} instanceId={instanceId} fallbackTitle={taskTitle} />
           ) : null}
-          {taskId ? (
-            <FocusStepsChecklist taskId={taskId} instanceId={instanceId} />
-          ) : null}
+          {taskId ? <FocusStepsChecklist taskId={taskId} instanceId={instanceId} /> : null}
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {taskTitle
               ? `Did you finish it? Focus rewards are awarded either way.`
@@ -631,8 +600,7 @@ function ConfirmationPrompt({
       ) : (
         <>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Was this a successful focus session? Answering no forfeits the
-            rewards (honesty clause).
+            Was this a successful focus session? Answering no forfeits the rewards (honesty clause).
           </p>
           <div className="flex w-full max-w-sm flex-col gap-2">
             <button

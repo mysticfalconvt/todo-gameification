@@ -72,10 +72,7 @@ export function Boggle({ onFinish, onExit }: GameProps) {
   }, [])
 
   // ---- Current candidate word from the traced path ----
-  const word = useMemo(
-    () => path.map((i) => tileLetters(board[i])).join(''),
-    [path, board],
-  )
+  const word = useMemo(() => path.map((i) => tileLetters(board[i])).join(''), [path, board])
 
   // ---- Finish (latched: fires once) ----
   const finish = useCallback(
@@ -220,9 +217,7 @@ export function Boggle({ onFinish, onExit }: GameProps) {
         <span
           className={classNames(
             'font-mono font-semibold tabular-nums',
-            timeLeft <= 10
-              ? 'text-red-600'
-              : 'text-[var(--sea-ink)]',
+            timeLeft <= 10 ? 'text-red-600' : 'text-[var(--sea-ink)]',
           )}
           aria-label={`${timeLeft} seconds left`}
         >
@@ -251,9 +246,7 @@ export function Boggle({ onFinish, onExit }: GameProps) {
         )}
         aria-live="polite"
       >
-        {flash === 'dupe'
-          ? 'Already found'
-          : word || (over ? "Time's up!" : '')}
+        {flash === 'dupe' ? 'Already found' : word || (over ? "Time's up!" : '')}
       </div>
 
       <div
@@ -317,16 +310,13 @@ export function Boggle({ onFinish, onExit }: GameProps) {
                 className="rounded border border-[var(--btn-subtle-border)] px-2 py-0.5 font-semibold uppercase tracking-wide text-[var(--sea-ink)]"
               >
                 {w}
-                <span className="ml-1 text-[var(--sea-ink-soft)]">
-                  +{scoreForLength(w.length)}
-                </span>
+                <span className="ml-1 text-[var(--sea-ink-soft)]">+{scoreForLength(w.length)}</span>
               </li>
             ))}
           </ul>
         ) : (
           <p className="text-xs text-[var(--sea-ink-soft)]">
-            Tap adjacent letters (3+) to trace a word, then Submit. “Qu” counts
-            as two letters.
+            Tap adjacent letters (3+) to trace a word, then Submit. “Qu” counts as two letters.
           </p>
         )}
       </div>

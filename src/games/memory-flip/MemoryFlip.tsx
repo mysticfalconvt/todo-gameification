@@ -31,10 +31,7 @@ export function MemoryFlip({ onFinish, onExit }: GameProps) {
   const [mistakes, setMistakes] = useState(0)
   const [locked, setLocked] = useState(false)
 
-  const allMatched = useMemo(
-    () => cards.length > 0 && cards.every((c) => c.matched),
-    [cards],
-  )
+  const allMatched = useMemo(() => cards.length > 0 && cards.every((c) => c.matched), [cards])
   const lost = mistakes >= MAX_MISTAKES
 
   useEffect(() => {
@@ -60,9 +57,7 @@ export function MemoryFlip({ onFinish, onExit }: GameProps) {
       setMoves((m) => m + 1)
       const [a, b] = nextFlipped
       if (cards[a].symbol === cards[b].symbol) {
-        setCards((prev) =>
-          prev.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)),
-        )
+        setCards((prev) => prev.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c)))
         setFlipped([])
       } else {
         setMistakes((m) => m + 1)
@@ -83,9 +78,7 @@ export function MemoryFlip({ onFinish, onExit }: GameProps) {
         <span>Moves: {moves}</span>
         <span
           className={
-            mistakesLeft <= 1
-              ? 'font-semibold text-red-600'
-              : 'text-[var(--sea-ink-soft)]'
+            mistakesLeft <= 1 ? 'font-semibold text-red-600' : 'text-[var(--sea-ink-soft)]'
           }
           aria-live="polite"
         >

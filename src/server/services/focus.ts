@@ -26,16 +26,12 @@ export interface StartFocusResult {
   expectedEndAt: Date
 }
 
-export async function recordFocusStart(
-  input: StartFocusInput,
-): Promise<StartFocusResult> {
+export async function recordFocusStart(input: StartFocusInput): Promise<StartFocusResult> {
   if (!isFocusDuration(input.durationMin)) {
     throw new Error('invalid focus duration')
   }
   const startedAt = new Date()
-  const expectedEndAt = new Date(
-    startedAt.getTime() + focusDurationMs(input.durationMin),
-  )
+  const expectedEndAt = new Date(startedAt.getTime() + focusDurationMs(input.durationMin))
 
   // Insert the started event first so we have an ID to associate the
   // pg-boss job with. The completion-end push handler looks the event
@@ -63,8 +59,7 @@ export async function recordFocusStart(
   // session the user never came back to confirm.
   if (input.mode === 'pocket') {
     try {
-      const { scheduleFocusSessionEnd, scheduleFocusSessionExpire } =
-        await import('../boss')
+      const { scheduleFocusSessionEnd, scheduleFocusSessionExpire } = await import('../boss')
       const jobId = await scheduleFocusSessionEnd(
         { startEventId, userId: input.userId },
         expectedEndAt,
@@ -103,9 +98,7 @@ export interface ActiveFocusSession {
 // Derives the in-flight focus session for a user (if any). Looks at the
 // most recent focus.started in the last 24h and reports it as active
 // unless a matching focus.completed or focus.cancelled exists.
-export async function getActiveFocusSession(
-  userId: string,
-): Promise<ActiveFocusSession | null> {
+export async function getActiveFocusSession(userId: string): Promise<ActiveFocusSession | null> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const recentStart = await db
     .select({
@@ -141,20 +134,15 @@ export async function getActiveFocusSession(
   if (matched.length > 0) return null
 
   const payload =
-    row.payload && typeof row.payload === 'object'
-      ? (row.payload as Record<string, unknown>)
-      : {}
+    row.payload && typeof row.payload === 'object' ? (row.payload as Record<string, unknown>) : {}
   const durationRaw = payload.durationMin
   const durationMin =
-    typeof durationRaw === 'number' && isFocusDuration(durationRaw)
-      ? durationRaw
-      : null
+    typeof durationRaw === 'number' && isFocusDuration(durationRaw) ? durationRaw : null
   if (durationMin === null) return null
 
   const modeRaw = payload.mode
   const mode: FocusMode = modeRaw === 'pocket' ? 'pocket' : 'visible'
-  const taskInstanceId =
-    typeof payload.taskInstanceId === 'string' ? payload.taskInstanceId : null
+  const taskInstanceId = typeof payload.taskInstanceId === 'string' ? payload.taskInstanceId : null
 
   const expectedRaw = payload.expectedEndAt
   const expectedEndAt =
@@ -182,10 +170,7 @@ export interface CancelFocusInput {
 
 export async function cancelFocusSession(input: CancelFocusInput): Promise<void> {
   const start = await db.query.events.findFirst({
-    where: and(
-      eq(events.id, input.startEventId),
-      eq(events.type, 'focus.started'),
-    ),
+    where: and(eq(events.id, input.startEventId), eq(events.type, 'focus.started')),
   })
   if (!start) return
   if (!input.trusted && start.userId !== input.userId) {

@@ -88,8 +88,7 @@ export function MembersOnlyUpsell({
     onSuccess: ({ url }) => {
       window.location.assign(url)
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
 
   const lifetime = useMutation({
@@ -97,8 +96,7 @@ export function MembersOnlyUpsell({
     onSuccess: ({ url }) => {
       window.location.assign(url)
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
 
   useEffect(() => {
@@ -137,9 +135,7 @@ export function MembersOnlyUpsell({
         <h2 className="display-title mb-1 text-xl font-bold text-[var(--sea-ink)]">
           {resolvedHeadline}
         </h2>
-        <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-          {resolvedSubline}
-        </p>
+        <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">{resolvedSubline}</p>
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -147,9 +143,7 @@ export function MembersOnlyUpsell({
             disabled={pending || pricing.isLoading}
             className="rounded-full bg-[var(--btn-primary-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
           >
-            {annual.isPending
-              ? 'Redirecting…'
-              : `Annual · ${annualLabel}`}
+            {annual.isPending ? 'Redirecting…' : `Annual · ${annualLabel}`}
           </button>
           <button
             type="button"
@@ -157,9 +151,7 @@ export function MembersOnlyUpsell({
             disabled={pending || pricing.isLoading}
             className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
           >
-            {lifetime.isPending
-              ? 'Redirecting…'
-              : `Lifetime · ${lifetimeLabel}`}
+            {lifetime.isPending ? 'Redirecting…' : `Lifetime · ${lifetimeLabel}`}
           </button>
           <button
             type="button"

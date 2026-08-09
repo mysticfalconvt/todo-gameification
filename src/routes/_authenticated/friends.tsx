@@ -53,8 +53,7 @@ const METRIC_LABEL: Record<LeaderboardMetric, string> = {
 
 const METRIC_HINT: Record<LeaderboardMetric, string> = {
   xp: 'Sum of XP from completed tasks in the window.',
-  'avg-xp-day':
-    'Average XP per day — total XP divided by the number of days in the window.',
+  'avg-xp-day': 'Average XP per day — total XP divided by the number of days in the window.',
   streak: 'Longest run of consecutive days with a completion, in the window.',
   'showed-up': 'Distinct days with at least one completion.',
 }
@@ -75,24 +74,22 @@ function FriendsPage() {
         role="tablist"
         aria-label="Friends tabs"
       >
-        {(['leaderboard', 'activity', 'categories', 'manage'] as Tab[]).map(
-          (t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-center text-xs font-semibold capitalize transition ${
-                tab === t
-                  ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
-                  : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
-              }`}
-            >
-              {t}
-            </button>
-          ),
-        )}
+        {(['leaderboard', 'activity', 'categories', 'manage'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={`flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-center text-xs font-semibold capitalize transition ${
+              tab === t
+                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+                : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
       </div>
       {tab === 'leaderboard' ? (
         <LeaderboardTab />
@@ -134,8 +131,7 @@ function ManageTab() {
   const [addError, setAddError] = useState<string | null>(null)
 
   const send = useMutation({
-    mutationFn: (handle: string) =>
-      sendFriendRequestFn({ data: { handle } }),
+    mutationFn: (handle: string) => sendFriendRequestFn({ data: { handle } }),
     onSuccess: (res) => {
       setHandleInput('')
       setAddError(null)
@@ -143,10 +139,8 @@ function ManageTab() {
       if (res.status === 'sent') toast.success('Friend request sent.')
       else if (res.status === 'accepted')
         toast.success('You’re now friends — they had already sent a request.')
-      else if (res.status === 'already_pending')
-        toast.message('Request already pending.')
-      else if (res.status === 'already_friends')
-        toast.message('Already friends.')
+      else if (res.status === 'already_pending') toast.message('Request already pending.')
+      else if (res.status === 'already_friends') toast.message('Already friends.')
     },
     onError: (err) => {
       setAddError(err instanceof Error ? err.message : 'Failed to send request.')
@@ -154,39 +148,29 @@ function ManageTab() {
   })
 
   const accept = useMutation({
-    mutationFn: (requesterId: string) =>
-      acceptFriendRequestFn({ data: { requesterId } }),
+    mutationFn: (requesterId: string) => acceptFriendRequestFn({ data: { requesterId } }),
     onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Accept failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Accept failed'),
   })
   const decline = useMutation({
-    mutationFn: (requesterId: string) =>
-      declineFriendRequestFn({ data: { requesterId } }),
+    mutationFn: (requesterId: string) => declineFriendRequestFn({ data: { requesterId } }),
     onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Decline failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Decline failed'),
   })
   const cancel = useMutation({
-    mutationFn: (addresseeId: string) =>
-      cancelFriendRequestFn({ data: { addresseeId } }),
+    mutationFn: (addresseeId: string) => cancelFriendRequestFn({ data: { addresseeId } }),
     onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Cancel failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Cancel failed'),
   })
   const remove = useMutation({
-    mutationFn: (otherUserId: string) =>
-      removeFriendFn({ data: { otherUserId } }),
+    mutationFn: (otherUserId: string) => removeFriendFn({ data: { otherUserId } }),
     onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Remove failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Remove failed'),
   })
   const unblock = useMutation({
-    mutationFn: (targetUserId: string) =>
-      unblockUserFn({ data: { targetUserId } }),
+    mutationFn: (targetUserId: string) => unblockUserFn({ data: { targetUserId } }),
     onSuccess: invalidateAll,
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Unblock failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Unblock failed'),
   })
 
   const friends = Array.isArray(friendsQuery.data) ? friendsQuery.data : []
@@ -365,12 +349,8 @@ function FriendList({
             >
               <Initials name={r.name} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
-                  {r.name}
-                </p>
-                <p className="truncate text-xs text-[var(--sea-ink-soft)]">
-                  @{r.handle}
-                </p>
+                <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">{r.name}</p>
+                <p className="truncate text-xs text-[var(--sea-ink-soft)]">@{r.handle}</p>
               </div>
               {r.trailing}
             </li>
@@ -442,9 +422,7 @@ function CategoriesTab() {
                 <Initials name={r.name ?? '?'} />
                 <div className="min-w-0 flex-1">
                   {r.isMe ? (
-                    <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">
-                      You
-                    </p>
+                    <p className="truncate text-sm font-semibold text-[var(--sea-ink)]">You</p>
                   ) : (
                     <Link
                       to="/u/$handle"
@@ -488,9 +466,7 @@ function LeaderboardTab() {
   const [metric, setMetric] = useState<LeaderboardMetric>('xp')
   const [days, setDays] = useState<LeaderboardWindow>(30)
   const { allows } = useAvailableWindows()
-  const ranges = ([7, 30, 90, 'all'] as LeaderboardWindow[]).filter((r) =>
-    allows(r),
-  )
+  const ranges = ([7, 30, 90, 'all'] as LeaderboardWindow[]).filter((r) => allows(r))
   useEffect(() => {
     if (!ranges.includes(days) && ranges.length > 0) setDays(ranges[0])
   }, [ranges.join(','), days])
@@ -505,9 +481,7 @@ function LeaderboardTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          {METRIC_HINT[metric]}
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">{METRIC_HINT[metric]}</p>
         <div
           className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
           role="radiogroup"
@@ -561,9 +535,7 @@ function LeaderboardTab() {
           role="radiogroup"
           aria-label="Metric"
         >
-          {(
-            ['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]
-          ).map((m) => (
+          {(['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
             <button
               key={m}
               type="button"
@@ -621,9 +593,7 @@ function LeaderboardTab() {
                         </span>
                       ) : null}
                     </p>
-                    <p className="truncate text-xs text-[var(--sea-ink-soft)]">
-                      @{r.handle}
-                    </p>
+                    <p className="truncate text-xs text-[var(--sea-ink-soft)]">@{r.handle}</p>
                   </div>
                   <span className="text-sm font-semibold text-[var(--sea-ink)]">
                     {formatMetric(metric, r.value)}
@@ -696,11 +666,9 @@ function FriendsActivity() {
   })
 
   const cheer = useMutation({
-    mutationFn: (completionEventId: string) =>
-      cheerCompletionFn({ data: { completionEventId } }),
+    mutationFn: (completionEventId: string) => cheerCompletionFn({ data: { completionEventId } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activity'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Cheer failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Cheer failed'),
   })
 
   const rows = Array.isArray(query.data) ? query.data : []
@@ -734,8 +702,7 @@ function FriendsActivity() {
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          Nothing from friends yet. When they finish a task, you’ll see it
-          here.
+          Nothing from friends yet. When they finish a task, you’ll see it here.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -756,8 +723,7 @@ function FriendsActivity() {
                     <>
                       <span className="sm:hidden"> </span>
                       <span className="block font-semibold sm:inline">
-                        <span className="hidden sm:inline"> </span>
-                        “{r.taskTitle}”
+                        <span className="hidden sm:inline"> </span>“{r.taskTitle}”
                       </span>
                     </>
                   ) : null}
@@ -829,9 +795,7 @@ function ReceivedCheers() {
       {query.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          No cheers yet in this window.
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">No cheers yet in this window.</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => (
@@ -848,8 +812,7 @@ function ReceivedCheers() {
                     <>
                       <span className="sm:hidden"> </span>
                       <span className="block font-semibold sm:inline">
-                        <span className="hidden sm:inline"> </span>
-                        “{r.taskTitle}”
+                        <span className="hidden sm:inline"> </span>“{r.taskTitle}”
                       </span>
                     </>
                   ) : (

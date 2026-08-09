@@ -13,25 +13,15 @@ import { getCoachSummary } from '../../server/functions/coach'
 import { getMemberStatusFn } from '../../server/functions/billing'
 import { getMyHouseholdFn } from '../../server/functions/households'
 import { getProfile } from '../../server/functions/user'
-import {
-  assigneeBarStyle,
-  type BarMember,
-} from '../../components/household/assigneeBar'
+import { assigneeBarStyle, type BarMember } from '../../components/household/assigneeBar'
 import { MembersOnlyUpsell } from '../../components/membership/MembersOnlyUpsell'
 import type { GardenView } from '../../server/services/garden'
 import { runOrQueue } from '../../lib/offline-queue'
-import {
-  currentPushStatus,
-  enablePushNotifications,
-  type PushSupportStatus,
-} from '../../lib/push'
+import { currentPushStatus, enablePushNotifications, type PushSupportStatus } from '../../lib/push'
 import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
 import { DoomScrollButton } from '../../components/DoomScrollButton'
-import {
-  MilestoneCelebration,
-  type CelebrationEvent,
-} from '../../components/MilestoneCelebration'
+import { MilestoneCelebration, type CelebrationEvent } from '../../components/MilestoneCelebration'
 import type { CompletionCelebration } from '../../server/services/tasks'
 import { badgeForStreak } from '../../domain/gamification'
 import {
@@ -39,10 +29,7 @@ import {
   isMotivationStyle,
   motivationStyleOption,
 } from '../../domain/motivation'
-import {
-  TaskDetailsDialog,
-  type TaskDetailsInstance,
-} from '../../components/TaskDetailsDialog'
+import { TaskDetailsDialog, type TaskDetailsInstance } from '../../components/TaskDetailsDialog'
 import { TODAY_SORTS, compareBy, useStoredSort } from '../../lib/sort'
 import {
   DAY_PART_LABEL,
@@ -132,21 +119,20 @@ function TodayPage() {
   // still gets the overlay. Token/freeze gains ride along as a toast.
   function fireCelebration(c: CompletionCelebration) {
     if (c.milestone) {
-      const freezeNote =
-        c.freezesEarned > 0 ? ' · ❄ streak freeze earned' : ''
+      const freezeNote = c.freezesEarned > 0 ? ' · ❄ streak freeze earned' : ''
+      celebrationKey.current += 1
       setCelebration({
-        key: (celebrationKey.current += 1),
+        key: celebrationKey.current,
         kind: 'milestone',
         glyph: '🏅',
         title: `${c.milestone.days}-day streak!`,
         subtitle: c.milestone.label,
       })
-      toast.success(
-        `🏅 ${c.milestone.label} — +${c.milestone.tokens} 🪙${freezeNote}`,
-      )
+      toast.success(`🏅 ${c.milestone.label} — +${c.milestone.tokens} 🪙${freezeNote}`)
     } else if (c.leveledUp) {
+      celebrationKey.current += 1
       setCelebration({
-        key: (celebrationKey.current += 1),
+        key: celebrationKey.current,
         kind: 'level',
         glyph: '⬆️',
         title: `Level ${c.leveledUp}!`,
@@ -202,13 +188,9 @@ function TodayPage() {
       )
     const categorySlug = instance?.categorySlug ?? null
     const garden = qc.getQueryData<GardenView>(['garden'])
-    const plant = garden?.plants.find(
-      (p) => p.categorySlug === categorySlug,
-    )
+    const plant = garden?.plants.find((p) => p.categorySlug === categorySlug)
     const label =
-      plant?.label ??
-      (categorySlug ? catBySlug.get(categorySlug)?.label : null) ??
-      'Uncategorized'
+      plant?.label ?? (categorySlug ? catBySlug.get(categorySlug)?.label : null) ?? 'Uncategorized'
     const todayLocal = new Date().toLocaleDateString()
     const lastLocal = plant?.lastWateredAt
       ? new Date(plant.lastWateredAt).toLocaleDateString()
@@ -217,13 +199,8 @@ function TodayPage() {
   }
 
   const complete = useMutation({
-    mutationFn: ({
-      instanceId,
-      force,
-    }: {
-      instanceId: string
-      force?: boolean
-    }) => runOrQueue({ type: 'complete', instanceId, force: force ?? true }),
+    mutationFn: ({ instanceId, force }: { instanceId: string; force?: boolean }) =>
+      runOrQueue({ type: 'complete', instanceId, force: force ?? true }),
     onMutate: async ({ instanceId }) => {
       const watering = firstWateringInfo(instanceId)
       const removed = await optimisticRemove(instanceId)()
@@ -231,15 +208,12 @@ function TodayPage() {
     },
     onSuccess: (data, _vars, ctx) => {
       if (ctx?.watering.first) {
-        toast.success(
-          `🌱 First watering today — ${ctx.watering.label} is perky.`,
-        )
+        toast.success(`🌱 First watering today — ${ctx.watering.label} is perky.`)
       }
       // Online completions carry a celebration payload; offline-queued ones
       // don't (runOrQueue returns undefined when queued) — tolerate absence.
-      const celebrationData = (
-        data as { celebration?: CompletionCelebration } | undefined
-      )?.celebration
+      const celebrationData = (data as { celebration?: CompletionCelebration } | undefined)
+        ?.celebration
       if (celebrationData) fireCelebration(celebrationData)
     },
     onError: (err, _vars, ctx) => {
@@ -284,8 +258,7 @@ function TodayPage() {
   }
 
   const skip = useMutation({
-    mutationFn: (instanceId: string) =>
-      runOrQueue({ type: 'skip', instanceId }),
+    mutationFn: (instanceId: string) => runOrQueue({ type: 'skip', instanceId }),
     onMutate: (instanceId) => optimisticRemove(instanceId)(),
     onError: (err, _id, ctx) => {
       if (ctx?.prevToday) qc.setQueryData(['today'], ctx.prevToday)
@@ -326,11 +299,7 @@ function TodayPage() {
   const rawInstances = Array.isArray(todayQuery.data) ? todayQuery.data : []
   const somedayInstances = Array.isArray(somedayQuery.data) ? somedayQuery.data : []
   const progression = progressionQuery.data
-  const [sortKey, setSortKey] = useStoredSort(
-    'todo-xp-sort-today',
-    TODAY_SORTS,
-    'due-asc',
-  )
+  const [sortKey, setSortKey] = useStoredSort('todo-xp-sort-today', TODAY_SORTS, 'due-asc')
   const instances = useMemo(
     () => [...rawInstances].sort(compareBy(sortKey)),
     [rawInstances, sortKey],
@@ -340,28 +309,18 @@ function TodayPage() {
 
   return (
     <main className="page-wrap px-4 py-8">
-      <MilestoneCelebration
-        event={celebration}
-        onDone={() => setCelebration(null)}
-      />
+      <MilestoneCelebration event={celebration} onDone={() => setCelebration(null)} />
       <header
         className={`mb-6 flex justify-between gap-3 ${
-          coachDetailed
-            ? 'flex-col items-stretch sm:flex-row sm:items-end'
-            : 'items-end'
+          coachDetailed ? 'flex-col items-stretch sm:flex-row sm:items-end' : 'items-end'
         }`}
       >
         <div className="min-w-0 flex-1">
           <p className="island-kicker mb-1">Today</p>
           <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-            {instances.length > 0
-              ? `${instances.length} to knock out`
-              : 'All clear'}
+            {instances.length > 0 ? `${instances.length} to knock out` : 'All clear'}
           </h1>
-          <CoachBlurb
-            instances={instances}
-            somedayInstances={somedayInstances}
-          />
+          <CoachBlurb instances={instances} somedayInstances={somedayInstances} />
         </div>
         <div
           className={
@@ -384,9 +343,7 @@ function TodayPage() {
           >
             🎯 Focus
           </Link>
-          {!isKid && (
-            <DoomScrollButton tokens={progression?.tokens ?? 0} />
-          )}
+          {!isKid && <DoomScrollButton tokens={progression?.tokens ?? 0} />}
         </div>
       </header>
 
@@ -410,11 +367,7 @@ function TodayPage() {
               label="Streak"
               accent={motivationStyle.primaryStat === 'streak'}
               value={`${progression.currentStreak}d`}
-              sub={
-                progression.streakFreezes > 0
-                  ? `❄ ${progression.streakFreezes}`
-                  : undefined
-              }
+              sub={progression.streakFreezes > 0 ? `❄ ${progression.streakFreezes}` : undefined}
             />
             <Stat label="Longest" value={`${progression.longestStreak}d`} />
             <Link
@@ -447,29 +400,21 @@ function TodayPage() {
 
       {instances.length > 0 ? (
         <div className="mb-3 flex items-center justify-end">
-          <SortSelect
-            value={sortKey}
-            options={TODAY_SORTS}
-            onChange={setSortKey}
-          />
+          <SortSelect value={sortKey} options={TODAY_SORTS} onChange={setSortKey} />
         </div>
       ) : null}
 
       {todayQuery.isLoading ? (
         <p className="text-[var(--sea-ink-soft)]">Loading…</p>
       ) : instances.length === 0 ? (
-        <p className="text-[var(--sea-ink-soft)]">
-          Nothing due today. Treat yourself to a break.
-        </p>
+        <p className="text-[var(--sea-ink-soft)]">Nothing due today. Treat yourself to a break.</p>
       ) : (
         <TodayBuckets
           instances={instances}
           catBySlug={catBySlug}
           householdMembers={householdMembers}
           onComplete={handleComplete}
-          onSnooze={(id) =>
-            snooze.mutate({ instanceId: id, hours: 1 })
-          }
+          onSnooze={(id) => snooze.mutate({ instanceId: id, hours: 1 })}
           onSkip={(id) => skip.mutate(id)}
           onSelect={setSelected}
         />
@@ -478,9 +423,7 @@ function TodayPage() {
       {somedayInstances.length > 0 ? (
         <section className="mt-10">
           <header className="mb-3 flex items-baseline justify-between">
-            <h2 className="display-title text-xl font-bold text-[var(--sea-ink)]">
-              Someday
-            </h2>
+            <h2 className="display-title text-xl font-bold text-[var(--sea-ink)]">Someday</h2>
             <span className="text-xs text-[var(--sea-ink-soft)]">
               {somedayInstances.length} {somedayInstances.length === 1 ? 'item' : 'items'}
             </span>
@@ -518,10 +461,7 @@ function TodayPage() {
                   <p className="flex items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
                     <span className="truncate">{inst.title}</span>
                     {inst.stepsTotal > 0 ? (
-                      <StepsBadge
-                        completed={inst.stepsCompleted}
-                        total={inst.stepsTotal}
-                      />
+                      <StepsBadge completed={inst.stepsCompleted} total={inst.stepsTotal} />
                     ) : null}
                   </p>
                   <p className="text-xs text-[var(--sea-ink-soft)]">
@@ -560,10 +500,7 @@ function TodayPage() {
 
       <p className="pt-8 text-center text-xs text-[var(--sea-ink-soft)]">
         Have an idea for the app?{' '}
-        <Link
-          to="/feedback"
-          className="font-semibold text-[var(--lagoon-deep)] underline"
-        >
+        <Link to="/feedback" className="font-semibold text-[var(--lagoon-deep)] underline">
           Send a feature request →
         </Link>
       </p>
@@ -606,18 +543,14 @@ function MembershipUpsellCard() {
   // Server function serializes Date as an ISO string; coerce defensively
   // so the same code path works in tests (real Date) and in the browser
   // (string after JSON round-trip).
-  const trialEndsMs = status.trialEndsAt
-    ? new Date(status.trialEndsAt).getTime()
-    : null
+  const trialEndsMs = status.trialEndsAt ? new Date(status.trialEndsAt).getTime() : null
   const now = Date.now()
   const daysLeft =
     trialEndsMs != null && status.isMember
       ? Math.max(1, Math.ceil((trialEndsMs - now) / 86400000))
       : null
   const daysSinceExpiry =
-    trialEndsMs != null && !status.isMember
-      ? Math.floor((now - trialEndsMs) / 86400000)
-      : null
+    trialEndsMs != null && !status.isMember ? Math.floor((now - trialEndsMs) / 86400000) : null
 
   let mode: 'trial-gentle' | 'trial-urgent' | 'trial-expired' | 'generic'
   if (status.isMember && status.isTrial && daysLeft != null) {
@@ -669,8 +602,7 @@ function MembershipUpsellCard() {
       case 'generic':
         return {
           kicker: 'Members',
-          headline:
-            'Unlock the Garden, the full arcade, and all five coach voices.',
+          headline: 'Unlock the Garden, the full arcade, and all five coach voices.',
           sub: 'Annual or lifetime — Memory Flip and Sliding Puzzle stay free either way.',
           cta: 'Upgrade',
           variant: 'cold' as const,
@@ -688,9 +620,7 @@ function MembershipUpsellCard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="island-kicker mb-1">{copy.kicker}</p>
-          <p className="text-sm font-semibold text-[var(--sea-ink)]">
-            {copy.headline}
-          </p>
+          <p className="text-sm font-semibold text-[var(--sea-ink)]">{copy.headline}</p>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{copy.sub}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -701,30 +631,17 @@ function MembershipUpsellCard() {
           >
             {copy.cta}
           </button>
-          <Link
-            to="/pricing"
-            className="text-xs text-[var(--lagoon-deep)] no-underline"
-          >
+          <Link to="/pricing" className="text-xs text-[var(--lagoon-deep)] no-underline">
             Compare →
           </Link>
         </div>
       </div>
-      <MembersOnlyUpsell
-        open={open}
-        onClose={() => setOpen(false)}
-        variant={copy.variant}
-      />
+      <MembersOnlyUpsell open={open} onClose={() => setOpen(false)} variant={copy.variant} />
     </section>
   )
 }
 
-function StepsBadge({
-  completed,
-  total,
-}: {
-  completed: number
-  total: number
-}) {
+function StepsBadge({ completed, total }: { completed: number; total: number }) {
   const done = completed >= total
   return (
     <span
@@ -807,9 +724,8 @@ function ParentCompleteConfirm({
             </h3>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
               "{pending.title}" still has {pending.unchecked} unchecked{' '}
-              {pending.unchecked === 1 ? 'step' : 'steps'}. Completing the
-              task will only grant the parent's completion bonus — the
-              remaining step XP will be skipped.
+              {pending.unchecked === 1 ? 'step' : 'steps'}. Completing the task will only grant the
+              parent's completion bonus — the remaining step XP will be skipped.
             </p>
           </div>
           <div className="flex justify-end gap-2">
@@ -879,8 +795,7 @@ function PushBanner() {
   return (
     <div className="island-shell mb-6 flex flex-col gap-2 rounded-xl p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <span className="text-[var(--sea-ink-soft)]">
-        Get a push when tasks are due. You can always enable this from your
-        profile later.
+        Get a push when tasks are due. You can always enable this from your profile later.
       </span>
       <div className="flex items-center gap-2">
         {error ? <span className="text-xs text-red-600">{error}</span> : null}
@@ -928,9 +843,15 @@ function CoachBlurb({
   // no longer rotate the key on a clock.
   const signature = useMemo(
     () =>
-      instances.map((i) => i.instanceId).sort().join(',') +
+      instances
+        .map((i) => i.instanceId)
+        .sort()
+        .join(',') +
       ':' +
-      somedayInstances.map((i) => i.instanceId).sort().join(','),
+      somedayInstances
+        .map((i) => i.instanceId)
+        .sort()
+        .join(','),
     [instances, somedayInstances],
   )
 
@@ -946,15 +867,11 @@ function CoachBlurb({
 
   if (!mounted) return null
   if (query.isLoading) {
-    return (
-      <div className="mt-2 h-4 w-3/4 max-w-md animate-pulse rounded bg-[var(--option-bg)]" />
-    )
+    return <div className="mt-2 h-4 w-3/4 max-w-md animate-pulse rounded bg-[var(--option-bg)]" />
   }
   if (!query.data) return null
   return (
-    <p className="mt-2 max-w-2xl text-sm italic text-[var(--sea-ink-soft)]">
-      {query.data.summary}
-    </p>
+    <p className="mt-2 max-w-2xl text-sm italic text-[var(--sea-ink-soft)]">{query.data.summary}</p>
   )
 }
 
@@ -979,16 +896,12 @@ function Stat({
           : undefined
       }
     >
-      <p className="text-xs uppercase tracking-wide text-[var(--kicker)]">
-        {label}
-      </p>
+      <p className="text-xs uppercase tracking-wide text-[var(--kicker)]">{label}</p>
       <p className="mt-1 text-lg font-bold leading-tight tabular-nums text-[var(--sea-ink)] sm:text-2xl">
         {value}
       </p>
       {sub ? (
-        <p className="text-[10px] font-semibold leading-tight text-[var(--lagoon-deep)]">
-          {sub}
-        </p>
+        <p className="text-[10px] font-semibold leading-tight text-[var(--lagoon-deep)]">{sub}</p>
       ) : null}
     </div>
   )
@@ -1014,9 +927,7 @@ function ActivityStrip({ days }: { days: string[] }) {
   })
   return (
     <div>
-      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--kicker)]">
-        Last 7 days
-      </p>
+      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--kicker)]">Last 7 days</p>
       <div className="flex items-end gap-1.5">
         {cells.map((c) => (
           <div key={c.key} className="flex flex-1 flex-col items-center gap-1">
@@ -1028,9 +939,7 @@ function ActivityStrip({ days }: { days: string[] }) {
               } ${c.isToday ? 'ring-2 ring-[var(--lagoon)]' : ''}`}
               aria-label={`${c.key}: ${c.done ? 'completed' : 'no completions'}`}
             />
-            <span className="text-[10px] text-[var(--sea-ink-soft)]">
-              {c.label}
-            </span>
+            <span className="text-[10px] text-[var(--sea-ink-soft)]">{c.label}</span>
           </div>
         ))}
       </div>
@@ -1201,10 +1110,7 @@ function BucketList({
               <p className="flex flex-wrap items-center gap-1.5 font-semibold text-[var(--sea-ink)]">
                 <span className="line-clamp-2 break-words">{inst.title}</span>
                 {inst.stepsTotal > 0 ? (
-                  <StepsBadge
-                    completed={inst.stepsCompleted}
-                    total={inst.stepsTotal}
-                  />
+                  <StepsBadge completed={inst.stepsCompleted} total={inst.stepsTotal} />
                 ) : null}
                 {inst.householdId ? (
                   <HouseholdBadge
@@ -1242,10 +1148,7 @@ function BucketList({
             >
               ⏰ 1h
             </IconButton>
-            <IconButton
-              label={`Skip ${inst.title}`}
-              onClick={() => onSkip(inst.instanceId)}
-            >
+            <IconButton label={`Skip ${inst.title}`} onClick={() => onSkip(inst.instanceId)}>
               ⏭ Skip
             </IconButton>
           </div>

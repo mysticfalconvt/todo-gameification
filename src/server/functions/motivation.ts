@@ -4,9 +4,5 @@ import * as service from '../services/motivation'
 
 export const getMotivationStats = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator(
-    (data: { days?: number | 'all' } | undefined) => data ?? {},
-  )
-  .handler(({ data, context }) =>
-    service.getMotivationStats(context.userId, data?.days ?? 30),
-  )
+  .inputValidator((data: { days?: number | 'all' } | undefined) => data ?? {})
+  .handler(({ data, context }) => service.getMotivationStats(context.userId, data?.days ?? 30))

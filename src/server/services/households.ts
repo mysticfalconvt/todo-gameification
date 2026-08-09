@@ -17,16 +17,8 @@ import {
   user as userTable,
 } from '../db/schema'
 import { normalizeQuietHours } from '../../domain/quietHours'
-import {
-  DEFAULT_COACH_ATTITUDE,
-  isCoachAttitude,
-  type CoachAttitude,
-} from '../../domain/coach'
-import {
-  handleExists,
-  isValidHandle,
-  normalizeHandle,
-} from './handles'
+import { DEFAULT_COACH_ATTITUDE, isCoachAttitude, type CoachAttitude } from '../../domain/coach'
+import { handleExists, isValidHandle, normalizeHandle } from './handles'
 import { getMemberStatus } from './membership'
 import { areFriends, ensureAcceptedFriendship } from './social'
 
@@ -104,10 +96,7 @@ export async function getMembership(
   householdId: string,
 ): Promise<{ role: Role } | null> {
   const row = await db.query.householdMembers.findFirst({
-    where: and(
-      eq(householdMembers.userId, userId),
-      eq(householdMembers.householdId, householdId),
-    ),
+    where: and(eq(householdMembers.userId, userId), eq(householdMembers.householdId, householdId)),
     columns: { role: true },
   })
   return row ? { role: row.role as Role } : null
@@ -188,9 +177,7 @@ export async function createHousehold(
   })
 }
 
-export async function getMyHousehold(
-  userId: string,
-): Promise<MyHousehold | null> {
+export async function getMyHousehold(userId: string): Promise<MyHousehold | null> {
   const m = await getMyMembership(userId)
   if (!m) return null
   const hh = await db.query.households.findFirst({
@@ -273,10 +260,7 @@ export async function listChoreRecipients(
 // in their household manages their notification + coach settings for them.
 // Permission: actor is an adult (admin or member) and the target is a
 // kid/kiosk in the actor's household. Throws otherwise.
-async function assertCanManageManagedMember(
-  actorId: string,
-  targetUserId: string,
-): Promise<void> {
+async function assertCanManageManagedMember(actorId: string, targetUserId: string): Promise<void> {
   const actor = await getMyMembership(actorId)
   if (!actor) throw new Error('You are not in a household.')
   if (actor.role !== 'admin' && actor.role !== 'member') {
@@ -375,9 +359,7 @@ export async function updateManagedMemberCoachAttitude(
 // kid, ensure an accepted friendship exists. Kiosk accounts are
 // excluded — a kiosk is a shared device, not a person. Best-effort:
 // called after membership changes; safe to call repeatedly.
-export async function syncHouseholdKidFriendships(
-  householdId: string,
-): Promise<void> {
+export async function syncHouseholdKidFriendships(householdId: string): Promise<void> {
   const members = await db
     .select({ userId: householdMembers.userId, role: householdMembers.role })
     .from(householdMembers)
@@ -474,9 +456,7 @@ export async function inviteMember(
   return { inviteId: row.id }
 }
 
-export async function listMyInvites(
-  userId: string,
-): Promise<HouseholdInviteRow[]> {
+export async function listMyInvites(userId: string): Promise<HouseholdInviteRow[]> {
   const rows = await db
     .select({
       id: householdInvites.id,
@@ -491,12 +471,7 @@ export async function listMyInvites(
     .from(householdInvites)
     .innerJoin(households, eq(households.id, householdInvites.householdId))
     .innerJoin(userTable, eq(userTable.id, householdInvites.inviterUserId))
-    .where(
-      and(
-        eq(householdInvites.inviteeUserId, userId),
-        eq(householdInvites.status, 'pending'),
-      ),
-    )
+    .where(and(eq(householdInvites.inviteeUserId, userId), eq(householdInvites.status, 'pending')))
     .orderBy(desc(householdInvites.createdAt))
   return rows.map((r) => ({
     id: r.id,
@@ -510,18 +485,18 @@ export async function listMyInvites(
   }))
 }
 
-export async function listOutgoingInvites(
-  adminId: string,
-): Promise<Array<{
-  id: string
-  inviteeUserId: string
-  inviteeHandle: string
-  inviteeName: string
-  proposedRole: 'member' | 'kid'
-  createdAt: Date
-}>> {
+export async function listOutgoingInvites(adminId: string): Promise<
+  Array<{
+    id: string
+    inviteeUserId: string
+    inviteeHandle: string
+    inviteeName: string
+    proposedRole: 'member' | 'kid'
+    createdAt: Date
+  }>
+> {
   const m = await getMyMembership(adminId)
-  if (!m || m.role !== 'admin') return []
+  if (m?.role !== 'admin') return []
   const rows = await db
     .select({
       id: householdInvites.id,
@@ -534,10 +509,7 @@ export async function listOutgoingInvites(
     .from(householdInvites)
     .innerJoin(userTable, eq(userTable.id, householdInvites.inviteeUserId))
     .where(
-      and(
-        eq(householdInvites.householdId, m.householdId),
-        eq(householdInvites.status, 'pending'),
-      ),
+      and(eq(householdInvites.householdId, m.householdId), eq(householdInvites.status, 'pending')),
     )
     .orderBy(desc(householdInvites.createdAt))
   return rows.map((r) => ({
@@ -612,10 +584,7 @@ export async function acceptInvite(
   return result
 }
 
-export async function declineInvite(
-  userId: string,
-  inviteId: string,
-): Promise<void> {
+export async function declineInvite(userId: string, inviteId: string): Promise<void> {
   await db
     .update(householdInvites)
     .set({ status: 'declined', respondedAt: new Date() })
@@ -628,15 +597,12 @@ export async function declineInvite(
     )
 }
 
-export async function cancelInvite(
-  adminId: string,
-  inviteId: string,
-): Promise<void> {
+export async function cancelInvite(adminId: string, inviteId: string): Promise<void> {
   const invite = await db.query.householdInvites.findFirst({
     where: eq(householdInvites.id, inviteId),
     columns: { householdId: true, status: true },
   })
-  if (!invite || invite.status !== 'pending') return
+  if (invite?.status !== 'pending') return
   await assertHouseholdRole(adminId, invite.householdId, ['admin'])
   await db
     .update(householdInvites)
@@ -646,10 +612,7 @@ export async function cancelInvite(
 
 // Count of admins remaining if we remove `targetUserId`. Used to block
 // removal/demotion that would leave a household with no admin.
-async function adminCountExcluding(
-  householdId: string,
-  excludeUserId: string,
-): Promise<number> {
+async function adminCountExcluding(householdId: string, excludeUserId: string): Promise<number> {
   const rows = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(householdMembers)
@@ -706,19 +669,14 @@ export async function leaveHousehold(userId: string): Promise<void> {
   if (m.role === 'admin') {
     const remaining = await adminCountExcluding(m.householdId, userId)
     if (remaining < 1) {
-      throw new Error(
-        'Promote another admin before leaving (you are the last admin).',
-      )
+      throw new Error('Promote another admin before leaving (you are the last admin).')
     }
   }
   await db.transaction(async (tx) => {
     await tx
       .delete(householdMembers)
       .where(
-        and(
-          eq(householdMembers.householdId, m.householdId),
-          eq(householdMembers.userId, userId),
-        ),
+        and(eq(householdMembers.householdId, m.householdId), eq(householdMembers.userId, userId)),
       )
     await tx.insert(events).values({
       userId,
@@ -735,7 +693,7 @@ export async function changeRole(
   role: ManageableRole,
 ): Promise<void> {
   const m = await getMyMembership(adminId)
-  if (!m || m.role !== 'admin') {
+  if (m?.role !== 'admin') {
     throw new Error('Only admins can change roles.')
   }
   if (adminId === targetUserId && role !== 'admin') {
@@ -790,10 +748,7 @@ export async function renameHousehold(
     .where(eq(households.id, householdId))
 }
 
-export async function deleteHousehold(
-  adminId: string,
-  householdId: string,
-): Promise<void> {
+export async function deleteHousehold(adminId: string, householdId: string): Promise<void> {
   await assertHouseholdRole(adminId, householdId, ['admin'])
   await db.delete(households).where(eq(households.id, householdId))
 }
@@ -851,9 +806,7 @@ export async function createManagedMember(
 
   const handle = normalizeHandle(input.handle)
   if (!isValidHandle(handle)) {
-    throw new Error(
-      'Handle must be 3–20 characters, lowercase letters, numbers, or underscores.',
-    )
+    throw new Error('Handle must be 3–20 characters, lowercase letters, numbers, or underscores.')
   }
   if (await handleExists(handle)) {
     throw new Error('That handle is already taken.')
@@ -1101,19 +1054,12 @@ export async function listHouseholdStats(
     const idx = dateIndex.get(localDay)
     if (idx === undefined) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const xpFinal =
-      typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
-    const xpOverride =
-      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
-    const difficulty =
-      typeof p['difficulty'] === 'string' ? (p['difficulty'] as string) : null
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const xpFinal = typeof p.xpFinal === 'number' ? (p.xpFinal as number) : null
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? (p.difficulty as string) : null
     const xp =
-      xpFinal ??
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+      xpFinal ?? xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     bucket.daily[idx] += xp
     bucket.dailyCount[idx] += 1
     bucket.totalXp += xp
@@ -1139,11 +1085,7 @@ export interface HouseholdActivityRow {
   taskId: string | null
   taskTitle: string | null
   xp: number | null
-  completedAs:
-    | 'personal'
-    | 'assigned'
-    | 'free_for_all'
-    | null
+  completedAs: 'personal' | 'assigned' | 'free_for_all' | null
   // household.member.joined only
   role: Role | null
 }
@@ -1200,10 +1142,7 @@ export async function listHouseholdActivity(
     .from(events)
     .where(
       and(
-        inArray(events.type, [
-          'household.member.joined',
-          'household.member.left',
-        ]),
+        inArray(events.type, ['household.member.joined', 'household.member.left']),
         isNotNull(events.occurredAt),
         gte(events.occurredAt, since),
         sql`${events.payload}->>'householdId' = ${householdId}`,
@@ -1214,10 +1153,7 @@ export async function listHouseholdActivity(
 
   // Resolve user display info for every actor seen in either result set.
   const actorIds = Array.from(
-    new Set([
-      ...completionRows.map((r) => r.userId),
-      ...membershipRows.map((r) => r.userId),
-    ]),
+    new Set([...completionRows.map((r) => r.userId), ...membershipRows.map((r) => r.userId)]),
   )
   if (actorIds.length === 0) return []
   const userRows = await db
@@ -1236,24 +1172,17 @@ export async function listHouseholdActivity(
     const u = userById.get(r.userId)
     if (!u) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const xpFinal =
-      typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
-    const xpOverride =
-      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
-    const difficulty =
-      typeof p['difficulty'] === 'string' ? (p['difficulty'] as string) : null
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const xpFinal = typeof p.xpFinal === 'number' ? (p.xpFinal as number) : null
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? (p.difficulty as string) : null
     const xp =
-      xpFinal ??
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+      xpFinal ?? xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     const completedAs =
-      p['completedAs'] === 'personal' ||
-      p['completedAs'] === 'assigned' ||
-      p['completedAs'] === 'free_for_all'
-        ? (p['completedAs'] as 'personal' | 'assigned' | 'free_for_all')
+      p.completedAs === 'personal' ||
+      p.completedAs === 'assigned' ||
+      p.completedAs === 'free_for_all'
+        ? (p.completedAs as 'personal' | 'assigned' | 'free_for_all')
         : null
     out.push({
       eventId: r.id,
@@ -1274,13 +1203,11 @@ export async function listHouseholdActivity(
     const u = userById.get(r.userId)
     if (!u) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
     const role =
       r.type === 'household.member.joined' &&
-      (p['role'] === 'admin' || p['role'] === 'member' || p['role'] === 'kid')
-        ? (p['role'] as Role)
+      (p.role === 'admin' || p.role === 'member' || p.role === 'kid')
+        ? (p.role as Role)
         : null
     out.push({
       eventId: r.id,

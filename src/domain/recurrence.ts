@@ -63,11 +63,10 @@ function msForDuration(amount: number, unit: DurationUnit): number {
 }
 
 // Pull {amount, unit} from either the new shape or the legacy {days}.
-export function resolveDuration(r: {
-  days?: number
-  amount?: number
-  unit?: DurationUnit
-}): { amount: number; unit: DurationUnit } {
+export function resolveDuration(r: { days?: number; amount?: number; unit?: DurationUnit }): {
+  amount: number
+  unit: DurationUnit
+} {
   if (typeof r.amount === 'number' && r.unit) {
     return { amount: r.amount, unit: r.unit }
   }
@@ -118,12 +117,7 @@ function nthWeekdayDay(
   return -1
 }
 
-function buildUnpinnedDate(
-  year: number,
-  month: number,
-  day: number,
-  timeFrom: Date,
-): Date {
+function buildUnpinnedDate(year: number, month: number, day: number, timeFrom: Date): Date {
   return new Date(
     Date.UTC(
       year,
@@ -151,8 +145,7 @@ export function expectedCompletionsPerWeek(r: Recurrence): number | null {
     case 'interval': {
       const { amount, unit } = resolveDuration(r)
       if (amount <= 0) return null
-      const perDay =
-        unit === 'days' ? 1 / amount : unit === 'hours' ? 24 / amount : 1440 / amount
+      const perDay = unit === 'days' ? 1 / amount : unit === 'hours' ? 24 / amount : 1440 / amount
       return perDay * 7
     }
     case 'monthly_day':
@@ -214,11 +207,7 @@ function nextDailyOccurrence(
 ): Date {
   for (let offset = 0; offset <= 8; offset++) {
     const anchor = offset === 0 ? from : addDays(from, offset)
-    const candidate = setTimeInTz(
-      anchor,
-      timeForDate(anchor, base, map, timeZone),
-      timeZone,
-    )
+    const candidate = setTimeInTz(anchor, timeForDate(anchor, base, map, timeZone), timeZone)
     if (candidate > from) return candidate
   }
   // Unreachable in practice; pin tomorrow defensively.
@@ -313,32 +302,20 @@ function computeNextDueOnce(input: ComputeNextDueInput): Date {
 
     case 'interval': {
       const { amount, unit } = resolveDuration(recurrence)
-      const next = new Date(
-        previousDueAt.getTime() + msForDuration(amount, unit),
-      )
+      const next = new Date(previousDueAt.getTime() + msForDuration(amount, unit))
       // Only pin to a local clock time for day-granular schedules.
       // Sub-day intervals (hours / minutes) are relative offsets and
       // pinning them to HH:MM would snap them to a fixed hour daily.
       return hasLocalPin && unit === 'days'
-        ? setTimeInTz(
-            next,
-            timeForDate(next, timeOfDay!, timeByWeekday, timeZone!),
-            timeZone!,
-          )
+        ? setTimeInTz(next, timeForDate(next, timeOfDay!, timeByWeekday, timeZone!), timeZone!)
         : next
     }
 
     case 'after_completion': {
       const { amount, unit } = resolveDuration(recurrence)
-      const next = new Date(
-        completedAt.getTime() + msForDuration(amount, unit),
-      )
+      const next = new Date(completedAt.getTime() + msForDuration(amount, unit))
       return hasLocalPin && unit === 'days'
-        ? setTimeInTz(
-            next,
-            timeForDate(next, timeOfDay!, timeByWeekday, timeZone!),
-            timeZone!,
-          )
+        ? setTimeInTz(next, timeForDate(next, timeOfDay!, timeByWeekday, timeZone!), timeZone!)
         : next
     }
 
@@ -432,11 +409,7 @@ export function firstDueAt(options: {
         y,
         m,
         d,
-        resolveTimeOfDay(
-          new Date(Date.UTC(y, m - 1, d)).getUTCDay(),
-          timeOfDay,
-          timeByWeekday,
-        ),
+        resolveTimeOfDay(new Date(Date.UTC(y, m - 1, d)).getUTCDay(), timeOfDay, timeByWeekday),
         timeZone,
       )
     const candidate = pin(year, month, day)
@@ -470,7 +443,7 @@ export function firstDueAt(options: {
     }
   }
 
-  if (!recurrence || recurrence.type !== 'weekly') {
+  if (recurrence?.type !== 'weekly') {
     // For a one-off task the user explicitly picked a clock time for
     // today, so a past-time pick should fire immediately (marked
     // overdue) rather than silently rolling to tomorrow. Recurring
@@ -501,10 +474,7 @@ export function firstDueAt(options: {
       timeForDate(anchor, timeOfDay, timeByWeekday, timeZone),
       timeZone,
     )
-    if (
-      sorted.includes(dayOfWeekInTz(candidate, timeZone)) &&
-      candidate > now
-    ) {
+    if (sorted.includes(dayOfWeekInTz(candidate, timeZone)) && candidate > now) {
       return candidate
     }
   }

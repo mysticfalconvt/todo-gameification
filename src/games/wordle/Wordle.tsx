@@ -70,9 +70,7 @@ export function Wordle({ onFinish, onExit }: GameProps) {
       })
       .catch((err) => {
         if (cancelled) return
-        setLoadError(
-          err instanceof Error ? err.message : 'Could not start game',
-        )
+        setLoadError(err instanceof Error ? err.message : 'Could not start game')
         setLoading(false)
       })
     return () => {
@@ -186,9 +184,7 @@ export function Wordle({ onFinish, onExit }: GameProps) {
   if (loadError || !answer) {
     return (
       <div className="flex flex-col items-center gap-3 py-8">
-        <p className="text-sm font-semibold text-red-600">
-          {loadError ?? 'Could not start game'}
-        </p>
+        <p className="text-sm font-semibold text-red-600">{loadError ?? 'Could not start game'}</p>
         <button
           type="button"
           onClick={onExit}

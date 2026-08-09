@@ -7,30 +7,20 @@ import * as service from '../services/tasks'
 
 export const listTaskSteps = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator(
-    (data: { taskId: string; instanceId?: string | null }) => data,
-  )
+  .inputValidator((data: { taskId: string; instanceId?: string | null }) => data)
   .handler(({ data, context }) =>
-    service.listTaskSteps(
-      context.userId,
-      data.taskId,
-      data.instanceId ?? null,
-    ),
+    service.listTaskSteps(context.userId, data.taskId, data.instanceId ?? null),
   )
 
 export const addTaskStep = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { taskId: string; title: string }) => data)
-  .handler(({ data, context }) =>
-    service.addTaskStep(context.userId, data.taskId, data.title),
-  )
+  .handler(({ data, context }) => service.addTaskStep(context.userId, data.taskId, data.title))
 
 export const renameTaskStep = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { stepId: string; title: string }) => data)
-  .handler(({ data, context }) =>
-    service.renameTaskStep(context.userId, data.stepId, data.title),
-  )
+  .handler(({ data, context }) => service.renameTaskStep(context.userId, data.stepId, data.title))
 
 export const reorderTaskSteps = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
@@ -42,15 +32,11 @@ export const reorderTaskSteps = createServerFn({ method: 'POST' })
 export const deleteTaskStep = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { stepId: string }) => data)
-  .handler(({ data, context }) =>
-    service.deleteTaskStep(context.userId, data.stepId),
-  )
+  .handler(({ data, context }) => service.deleteTaskStep(context.userId, data.stepId))
 
 export const toggleTaskStep = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
-    (data: { stepId: string; instanceId: string }) => data,
-  )
+  .inputValidator((data: { stepId: string; instanceId: string }) => data)
   .handler(({ data, context }) =>
     service.toggleTaskStep(context.userId, data.stepId, data.instanceId),
   )

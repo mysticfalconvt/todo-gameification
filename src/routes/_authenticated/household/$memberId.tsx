@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import {
-  getHouseholdMemberStatsFn,
-  getMyHouseholdFn,
-} from '../../../server/functions/households'
+import { getHouseholdMemberStatsFn, getMyHouseholdFn } from '../../../server/functions/households'
 import { XpLineSection } from '../../../components/stats/charts'
 
 export const Route = createFileRoute('/_authenticated/household/$memberId')({
@@ -32,9 +29,7 @@ function HouseholdMemberStatsPage() {
       }),
   })
 
-  const member = householdQuery.data?.members.find(
-    (m) => m.userId === memberId,
-  )
+  const member = householdQuery.data?.members.find((m) => m.userId === memberId)
   const stats = statsQuery.data
   const ranges: Range[] = [7, 30, 90, 'all']
 
@@ -54,8 +49,7 @@ function HouseholdMemberStatsPage() {
           </h1>
           {member ? (
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              @{member.handle} ·{' '}
-              {member.role === 'admin' ? 'an' : 'a'} {member.role}
+              @{member.handle} · {member.role === 'admin' ? 'an' : 'a'} {member.role}
             </p>
           ) : null}
         </div>
@@ -109,9 +103,7 @@ function SummaryCards({
       <Stat label="Chores completed" value={totalCount.toLocaleString()} />
       <Stat
         label="Active days"
-        value={`${activeDays}${
-          xpByDay.length > 0 ? ` of ${xpByDay.length}` : ''
-        }`}
+        value={`${activeDays}${xpByDay.length > 0 ? ` of ${xpByDay.length}` : ''}`}
       />
     </section>
   )
@@ -120,9 +112,7 @@ function SummaryCards({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="island-shell rounded-2xl p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-        {label}
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">{label}</p>
       <p className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</p>
     </div>
   )

@@ -20,12 +20,7 @@
 // query if that matters later.
 import { and, eq, inArray, like } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  taskInstances,
-  tasks,
-  userCategories,
-  userIntegrations,
-} from '../db/schema'
+import { taskInstances, tasks, userCategories, userIntegrations } from '../db/schema'
 import { completeInstance } from './tasks'
 
 // Prefix we write to `last_poll_error` when the failure was auth-related
@@ -40,26 +35,16 @@ async function resolveCategorySlugs(
   const rows = await db
     .select({ slug: userCategories.slug })
     .from(userCategories)
-    .where(
-      and(
-        eq(userCategories.userId, userId),
-        inArray(userCategories.slug, [...candidates]),
-      ),
-    )
+    .where(and(eq(userCategories.userId, userId), inArray(userCategories.slug, [...candidates])))
   const available = new Set(rows.map((r) => r.slug))
-  return new Map(
-    candidates.map((slug) => [slug, available.has(slug) ? slug : null]),
-  )
+  return new Map(candidates.map((slug) => [slug, available.has(slug) ? slug : null]))
 }
 
 function isTokenKnownBad(integration: {
   tokenExpiresAt: Date | null
   lastPollError: string | null
 }): boolean {
-  if (
-    integration.tokenExpiresAt &&
-    integration.tokenExpiresAt.getTime() <= Date.now()
-  ) {
+  if (integration.tokenExpiresAt && integration.tokenExpiresAt.getTime() <= Date.now()) {
     return true
   }
   if (integration.lastPollError?.startsWith(AUTH_ERROR_PREFIX)) return true
@@ -137,10 +122,7 @@ function parseExpirationHeader(headerValue: string | null): Date | null {
   return new Date(ms)
 }
 
-async function githubFetch<T>(
-  token: string,
-  path: string,
-): Promise<GithubFetchResult<T>> {
+async function githubFetch<T>(token: string, path: string): Promise<GithubFetchResult<T>> {
   const res = await fetch(`${GITHUB_API}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -173,9 +155,7 @@ export interface FetchGithubUserResult {
   tokenExpiresAt: Date | null
 }
 
-export async function fetchGithubUser(
-  token: string,
-): Promise<FetchGithubUserResult> {
+export async function fetchGithubUser(token: string): Promise<FetchGithubUserResult> {
   const { data, tokenExpiresAt } = await githubFetch<GithubUser>(token, '/user')
   return { login: data.login, tokenExpiresAt }
 }
@@ -242,14 +222,9 @@ export async function fetchReviewRequestedPrs(
   return { prs, assigneeIds, reviewRequestedIds, tokenExpiresAt }
 }
 
-export async function getGithubIntegration(
-  userId: string,
-): Promise<GithubIntegrationStatus> {
+export async function getGithubIntegration(userId: string): Promise<GithubIntegrationStatus> {
   const row = await db.query.userIntegrations.findFirst({
-    where: and(
-      eq(userIntegrations.userId, userId),
-      eq(userIntegrations.provider, PROVIDER),
-    ),
+    where: and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)),
   })
   if (!row) {
     return {
@@ -339,12 +314,7 @@ export async function updateGithubPollInterval(
   const result = await db
     .update(userIntegrations)
     .set({ pollIntervalMinutes: minutes, updatedAt: new Date() })
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, PROVIDER),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)))
     .returning({ userId: userIntegrations.userId })
   if (result.length === 0) throw new Error('not connected')
   return getGithubIntegration(userId)
@@ -366,12 +336,7 @@ export async function updateGithubSyncOptions(
       trackAssigned: options.trackAssigned,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, PROVIDER),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)))
     .returning({ userId: userIntegrations.userId })
   if (result.length === 0) throw new Error('not connected')
   return getGithubIntegration(userId)
@@ -380,12 +345,7 @@ export async function updateGithubSyncOptions(
 export async function removeGithubIntegration(userId: string): Promise<void> {
   await db
     .delete(userIntegrations)
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, PROVIDER),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)))
 }
 
 export interface GithubSyncResult {
@@ -398,14 +358,9 @@ export interface GithubSyncResult {
 // button. Reads the integration row, fetches PRs, then reconciles:
 // - each open PR without a task → insert task + instance
 // - each existing github-task whose PR is gone → complete the instance
-export async function syncReviewTasksForUser(
-  userId: string,
-): Promise<GithubSyncResult> {
+export async function syncReviewTasksForUser(userId: string): Promise<GithubSyncResult> {
   const integration = await db.query.userIntegrations.findFirst({
-    where: and(
-      eq(userIntegrations.userId, userId),
-      eq(userIntegrations.provider, PROVIDER),
-    ),
+    where: and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)),
   })
   if (!integration) {
     return { created: 0, completed: 0, errors: ['not connected'] }
@@ -416,8 +371,8 @@ export async function syncReviewTasksForUser(
   // clears lastPollError and writes a fresh tokenExpiresAt, which
   // naturally lifts this gate.
   if (isTokenKnownBad(integration)) {
-    await ensureTokenExpiryTask(userId, integration.tokenExpiresAt).catch(
-      (e) => console.error('[github] ensureTokenExpiryTask failed', e),
+    await ensureTokenExpiryTask(userId, integration.tokenExpiresAt).catch((e) =>
+      console.error('[github] ensureTokenExpiryTask failed', e),
     )
     return { created: 0, completed: 0, errors: ['token_invalid'] }
   }
@@ -432,17 +387,12 @@ export async function syncReviewTasksForUser(
       assigned: integration.trackAssigned,
     })
     prs = result.prs
-    assigneeRefs = new Set(
-      [...result.assigneeIds].map((id) => `github-pr-${id}`),
-    )
-    reviewRequestedRefs = new Set(
-      [...result.reviewRequestedIds].map((id) => `github-pr-${id}`),
-    )
+    assigneeRefs = new Set([...result.assigneeIds].map((id) => `github-pr-${id}`))
+    reviewRequestedRefs = new Set([...result.reviewRequestedIds].map((id) => `github-pr-${id}`))
     tokenExpiresAt = result.tokenExpiresAt ?? tokenExpiresAt
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    const stored =
-      err instanceof GithubAuthError ? `${AUTH_ERROR_PREFIX}${message}` : message
+    const stored = err instanceof GithubAuthError ? `${AUTH_ERROR_PREFIX}${message}` : message
     await db
       .update(userIntegrations)
       .set({
@@ -450,12 +400,7 @@ export async function syncReviewTasksForUser(
         lastPollError: stored,
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(userIntegrations.userId, userId),
-          eq(userIntegrations.provider, PROVIDER),
-        ),
-      )
+      .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)))
     // 401 = token revoked/expired → nudge the user with a task.
     if (err instanceof GithubAuthError) {
       await ensureTokenExpiryTask(userId, null).catch((e) =>
@@ -477,16 +422,9 @@ export async function syncReviewTasksForUser(
       reviewRequestedPresent: tasks.reviewRequestedPresent,
     })
     .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, userId),
-        like(tasks.externalRef, 'github-pr-%'),
-      ),
-    )
+    .where(and(eq(tasks.userId, userId), like(tasks.externalRef, 'github-pr-%')))
 
-  const existingByRef = new Map(
-    existing.map((t) => [t.externalRef as string, t]),
-  )
+  const existingByRef = new Map(existing.map((t) => [t.externalRef as string, t]))
   const incomingRefs = new Set(prs.map((p) => `github-pr-${p.prId}`))
 
   const errors: string[] = []
@@ -538,19 +476,13 @@ export async function syncReviewTasksForUser(
     if (existingTask) {
       if (!existingTask.active) continue
       const latestInstance = await db.query.taskInstances.findFirst({
-        where: and(
-          eq(taskInstances.taskId, existingTask.id),
-          eq(taskInstances.userId, userId),
-        ),
+        where: and(eq(taskInstances.taskId, existingTask.id), eq(taskInstances.userId, userId)),
         orderBy: (t, { desc }) => [desc(t.createdAt)],
       })
       const hasOpenInstance =
-        !!latestInstance &&
-        !latestInstance.completedAt &&
-        !latestInstance.skippedAt
+        !!latestInstance && !latestInstance.completedAt && !latestInstance.skippedAt
       if (!hasOpenInstance) {
-        const shouldReinstance =
-          isAssignee && existingTask.assigneePresent === false
+        const shouldReinstance = isAssignee && existingTask.assigneePresent === false
         if (shouldReinstance) {
           try {
             await db.insert(taskInstances).values({
@@ -610,10 +542,7 @@ export async function syncReviewTasksForUser(
     if (!task.active) continue
     await updateFlagsIfChanged(task, false, false)
     const openInstance = await db.query.taskInstances.findFirst({
-      where: and(
-        eq(taskInstances.taskId, task.id),
-        eq(taskInstances.userId, userId),
-      ),
+      where: and(eq(taskInstances.taskId, task.id), eq(taskInstances.userId, userId)),
       orderBy: (t, { desc }) => [desc(t.createdAt)],
     })
     if (!openInstance) continue
@@ -622,9 +551,7 @@ export async function syncReviewTasksForUser(
       await completeInstance(userId, openInstance.id)
       completed += 1
     } catch (err) {
-      errors.push(
-        `complete ${ref}: ${err instanceof Error ? err.message : String(err)}`,
-      )
+      errors.push(`complete ${ref}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -636,12 +563,7 @@ export async function syncReviewTasksForUser(
       tokenExpiresAt,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(userIntegrations.userId, userId),
-        eq(userIntegrations.provider, PROVIDER),
-      ),
-    )
+    .where(and(eq(userIntegrations.userId, userId), eq(userIntegrations.provider, PROVIDER)))
 
   // If the token is within the warning window, create (or keep) a task
   // nudging the user to renew. Skip if there's no expiry (no-expiration
@@ -662,10 +584,7 @@ export async function syncReviewTasksForUser(
 // for the user. The partial unique index makes this idempotent even
 // across concurrent polls. Passing `expiresAt = null` means "already
 // expired / revoked" (from a 401).
-async function ensureTokenExpiryTask(
-  userId: string,
-  expiresAt: Date | null,
-): Promise<void> {
+async function ensureTokenExpiryTask(userId: string, expiresAt: Date | null): Promise<void> {
   const existing = await db.query.tasks.findFirst({
     where: and(
       eq(tasks.userId, userId),
@@ -725,10 +644,7 @@ async function completeTokenExpiryTaskIfOpen(userId: string): Promise<void> {
   })
   if (!task) return
   const openInstance = await db.query.taskInstances.findFirst({
-    where: and(
-      eq(taskInstances.taskId, task.id),
-      eq(taskInstances.userId, userId),
-    ),
+    where: and(eq(taskInstances.taskId, task.id), eq(taskInstances.userId, userId)),
     orderBy: (t, { desc }) => [desc(t.createdAt)],
   })
   if (!openInstance) return

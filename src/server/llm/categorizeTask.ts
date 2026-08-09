@@ -31,9 +31,7 @@ export interface CategorizeResult {
 
 export { isLlmConfigured }
 
-export async function categorizeTask(
-  input: CategorizeInput,
-): Promise<CategorizeResult | null> {
+export async function categorizeTask(input: CategorizeInput): Promise<CategorizeResult | null> {
   if (!isLlmConfigured()) return null
   if (input.categories.length === 0) return null
   const slugs = input.categories.map((c) => c.slug)
@@ -41,9 +39,7 @@ export async function categorizeTask(
     'Available categories:',
     ...input.categories.map((c) => {
       const desc = c.description?.trim()
-      return desc
-        ? `- ${c.slug} (${c.label}): ${desc}`
-        : `- ${c.slug} (${c.label})`
+      return desc ? `- ${c.slug} (${c.label}): ${desc}` : `- ${c.slug} (${c.label})`
     }),
     '',
     `Task title: "${input.title}"`,

@@ -30,19 +30,10 @@ import {
   updateManagedMemberQuietHoursFn,
   updateManagedMemberCoachAttitudeFn,
 } from '../../../server/functions/households'
-import {
-  COACH_ATTITUDE_OPTIONS,
-  type CoachAttitude,
-} from '../../../domain/coach'
-import {
-  HouseholdCompletionBar,
-  HouseholdXpMultiLine,
-} from '../../../components/household/charts'
+import { COACH_ATTITUDE_OPTIONS, type CoachAttitude } from '../../../domain/coach'
+import { HouseholdCompletionBar, HouseholdXpMultiLine } from '../../../components/household/charts'
 import { getLeaderboardFn } from '../../../server/functions/leaderboard'
-import type {
-  LeaderboardMetric,
-  LeaderboardWindow,
-} from '../../../server/services/leaderboard'
+import type { LeaderboardMetric, LeaderboardWindow } from '../../../server/services/leaderboard'
 import { listFriendsFn } from '../../../server/functions/social'
 import {
   assignKidXp,
@@ -56,13 +47,7 @@ export const Route = createFileRoute('/_authenticated/household/')({
   component: HouseholdPage,
 })
 
-type Tab =
-  | 'chores'
-  | 'review'
-  | 'stats'
-  | 'leaderboard'
-  | 'activity'
-  | 'members'
+type Tab = 'chores' | 'review' | 'stats' | 'leaderboard' | 'activity' | 'members'
 
 const TAB_LABEL: Record<Tab, string> = {
   chores: 'Chores',
@@ -134,7 +119,7 @@ function HouseholdPage() {
   // state stays light. Also guard against a malformed cached payload
   // (data without `household`) so a stale persisted query can't crash
   // the page.
-  if (!data || !data.household) {
+  if (!data?.household) {
     return (
       <main className="page-wrap space-y-6 px-4 py-8">
         <header>
@@ -152,9 +137,7 @@ function HouseholdPage() {
         </header>
         {pendingInvites.length > 0 && (
           <section className="island-shell rounded-2xl p-4">
-            <h2 className="text-lg font-semibold text-[var(--sea-ink)]">
-              Pending invites
-            </h2>
+            <h2 className="text-lg font-semibold text-[var(--sea-ink)]">Pending invites</h2>
             <ul className="mt-3 space-y-2">
               {pendingInvites.map((inv) => (
                 <InviteRow
@@ -200,12 +183,10 @@ function HouseholdPage() {
     <main className="page-wrap space-y-6 px-4 py-8">
       <header>
         <p className="island-kicker mb-1">Household</p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          {household.name}
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">{household.name}</h1>
         <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-          {members.length} {members.length === 1 ? 'member' : 'members'} ·
-          You are {role === 'admin' ? 'an' : 'a'} {role}
+          {members.length} {members.length === 1 ? 'member' : 'members'} · You are{' '}
+          {role === 'admin' ? 'an' : 'a'} {role}
         </p>
         {isAdult && members.some((m) => m.role === 'kid') ? (
           <button
@@ -272,11 +253,7 @@ function HouseholdPage() {
       </div>
 
       {tab === 'chores' ? (
-        <ChoresTab
-          householdId={household.id}
-          viewerRole={role}
-          members={members}
-        />
+        <ChoresTab householdId={household.id} viewerRole={role} members={members} />
       ) : tab === 'review' && isAdult ? (
         <ReviewTab householdId={household.id} members={members} />
       ) : tab === 'stats' ? (
@@ -284,11 +261,7 @@ function HouseholdPage() {
       ) : tab === 'leaderboard' ? (
         <LeaderboardTab householdId={household.id} />
       ) : tab === 'activity' ? (
-        <ActivityTab
-          householdId={household.id}
-          members={members}
-          viewerRole={role}
-        />
+        <ActivityTab householdId={household.id} members={members} viewerRole={role} />
       ) : (
         <MembersTab
           householdId={household.id}
@@ -377,9 +350,7 @@ function ChoresTab({
   const qc = useQueryClient()
   const { data: session } = useSession()
   const viewerUserId = session?.user?.id
-  const [viewMode, setViewMode] = useState<'list' | 'week' | 'kanban'>(
-    'list',
-  )
+  const [viewMode, setViewMode] = useState<'list' | 'week' | 'kanban'>('list')
   // Assignee filter: 'all' shows everything; 'mine' shows chores
   // assigned to viewer + FFA; 'ffa' just FFA; a userId narrows to
   // that member's chores.
@@ -390,9 +361,7 @@ function ChoresTab({
   // Week-mode pagination: yyyy-MM-dd string of Sunday-anchored week
   // start in the browser's local tz. The server interprets this in the
   // viewer's stored timezone for consistency across devices.
-  const [weekStart, setWeekStart] = useState<string>(() =>
-    defaultWeekStart(),
-  )
+  const [weekStart, setWeekStart] = useState<string>(() => defaultWeekStart())
   const choresQuery = useQuery({
     queryKey: ['household-chores', householdId],
     queryFn: () => listHouseholdChoresFn({ data: { householdId } }),
@@ -445,8 +414,7 @@ function ChoresTab({
   const [editingXpTaskId, setEditingXpTaskId] = useState<string | null>(null)
   const [xpDraft, setXpDraft] = useState('')
   const editChoreXp = useMutation({
-    mutationFn: (vars: { taskId: string; xp: number }) =>
-      setHouseholdChoreXp({ data: vars }),
+    mutationFn: (vars: { taskId: string; xp: number }) => setHouseholdChoreXp({ data: vars }),
     onSuccess: () => {
       setEditingXpTaskId(null)
       qc.invalidateQueries({ queryKey: ['household-chores', householdId] })
@@ -472,14 +440,10 @@ function ChoresTab({
 
   // Apply filter + sort to flat chores (list + kanban modes).
   // Week mode applies only the filter (its day grouping is its sort).
-  function filterChore(c: {
-    assignedToUserId: string | null
-  }): boolean {
+  function filterChore(c: { assignedToUserId: string | null }): boolean {
     if (filterAssignee === 'all') return true
     if (filterAssignee === 'mine') {
-      return (
-        c.assignedToUserId === viewerUserId || c.assignedToUserId === null
-      )
+      return c.assignedToUserId === viewerUserId || c.assignedToUserId === null
     }
     if (filterAssignee === 'ffa') return c.assignedToUserId === null
     return c.assignedToUserId === filterAssignee
@@ -498,14 +462,10 @@ function ChoresTab({
     }
     // assignee: FFA last, then by assignee name, with null last
     const aName = a.assignedToUserId
-      ? memberById.get(a.assignedToUserId)?.name ??
-        a.assignedToName ??
-        ''
+      ? (memberById.get(a.assignedToUserId)?.name ?? a.assignedToName ?? '')
       : ''
     const bName = b.assignedToUserId
-      ? memberById.get(b.assignedToUserId)?.name ??
-        b.assignedToName ??
-        ''
+      ? (memberById.get(b.assignedToUserId)?.name ?? b.assignedToName ?? '')
       : ''
     if (!aName && bName) return 1
     if (aName && !bName) return -1
@@ -555,97 +515,89 @@ function ChoresTab({
                 Assigned to <strong>{assigneeLabel}</strong>
               </span>
             ) : c.assigneeGroup === 'adults' ? (
-              <span className="font-semibold text-[var(--lagoon-deep)]">
-                Any adult
-              </span>
+              <span className="font-semibold text-[var(--lagoon-deep)]">Any adult</span>
             ) : c.assigneeGroup === 'kids' ? (
-              <span className="font-semibold text-[var(--lagoon-deep)]">
-                Any kid
-              </span>
+              <span className="font-semibold text-[var(--lagoon-deep)]">Any kid</span>
             ) : (
-              <span className="font-semibold text-[var(--lagoon-deep)]">
-                Free for all
-              </span>
+              <span className="font-semibold text-[var(--lagoon-deep)]">Free for all</span>
             )}
-            {c.dueAt && (
-              <span> · due {new Date(c.dueAt).toLocaleString()}</span>
-            )}
+            {c.dueAt && <span> · due {new Date(c.dueAt).toLocaleString()}</span>}
           </div>
         </div>
         <div className="flex flex-shrink-0 flex-row flex-wrap items-center gap-1 min-[450px]:flex-nowrap min-[450px]:gap-2">
           {isAdult &&
-          (editingXpTaskId === c.taskId ? (
-            <span className="flex flex-shrink-0 items-center gap-1">
-              <input
-                type="number"
-                min={1}
-                max={1000}
-                autoFocus
-                value={xpDraft}
-                onChange={(e) => setXpDraft(e.target.value)}
-                className="w-16 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-xs tabular-nums"
-              />
+            (editingXpTaskId === c.taskId ? (
+              <span className="flex flex-shrink-0 items-center gap-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  autoFocus
+                  value={xpDraft}
+                  onChange={(e) => setXpDraft(e.target.value)}
+                  className="w-16 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-xs tabular-nums"
+                />
+                <button
+                  type="button"
+                  disabled={editChoreXp.isPending}
+                  onClick={() =>
+                    editChoreXp.mutate({
+                      taskId: c.taskId,
+                      xp: Math.trunc(Number(xpDraft)),
+                    })
+                  }
+                  className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingXpTaskId(null)}
+                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)]"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
               <button
                 type="button"
-                disabled={editChoreXp.isPending}
-                onClick={() =>
-                  editChoreXp.mutate({
-                    taskId: c.taskId,
-                    xp: Math.trunc(Number(xpDraft)),
-                  })
-                }
-                className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+                title="Edit points (applies to future completions)"
+                onClick={() => {
+                  setEditingXpTaskId(c.taskId)
+                  setXpDraft(String(choreXp(c)))
+                }}
+                className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]"
               >
-                Save
+                {choreXp(c)} XP ✎
               </button>
-              <button
-                type="button"
-                onClick={() => setEditingXpTaskId(null)}
-                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)]"
-              >
-                Cancel
-              </button>
-            </span>
-          ) : (
+            ))}
+          {viewerRole === 'admin' && (
+            <Link
+              to="/tasks/$taskId"
+              params={{ taskId: c.taskId }}
+              title="Edit this chore"
+              className="flex-shrink-0 rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)] no-underline"
+            >
+              ✎ Edit
+            </Link>
+          )}
+          {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
             <button
               type="button"
-              title="Edit points (applies to future completions)"
-              onClick={() => {
-                setEditingXpTaskId(c.taskId)
-                setXpDraft(String(choreXp(c)))
-              }}
-              className="flex-shrink-0 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-[10px] font-semibold text-[var(--lagoon-deep)]"
+              onClick={() =>
+                clickChore({
+                  instanceId: c.instanceId,
+                  title: c.title,
+                  assignedToUserId: c.assignedToUserId,
+                  assignedToHandle: c.assignedToHandle,
+                  assignedToName: c.assignedToName,
+                })
+              }
+              disabled={complete.isPending}
+              className="rounded-lg bg-[var(--btn-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
             >
-              {choreXp(c)} XP ✎
+              Complete
             </button>
-          ))}
-        {viewerRole === 'admin' && (
-          <Link
-            to="/tasks/$taskId"
-            params={{ taskId: c.taskId }}
-            title="Edit this chore"
-            className="flex-shrink-0 rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--sea-ink-soft)] no-underline"
-          >
-            ✎ Edit
-          </Link>
-        )}
-        {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
-          <button
-            type="button"
-            onClick={() =>
-              clickChore({
-                instanceId: c.instanceId,
-                title: c.title,
-                assignedToUserId: c.assignedToUserId,
-                assignedToHandle: c.assignedToHandle,
-                assignedToName: c.assignedToName,
-              })
-            }
-            disabled={complete.isPending}
-            className="rounded-lg bg-[var(--btn-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
-          >
-            Complete
-          </button>
           )}
         </div>
       </li>
@@ -684,8 +636,7 @@ function ChoresTab({
     assignedToUserId: string | null,
     assigneeGroup: 'adults' | 'kids' | null,
   ): boolean {
-    const isMine =
-      assignedToUserId !== null && assignedToUserId === viewerUserId
+    const isMine = assignedToUserId !== null && assignedToUserId === viewerUserId
     const isFreeForAll = assignedToUserId === null
     if (viewerRole === 'kid') {
       // Kids can complete their own + open chores, but never an
@@ -738,9 +689,7 @@ function ChoresTab({
             <span className="font-semibold uppercase tracking-wide">Sort</span>
             <select
               value={sortBy}
-              onChange={(e) =>
-                setSortBy(e.target.value as 'due' | 'title' | 'assignee')
-              }
+              onChange={(e) => setSortBy(e.target.value as 'due' | 'title' | 'assignee')}
               className="field-input w-auto rounded-md px-2 py-1 text-xs"
             >
               <option value="due">Due date</option>
@@ -777,9 +726,7 @@ function ChoresTab({
             {chores.length === 0 ? (
               <>
                 No open household chores.
-                {canCreate && (
-                  <span> Tap &ldquo;New chore&rdquo; to add one.</span>
-                )}
+                {canCreate && <span> Tap &ldquo;New chore&rdquo; to add one.</span>}
               </>
             ) : (
               <>No chores match the current filter.</>
@@ -799,9 +746,7 @@ function ChoresTab({
                 <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
                   Upcoming ({upcomingChores.length})
                 </summary>
-                <ul className="mt-3 space-y-2">
-                  {upcomingChores.map(renderChore)}
-                </ul>
+                <ul className="mt-3 space-y-2">{upcomingChores.map(renderChore)}</ul>
               </details>
             ) : null}
           </section>
@@ -909,23 +854,23 @@ function ChoreFiltersBar({
       role="radiogroup"
       aria-label="Filter"
     >
+      <FilterChip
+        checked={filterAssignee === 'all'}
+        onClick={() => setFilterAssignee('all')}
+        label="All"
+      />
+      {viewerUserId && viewerRole !== 'kiosk' && (
         <FilterChip
-          checked={filterAssignee === 'all'}
-          onClick={() => setFilterAssignee('all')}
-          label="All"
+          checked={filterAssignee === 'mine'}
+          onClick={() => setFilterAssignee('mine')}
+          label="Mine"
         />
-        {viewerUserId && viewerRole !== 'kiosk' && (
-          <FilterChip
-            checked={filterAssignee === 'mine'}
-            onClick={() => setFilterAssignee('mine')}
-            label="Mine"
-          />
-        )}
-        <FilterChip
-          checked={filterAssignee === 'ffa'}
-          onClick={() => setFilterAssignee('ffa')}
-          label="Free-for-all"
-        />
+      )}
+      <FilterChip
+        checked={filterAssignee === 'ffa'}
+        onClick={() => setFilterAssignee('ffa')}
+        label="Free-for-all"
+      />
       {members.map((m) => (
         <FilterChip
           key={m.userId}
@@ -1177,9 +1122,7 @@ function KanbanView({
                           )}
                         </div>
                         <div className="mt-1 text-[10px] text-[var(--sea-ink-soft)]">
-                          {c.dueAt
-                            ? `due ${new Date(c.dueAt).toLocaleString()}`
-                            : 'anytime'}
+                          {c.dueAt ? `due ${new Date(c.dueAt).toLocaleString()}` : 'anytime'}
                         </div>
                       </div>
                       {canCompleteChore(c.assignedToUserId, c.assigneeGroup) && (
@@ -1348,9 +1291,7 @@ function WeekView({
                       </span>
                     ) : null}
                   </h3>
-                  <span className="text-xs text-[var(--sea-ink-soft)]">
-                    {day.label}
-                  </span>
+                  <span className="text-xs text-[var(--sea-ink-soft)]">{day.label}</span>
                 </header>
                 {dayRows.length === 0 ? (
                   <p className="text-xs text-[var(--sea-ink-soft)]">—</p>
@@ -1410,14 +1351,11 @@ function WeekRowItem({
   const isProjection = row.instanceId === null
   const isCompleted = !!row.completedAt
   const isSkipped = !!row.skippedAt
-  const isAssignedToMe =
-    row.assignedToUserId !== null && row.assignedToUserId === viewerUserId
+  const isAssignedToMe = row.assignedToUserId !== null && row.assignedToUserId === viewerUserId
   const assigneeLabel = row.assignedToUserId
-    ? row.assignedToName ?? `@${row.assignedToHandle ?? ''}`
+    ? (row.assignedToName ?? `@${row.assignedToHandle ?? ''}`)
     : null
-  const completer = row.completedByUserId
-    ? memberById.get(row.completedByUserId)
-    : null
+  const completer = row.completedByUserId ? memberById.get(row.completedByUserId) : null
   const timeLabel = row.timeOfDay
     ? row.timeOfDay
     : new Date(row.dueAt).toLocaleTimeString(undefined, {
@@ -1441,11 +1379,7 @@ function WeekRowItem({
             : 'border-[var(--line)] bg-[var(--surface-strong)]'
       } ${isAssignedToMe && !isCompleted ? 'ring-1 ring-[var(--lagoon-deep)]' : ''}`}
     >
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1"
-        style={barStyle}
-      />
+      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={barStyle} />
       <div className="min-w-0">
         {/* Title wraps freely — week columns get narrow, especially on
             7-col desktop, and truncating short titles ("clear the t…")
@@ -1474,9 +1408,7 @@ function WeekRowItem({
         </div>
         <p className="mt-1 break-words text-[11px] leading-tight text-[var(--sea-ink-soft)]">
           {assigneeLabel ? (
-            <>
-              <strong>{assigneeLabel}</strong>
-            </>
+            <strong>{assigneeLabel}</strong>
           ) : (
             <span className="font-semibold text-[var(--lagoon-deep)]">
               {row.assigneeGroup === 'adults'
@@ -1486,9 +1418,7 @@ function WeekRowItem({
                   : 'Free for all'}
             </span>
           )}
-          {isCompleted && completer ? (
-            <span> · ✓ {completer.name}</span>
-          ) : null}
+          {isCompleted && completer ? <span> · ✓ {completer.name}</span> : null}
           {isSkipped ? <span> · skipped</span> : null}
         </p>
       </div>
@@ -1555,18 +1485,14 @@ function CreditPickerDialog({
 
   const toggleUser = (userId: string) =>
     setPickedUserIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId],
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
     )
 
   // Any adult (admin / member / kiosk) may credit any combination of
   // household members — the doer vouches for everyone who pitched in.
   // Kiosks are hidden from the list (you wouldn't credit "the iPad"
   // with a chore). Kids never reach this dialog (button hidden upstream).
-  const options: HouseholdMemberRow[] = pending
-    ? members.filter((m) => m.role !== 'kiosk')
-    : []
+  const options: HouseholdMemberRow[] = pending ? members.filter((m) => m.role !== 'kiosk') : []
 
   return (
     <dialog
@@ -1584,8 +1510,8 @@ function CreditPickerDialog({
               Who gets credit?
             </h3>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              Completing &ldquo;{pending.title}&rdquo; — check everyone who
-              pitched in. Each person earns the full XP and a streak.
+              Completing &ldquo;{pending.title}&rdquo; — check everyone who pitched in. Each person
+              earns the full XP and a streak.
             </p>
           </div>
           <fieldset className="flex flex-col gap-2">
@@ -1733,18 +1659,14 @@ function AssignPointsDialog({
     >
       <div className="flex flex-col gap-4 p-5">
         <div>
-          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
-            Assign points
-          </h3>
+          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">Assign points</h3>
           <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
             Reward a kid with XP. It counts as an instant completed chore.
           </p>
         </div>
 
         {kids.length === 0 ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">
-            No kids in this household yet.
-          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">No kids in this household yet.</p>
         ) : (
           <>
             <label className="flex flex-col gap-1 text-sm">
@@ -1792,10 +1714,7 @@ function AssignPointsDialog({
 
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-semibold text-[var(--sea-ink)]">
-                Reason{' '}
-                <span className="font-normal text-[var(--sea-ink-soft)]">
-                  (optional)
-                </span>
+                Reason <span className="font-normal text-[var(--sea-ink-soft)]">(optional)</span>
               </span>
               <input
                 type="text"
@@ -1811,9 +1730,7 @@ function AssignPointsDialog({
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-semibold text-[var(--sea-ink)]">
                   Category{' '}
-                  <span className="font-normal text-[var(--sea-ink-soft)]">
-                    (optional)
-                  </span>
+                  <span className="font-normal text-[var(--sea-ink-soft)]">(optional)</span>
                 </span>
                 <select
                   value={categorySlug}
@@ -1864,8 +1781,7 @@ function ReviewTab({
   const qc = useQueryClient()
   const query = useQuery({
     queryKey: ['household-pending-approvals', householdId],
-    queryFn: () =>
-      listPendingApprovalsFn({ data: { householdId } }),
+    queryFn: () => listPendingApprovalsFn({ data: { householdId } }),
   })
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['household-pending-approvals', householdId] })
@@ -1877,8 +1793,7 @@ function ReviewTab({
     qc.invalidateQueries({ queryKey: ['progression'] })
   }
   const approve = useMutation({
-    mutationFn: (instanceId: string) =>
-      approveClaimFn({ data: { instanceId } }),
+    mutationFn: (instanceId: string) => approveClaimFn({ data: { instanceId } }),
     onSuccess: (res) => {
       if ('alreadyHandled' in res && res.alreadyHandled) {
         toast.message('Already handled.')
@@ -1889,18 +1804,15 @@ function ReviewTab({
       }
       invalidate()
     },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : 'Approve failed.'),
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Approve failed.'),
   })
   const reject = useMutation({
-    mutationFn: (instanceId: string) =>
-      rejectClaimFn({ data: { instanceId } }),
+    mutationFn: (instanceId: string) => rejectClaimFn({ data: { instanceId } }),
     onSuccess: () => {
       toast.message('Sent back — chore is open again.')
       invalidate()
     },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : 'Reject failed.'),
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Reject failed.'),
   })
 
   const memberById = new Map(members.map((m) => [m.userId, m]))
@@ -1912,8 +1824,7 @@ function ReviewTab({
   if (rows.length === 0) {
     return (
       <section className="island-shell rounded-2xl p-4 text-center text-sm text-[var(--sea-ink-soft)]">
-        Nothing waiting for review. Kid completions land here for an
-        admin or member to approve.
+        Nothing waiting for review. Kid completions land here for an admin or member to approve.
       </section>
     )
   }
@@ -1922,12 +1833,10 @@ function ReviewTab({
     <section className="island-shell rounded-2xl p-4">
       <ul className="space-y-2">
         {rows.map((r) => {
-          const claimer = r.claimedByUserId
-            ? memberById.get(r.claimedByUserId)
-            : null
+          const claimer = r.claimedByUserId ? memberById.get(r.claimedByUserId) : null
           const claimerColor = claimer?.color ?? null
           const assigneeColor = r.assignedToUserId
-            ? memberById.get(r.assignedToUserId)?.color ?? null
+            ? (memberById.get(r.assignedToUserId)?.color ?? null)
             : null
           return (
             <li
@@ -1939,9 +1848,7 @@ function ReviewTab({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate font-medium text-[var(--sea-ink)]">
-                    {r.title}
-                  </span>
+                  <span className="truncate font-medium text-[var(--sea-ink)]">{r.title}</span>
                   {r.recurring && (
                     <span className="rounded-full bg-[var(--lagoon-soft)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--lagoon-deep)]">
                       repeats
@@ -2007,8 +1914,7 @@ function StatsTab({ householdId }: { householdId: string }) {
   const [metric, setMetric] = useState<'xp' | 'count'>('xp')
   const statsQuery = useQuery({
     queryKey: ['household-stats', householdId, days],
-    queryFn: () =>
-      listHouseholdStatsFn({ data: { householdId, days } }),
+    queryFn: () => listHouseholdStatsFn({ data: { householdId, days } }),
   })
   const ranges: number[] = [1, 7, 30, 90]
   const stats = statsQuery.data
@@ -2076,9 +1982,7 @@ function StatsTab({ householdId }: { householdId: string }) {
             dateKeys={stats.dateKeys}
             metric={metric}
             label={
-              metric === 'xp'
-                ? 'XP per day per family member'
-                : 'Chores per day per family member'
+              metric === 'xp' ? 'XP per day per family member' : 'Chores per day per family member'
             }
           />
         </>
@@ -2093,8 +1997,7 @@ function StatsTab({ householdId }: { householdId: string }) {
 function HouseholdStatsCompact({ householdId }: { householdId: string }) {
   const statsQuery = useQuery({
     queryKey: ['household-stats', householdId, 7],
-    queryFn: () =>
-      listHouseholdStatsFn({ data: { householdId, days: 7 } }),
+    queryFn: () => listHouseholdStatsFn({ data: { householdId, days: 7 } }),
   })
   const stats = statsQuery.data
   if (!stats || stats.totalCompletions === 0) return null
@@ -2114,8 +2017,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
 
   const query = useQuery({
     queryKey: ['household-leaderboard', householdId, metric, days],
-    queryFn: () =>
-      getLeaderboardFn({ data: { scope: 'household', metric, days } }),
+    queryFn: () => getLeaderboardFn({ data: { scope: 'household', metric, days } }),
   })
 
   const metricLabel: Record<LeaderboardMetric, string> = {
@@ -2126,8 +2028,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
   }
   const metricHint: Record<LeaderboardMetric, string> = {
     xp: 'Sum of XP from chore completions in the window.',
-    'avg-xp-day':
-      'Average XP per day — total XP divided by the number of days in the window.',
+    'avg-xp-day': 'Average XP per day — total XP divided by the number of days in the window.',
     streak: 'Longest run of consecutive days with a completion in the window.',
     'showed-up': 'Distinct days with at least one completion.',
   }
@@ -2138,9 +2039,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          {metricHint[metric]}
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">{metricHint[metric]}</p>
         <div
           className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--option-bg)] p-1"
           role="radiogroup"
@@ -2170,9 +2069,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
         role="radiogroup"
         aria-label="Metric"
       >
-        {(
-          ['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]
-        ).map((m) => (
+        {(['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
           <button
             key={m}
             type="button"
@@ -2194,9 +2091,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
         {query.isLoading ? (
           <p className="text-[var(--sea-ink-soft)]">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">
-            No data in this window yet.
-          </p>
+          <p className="text-sm text-[var(--sea-ink-soft)]">No data in this window yet.</p>
         ) : (
           <ol className="space-y-2">
             {rows.map((r) => (
@@ -2218,9 +2113,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
                       <span className="block truncate font-semibold text-[var(--sea-ink)]">
                         {r.isMe ? `${r.name} (you)` : r.name}
                       </span>
-                      <span className="block text-xs text-[var(--sea-ink-soft)]">
-                        @{r.handle}
-                      </span>
+                      <span className="block text-xs text-[var(--sea-ink-soft)]">@{r.handle}</span>
                     </span>
                   </div>
                   <span className="text-sm font-bold tabular-nums text-[var(--sea-ink)]">
@@ -2247,17 +2140,13 @@ function ActivityTab({
 }) {
   const qc = useQueryClient()
   const [days, setDays] = useState<number>(30)
-  const [eventType, setEventType] = useState<
-    'all' | 'completions' | 'membership'
-  >('all')
+  const [eventType, setEventType] = useState<'all' | 'completions' | 'membership'>('all')
   const [memberFilter, setMemberFilter] = useState<string>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
   const isAdult = viewerRole === 'admin' || viewerRole === 'member'
-  const kidIds = new Set(
-    members.filter((m) => m.role === 'kid').map((m) => m.userId),
-  )
+  const kidIds = new Set(members.filter((m) => m.role === 'kid').map((m) => m.userId))
 
   const query = useQuery({
     queryKey: ['household-activity', householdId, days],
@@ -2268,8 +2157,7 @@ function ActivityTab({
   })
 
   const editXp = useMutation({
-    mutationFn: (vars: { eventId: string; xp: number }) =>
-      setKidCompletionXp({ data: vars }),
+    mutationFn: (vars: { eventId: string; xp: number }) => setKidCompletionXp({ data: vars }),
     onSuccess: () => {
       setEditingId(null)
       qc.invalidateQueries({ queryKey: ['household-activity', householdId] })
@@ -2278,8 +2166,7 @@ function ActivityTab({
       qc.invalidateQueries({ queryKey: ['progression'] })
       toast.success('Points updated.')
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not update points.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not update points.'),
   })
 
   const allRows = query.data ?? []
@@ -2531,10 +2418,8 @@ function MembersTab({
   const [selectedFriend, setSelectedFriend] = useState('')
   const [proposedRole, setProposedRole] = useState<'member' | 'kid'>('member')
   const invite = useMutation({
-    mutationFn: (vars: {
-      inviteeUserId: string
-      proposedRole: 'member' | 'kid'
-    }) => inviteMemberFn({ data: vars }),
+    mutationFn: (vars: { inviteeUserId: string; proposedRole: 'member' | 'kid' }) =>
+      inviteMemberFn({ data: vars }),
     onSuccess: () => {
       toast.success('Invite sent.')
       setSelectedFriend('')
@@ -2545,8 +2430,7 @@ function MembersTab({
     },
   })
   const cancel = useMutation({
-    mutationFn: (inviteId: string) =>
-      cancelInviteFn({ data: { inviteId } }),
+    mutationFn: (inviteId: string) => cancelInviteFn({ data: { inviteId } }),
     onSuccess: () => {
       toast.success('Invite cancelled.')
       qc.invalidateQueries({ queryKey: ['outgoing-invites'] })
@@ -2569,8 +2453,7 @@ function MembersTab({
     },
   })
   const remove = useMutation({
-    mutationFn: (targetUserId: string) =>
-      removeMemberFn({ data: { householdId, targetUserId } }),
+    mutationFn: (targetUserId: string) => removeMemberFn({ data: { householdId, targetUserId } }),
     onSuccess: () => {
       toast.success('Member removed.')
       qc.invalidateQueries({ queryKey: ['my-household'] })
@@ -2607,8 +2490,7 @@ function MembersTab({
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState(householdName)
   const rename = useMutation({
-    mutationFn: (name: string) =>
-      renameHouseholdFn({ data: { householdId, name } }),
+    mutationFn: (name: string) => renameHouseholdFn({ data: { householdId, name } }),
     onSuccess: () => {
       toast.success('Household renamed.')
       setRenaming(false)
@@ -2662,9 +2544,7 @@ function MembersTab({
                   params={{ memberId: m.userId }}
                   className="min-w-0 flex-1 no-underline"
                 >
-                  <div className="truncate font-medium text-[var(--sea-ink)]">
-                    {m.name}
-                  </div>
+                  <div className="truncate font-medium text-[var(--sea-ink)]">{m.name}</div>
                   <div className="text-xs text-[var(--sea-ink-soft)]">
                     @{m.handle} · {m.role}
                   </div>
@@ -2692,10 +2572,7 @@ function MembersTab({
                           onChange={(e) =>
                             changeRole.mutate({
                               targetUserId: m.userId,
-                              role: e.target.value as
-                                | 'admin'
-                                | 'member'
-                                | 'kid',
+                              role: e.target.value as 'admin' | 'member' | 'kid',
                             })
                           }
                           className="field-input w-auto rounded-md px-2 py-1 text-xs"
@@ -2705,18 +2582,11 @@ function MembersTab({
                           <option value="kid">kid</option>
                         </select>
                       ))}
-                    {viewerRole === 'admin' &&
-                      (m.role === 'kid' || m.role === 'kiosk') && (
-                        <ResetPasswordButton
-                          targetUserId={m.userId}
-                          targetName={m.name}
-                        />
-                      )}
+                    {viewerRole === 'admin' && (m.role === 'kid' || m.role === 'kiosk') && (
+                      <ResetPasswordButton targetUserId={m.userId} targetName={m.name} />
+                    )}
                     {canManageKid && (
-                      <ManagedMemberSettingsButton
-                        targetUserId={m.userId}
-                        targetName={m.name}
-                      />
+                      <ManagedMemberSettingsButton targetUserId={m.userId} targetName={m.name} />
                     )}
                     {viewerRole === 'admin' && (
                       <button
@@ -2741,9 +2611,7 @@ function MembersTab({
 
       {viewerRole === 'admin' && (
         <section className="island-shell rounded-2xl p-4">
-          <h3 className="text-sm font-semibold text-[var(--sea-ink)]">
-            Household settings
-          </h3>
+          <h3 className="text-sm font-semibold text-[var(--sea-ink)]">Household settings</h3>
           {renaming ? (
             <form
               onSubmit={(e) => {
@@ -2802,9 +2670,7 @@ function MembersTab({
 
       {pendingInvites.length > 0 && (
         <section className="island-shell rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">
-            Pending invites for you
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">Pending invites for you</h2>
           <ul className="mt-3 space-y-2">
             {pendingInvites.map((inv) => (
               <InviteRow
@@ -2823,9 +2689,7 @@ function MembersTab({
 
       {viewerRole === 'admin' && (
         <section className="island-shell rounded-2xl p-4">
-          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">
-            Invite a friend
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">Invite a friend</h2>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
             You can only invite people you&rsquo;re already friends with.
           </p>
@@ -2856,9 +2720,7 @@ function MembersTab({
               </select>
               <select
                 value={proposedRole}
-                onChange={(e) =>
-                  setProposedRole(e.target.value as 'member' | 'kid')
-                }
+                onChange={(e) => setProposedRole(e.target.value as 'member' | 'kid')}
                 className="field-input w-auto rounded-lg px-3 py-2 text-sm"
               >
                 <option value="member">member</option>
@@ -2887,9 +2749,7 @@ function MembersTab({
                   >
                     <span className="truncate">
                       {o.inviteeName} (@{o.inviteeHandle}) ·{' '}
-                      <span className="text-xs text-[var(--sea-ink-soft)]">
-                        {o.proposedRole}
-                      </span>
+                      <span className="text-xs text-[var(--sea-ink-soft)]">{o.proposedRole}</span>
                     </span>
                     <button
                       type="button"
@@ -2920,7 +2780,6 @@ function MembersTab({
     </div>
   )
 }
-
 
 function generateTempPassword(): string {
   // Easy-to-read 10-char password for handoff. Skip ambiguous chars
@@ -2997,13 +2856,10 @@ function AddManagedMemberCard() {
     <section className="island-shell rounded-2xl p-4">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">
-            Add a household account
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--sea-ink)]">Add a household account</h2>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-            Provision a kid or shared kiosk login directly — no friend
-            request, no email signup. You&rsquo;ll get the credentials to
-            hand to the family.
+            Provision a kid or shared kiosk login directly — no friend request, no email signup.
+            You&rsquo;ll get the credentials to hand to the family.
           </p>
         </div>
         {!showForm && (
@@ -3080,15 +2936,12 @@ function AddManagedMemberCard() {
               minLength={3}
               maxLength={20}
               value={handle}
-              onChange={(e) =>
-                setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-              }
+              onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
               placeholder={role === 'kiosk' ? 'kitchen' : 'junior'}
               className="field-input"
             />
             <span className="mt-1 block text-[10px] text-[var(--sea-ink-soft)]">
-              Lowercase letters / numbers / underscore. 3–20 chars. Used
-              to log in instead of email.
+              Lowercase letters / numbers / underscore. 3–20 chars. Used to log in instead of email.
             </span>
           </label>
           <label className="block">
@@ -3103,9 +2956,8 @@ function AddManagedMemberCard() {
               className="field-input"
             />
             <span className="mt-1 block text-[10px] text-[var(--sea-ink-soft)]">
-              Optional. Leave blank to skip email; the account uses a
-              placeholder address and you can reset the password from
-              this page.
+              Optional. Leave blank to skip email; the account uses a placeholder address and you
+              can reset the password from this page.
             </span>
           </label>
           <label className="block">
@@ -3144,10 +2996,7 @@ function AddManagedMemberCard() {
             <button
               type="submit"
               disabled={
-                create.isPending ||
-                !name.trim() ||
-                handle.length < 3 ||
-                password.length < 8
+                create.isPending || !name.trim() || handle.length < 3 || password.length < 8
               }
               className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
             >
@@ -3157,10 +3006,7 @@ function AddManagedMemberCard() {
         </form>
       )}
 
-      <CredentialsDialog
-        creds={credentials}
-        onClose={() => setCredentials(null)}
-      />
+      <CredentialsDialog creds={credentials} onClose={() => setCredentials(null)} />
     </section>
   )
 }
@@ -3202,17 +3048,15 @@ function CredentialsDialog({
               Account created
             </h3>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              Write these down — the password isn&rsquo;t shown again.
-              You can reset it from the Members list if needed.
+              Write these down — the password isn&rsquo;t shown again. You can reset it from the
+              Members list if needed.
             </p>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3 text-sm">
             <dt className="font-semibold text-[var(--sea-ink-soft)]">Name</dt>
             <dd className="text-[var(--sea-ink)]">{creds.name}</dd>
             <dt className="font-semibold text-[var(--sea-ink-soft)]">Login</dt>
-            <dd className="font-mono text-[var(--sea-ink)]">
-              @{creds.handle}
-            </dd>
+            <dd className="font-mono text-[var(--sea-ink)]">@{creds.handle}</dd>
             <dt className="font-semibold text-[var(--sea-ink-soft)]">Email</dt>
             <dd className="break-all text-[var(--sea-ink)]">{creds.email}</dd>
             <dt className="font-semibold text-[var(--sea-ink-soft)]">Password</dt>
@@ -3264,19 +3108,14 @@ function ResetPasswordButton({
     onSuccess: (_, newPassword) => {
       setRevealed(newPassword)
     },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : 'Reset failed.'),
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Reset failed.'),
   })
   return (
     <>
       <button
         type="button"
         onClick={() => {
-          if (
-            !confirm(
-              `Reset password for ${targetName}? You'll get a new one to hand over.`,
-            )
-          )
+          if (!confirm(`Reset password for ${targetName}? You'll get a new one to hand over.`))
             return
           reset.mutate(generateTempPassword())
         }}
@@ -3434,8 +3273,7 @@ function ManagedMemberSettingsDialog({
       invalidate()
       toast.success('Quiet hours saved.')
     },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to save.'),
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Failed to save.'),
   })
 
   const saveAttitude = useMutation({
@@ -3448,8 +3286,7 @@ function ManagedMemberSettingsDialog({
       invalidate()
       toast.success('Coach attitude saved.')
     },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to save.'),
+    onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Failed to save.'),
   })
 
   const hasWindow = start !== '' && end !== ''
@@ -3479,12 +3316,9 @@ function ManagedMemberSettingsDialog({
           <>
             {/* Quiet hours */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">
-                Quiet hours
-              </h4>
+              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">Quiet hours</h4>
               <p className="text-xs text-[var(--sea-ink-soft)]">
-                Reminder nudges for unfinished tasks won&rsquo;t fire in this
-                window.
+                Reminder nudges for unfinished tasks won&rsquo;t fire in this window.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-sm">
@@ -3535,17 +3369,11 @@ function ManagedMemberSettingsDialog({
 
             {/* Coach attitude */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">
-                Coach attitude
-              </h4>
+              <h4 className="text-sm font-semibold text-[var(--sea-ink)]">Coach attitude</h4>
               <p className="text-xs text-[var(--sea-ink-soft)]">
                 The voice their daily coach uses on the Today page.
               </p>
-              <div
-                className="flex flex-wrap gap-2"
-                role="radiogroup"
-                aria-label="Coach attitude"
-              >
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Coach attitude">
                 {COACH_ATTITUDE_OPTIONS.map((o) => {
                   const selected = attitude === o.value
                   return (
@@ -3569,8 +3397,7 @@ function ManagedMemberSettingsDialog({
                 })}
               </div>
               <p className="text-xs text-[var(--sea-ink-soft)]">
-                {COACH_ATTITUDE_OPTIONS.find((o) => o.value === attitude)
-                  ?.hint ?? ''}
+                {COACH_ATTITUDE_OPTIONS.find((o) => o.value === attitude)?.hint ?? ''}
               </p>
             </div>
           </>
@@ -3625,9 +3452,7 @@ function InviteRow({
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2">
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-[var(--sea-ink)]">
-          {householdName}
-        </div>
+        <div className="truncate font-medium text-[var(--sea-ink)]">{householdName}</div>
         <div className="text-xs text-[var(--sea-ink-soft)]">
           From {inviterName} (@{inviterHandle}) · as {proposedRole}
         </div>

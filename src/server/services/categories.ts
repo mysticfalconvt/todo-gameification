@@ -86,10 +86,7 @@ export async function createCategory(
   await listCategories(userId)
 
   const existing = await db.query.userCategories.findFirst({
-    where: and(
-      eq(userCategories.userId, userId),
-      eq(userCategories.slug, slug),
-    ),
+    where: and(eq(userCategories.userId, userId), eq(userCategories.slug, slug)),
   })
   if (existing) throw new Error('category already exists')
 
@@ -140,9 +137,7 @@ export async function updateCategory(
   const updated = await db
     .update(userCategories)
     .set(setValues)
-    .where(
-      and(eq(userCategories.userId, userId), eq(userCategories.slug, slug)),
-    )
+    .where(and(eq(userCategories.userId, userId), eq(userCategories.slug, slug)))
     .returning()
   if (updated.length === 0) throw new Error('category not found')
   const r = updated[0]
@@ -168,9 +163,7 @@ export async function deleteCategory(
       .returning({ id: tasks.id })
     const removed = await tx
       .delete(userCategories)
-      .where(
-        and(eq(userCategories.userId, userId), eq(userCategories.slug, slug)),
-      )
+      .where(and(eq(userCategories.userId, userId), eq(userCategories.slug, slug)))
       .returning({ slug: userCategories.slug })
     if (removed.length === 0) throw new Error('category not found')
     return { slug: removed[0].slug, reassigned: reassigned.length }

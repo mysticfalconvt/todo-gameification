@@ -133,10 +133,7 @@ async function createOnboardingTaskIfMissing(
   spec: OnboardingTaskSpec,
 ): Promise<void> {
   const existing = await db.query.tasks.findFirst({
-    where: and(
-      eq(tasks.userId, userId),
-      eq(tasks.externalRef, spec.externalRef),
-    ),
+    where: and(eq(tasks.userId, userId), eq(tasks.externalRef, spec.externalRef)),
   })
   if (existing) return
   try {

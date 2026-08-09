@@ -6,6 +6,15 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 
 - Use **pnpm** (not npm). Don't commit `package-lock.json`.
 
+## Lint / format / dead code
+
+- Biome (format + lint) and fallow (dead code, dupes, complexity). See `docs/code-quality.md`.
+- `pnpm check` is the gate; it also runs from `.githooks/pre-push`. Nothing runs on commit.
+- Both tools are **diff-scoped** — the repo carries ~185 lint warnings and ~490 fallow findings as inherited debt, and the gate only fails on newly introduced ones. Don't "fix" this by running the tools whole-tree and committing the result.
+- Rules with existing debt are set to `warn` in `biome.json` as a ratchet: clear a category, then flip it to `error`.
+- fallow's config is `.fallowrc.json` (`fallow.json` is silently ignored). `dynamicallyLoaded` there covers `src/server/nitro/*.ts` and `public/sw.js`, which are reachable only via string paths in `vite.config.ts` / the browser — without it fallow calls them dead. Add new runtime-loaded entry points there.
+- `tsconfig` has `noUnusedLocals`, so `fallow fix` (which only strips `export`) turns unused exports into compile errors. Don't run it expecting a clean tree.
+
 ## Database migrations
 
 - Schema lives in `src/server/db/schema.ts`. Migrations in `src/server/db/migrations/`.

@@ -10,27 +10,20 @@ function ApiDocsPage() {
   return (
     <main className="page-wrap space-y-8 px-4 py-8">
       <header>
-        <Link
-          to="/settings"
-          className="mb-2 inline-block text-sm text-[var(--lagoon-deep)]"
-        >
+        <Link to="/settings" className="mb-2 inline-block text-sm text-[var(--lagoon-deep)]">
           ← Back to settings
         </Link>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          API reference
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">API reference</h1>
         <p className="mt-2 max-w-2xl text-sm text-[var(--sea-ink-soft)]">
-          REST endpoints under <code className="font-mono">/api/v1</code>.
-          Every endpoint requires an{' '}
-          <code className="font-mono">Authorization: Bearer tgx_…</code>{' '}
-          header — create a token in{' '}
+          REST endpoints under <code className="font-mono">/api/v1</code>. Every endpoint requires
+          an <code className="font-mono">Authorization: Bearer tgx_…</code> header — create a token
+          in{' '}
           <Link to="/settings" className="font-semibold text-[var(--lagoon-deep)]">
             settings
           </Link>
-          . Responses are <code className="font-mono">{'{ data: … }'}</code> on
-          success and{' '}
-          <code className="font-mono">{'{ error: { code, message } }'}</code>{' '}
-          on failure. All timestamps are ISO 8601 UTC.
+          . Responses are <code className="font-mono">{'{ data: … }'}</code> on success and{' '}
+          <code className="font-mono">{'{ error: { code, message } }'}</code> on failure. All
+          timestamps are ISO 8601 UTC.
         </p>
       </header>
 
@@ -228,13 +221,11 @@ function ApiDocsPage() {
       />
 
       <section className="island-shell max-w-3xl rounded-2xl border border-[var(--line)] bg-[var(--option-bg)] p-5">
-        <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-          Household endpoints
-        </h2>
+        <h2 className="text-lg font-bold text-[var(--sea-ink)]">Household endpoints</h2>
         <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-          Every household endpoint resolves the viewer&rsquo;s household
-          from their membership automatically — no household id in the
-          path. Returns 404 if the caller isn&rsquo;t in a household.
+          Every household endpoint resolves the viewer&rsquo;s household from their membership
+          automatically — no household id in the path. Returns 404 if the caller isn&rsquo;t in a
+          household.
         </p>
       </section>
 
@@ -386,38 +377,32 @@ function ApiDocsPage() {
       />
 
       <section className="island-shell max-w-3xl rounded-2xl p-5">
-        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          Other access paths
-        </h2>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Other access paths</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--sea-ink-soft)]">
           <li>
             <Link to="/settings/mcp" className="font-semibold text-[var(--lagoon-deep)]">
               MCP server
-            </Link>
-            {' '}— same tools wrapped as an MCP server at{' '}
-            <code className="font-mono">/api/mcp</code> for Claude Desktop and
-            other LLM clients.
+            </Link>{' '}
+            — same tools wrapped as an MCP server at <code className="font-mono">/api/mcp</code> for
+            Claude Desktop and other LLM clients.
           </li>
           <li>
             <Link to="/settings/home-assistant" className="font-semibold text-[var(--lagoon-deep)]">
               Home Assistant
-            </Link>
-            {' '}— ready-to-paste sensor + command YAML.
+            </Link>{' '}
+            — ready-to-paste sensor + command YAML.
           </li>
         </ul>
       </section>
 
       <section className="island-shell max-w-3xl rounded-2xl p-5">
-        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          Error shape
-        </h2>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Error shape</h2>
         <p className="mb-3 text-sm text-[var(--sea-ink-soft)]">
-          All errors share the same envelope. <code>code</code> is one of{' '}
-          <code>unauthorized</code>, <code>not_found</code>,{' '}
-          <code>validation</code>, <code>internal</code>.
+          All errors share the same envelope. <code>code</code> is one of <code>unauthorized</code>,{' '}
+          <code>not_found</code>, <code>validation</code>, <code>internal</code>.
         </p>
         <pre className="overflow-x-auto rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs">
-{`{
+          {`{
   "error": {
     "code": "not_found",
     "message": "task not found"

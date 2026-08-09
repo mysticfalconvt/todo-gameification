@@ -452,9 +452,7 @@ export const userPrefs = pgTable('user_prefs', {
   // to them (and unclaimed free-for-all chores) appear in their Today
   // view alongside personal tasks. When false, household chores live
   // exclusively in the Household tab.
-  mergeHouseholdIntoToday: boolean('merge_household_into_today')
-    .notNull()
-    .default(true),
+  mergeHouseholdIntoToday: boolean('merge_household_into_today').notNull().default(true),
   // Opt-in to the weekly summary email. Defaults off for everyone — the
   // user turns it on in Settings (members only). The page at
   // /weekly-summary is viewable regardless of this flag.
@@ -479,9 +477,7 @@ export const coachSummaries = pgTable('coach_summaries', {
   signature: text('signature').notNull(),
   attitude: text('attitude').notNull(),
   detailed: boolean('detailed').notNull(),
-  generatedAt: timestamp('generated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Per-week cache for the LLM weekly-summary analysis. One row per
@@ -498,9 +494,7 @@ export const weeklySummaries = pgTable(
     weekKey: text('week_key').notNull(),
     analysis: text('analysis').notNull(),
     attitude: text('attitude').notNull(),
-    generatedAt: timestamp('generated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
     // Optional second blurb: a household-focused recap (this week vs last
     // week across all family members). NULL for users with no household or
     // before it's first generated. Tracked alongside the personal analysis
@@ -556,9 +550,7 @@ export const userIntegrations = pgTable(
     pollIntervalMinutes: integer('poll_interval_minutes').notNull().default(5),
     // Which GitHub PR flows surface as tasks. Both default true (prior
     // always-both behavior); a user can narrow to just one.
-    trackReviewRequested: boolean('track_review_requested')
-      .notNull()
-      .default(true),
+    trackReviewRequested: boolean('track_review_requested').notNull().default(true),
     trackAssigned: boolean('track_assigned').notNull().default(true),
     lastPolledAt: timestamp('last_polled_at'),
     lastPollError: text('last_poll_error'),
@@ -598,12 +590,7 @@ export const wordSearchWordLists = pgTable(
     words: jsonb('words').notNull().$type<string[]>(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [
-    uniqueIndex('word_search_word_lists_theme_size_uq').on(
-      t.themeKey,
-      t.sizeBucket,
-    ),
-  ],
+  (t) => [uniqueIndex('word_search_word_lists_theme_size_uq').on(t.themeKey, t.sizeBucket)],
 )
 
 // Membership projection. Source of truth is the `events` table
@@ -680,4 +667,3 @@ export const llmCallLog = pgTable(
     index('llm_call_log_user_started_idx').on(t.userId, t.startedAt),
   ],
 )
-

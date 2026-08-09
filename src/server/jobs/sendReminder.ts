@@ -1,11 +1,6 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  pushSubscriptions,
-  taskInstances,
-  tasks,
-  user as userTable,
-} from '../db/schema'
+import { pushSubscriptions, taskInstances, tasks, user as userTable } from '../db/schema'
 import { sendWebPush } from '../push/web-push'
 import { listChoreRecipients } from '../services/households'
 import { isInQuietHours } from '../../domain/quietHours'
@@ -24,9 +19,7 @@ export interface SendReminderJobData {
   attempt?: number
 }
 
-export async function sendReminderHandler(
-  jobs: Job<SendReminderJobData>[],
-): Promise<void> {
+export async function sendReminderHandler(jobs: Job<SendReminderJobData>[]): Promise<void> {
   for (const job of jobs) {
     await handleOne(job.data)
   }
@@ -47,7 +40,7 @@ async function handleOne(data: SendReminderJobData) {
   const task = await db.query.tasks.findFirst({
     where: eq(tasks.id, instance.taskId),
   })
-  if (!task || !task.active) return
+  if (!task?.active) return
   if (task.snoozeUntil && task.snoozeUntil > now) return
 
   // Route the reminder to whoever the task is *for*, not whoever created
@@ -127,9 +120,7 @@ async function handleOne(data: SendReminderJobData) {
         )
         if (!result.ok) {
           if (result.gone) {
-            await db
-              .delete(pushSubscriptions)
-              .where(eq(pushSubscriptions.id, sub.id))
+            await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id))
           } else {
             await db
               .update(pushSubscriptions)
@@ -163,10 +154,9 @@ async function handleOne(data: SendReminderJobData) {
       // by boss.ts — would create a cycle. Dynamic import keeps both files
       // self-contained.
       const { scheduleReminder } = await import('../boss')
-      await scheduleReminder(
-        { taskInstanceId: instance.id, attempt: attempt + 1 },
-        nextAt,
-      ).catch((e) => console.error('escalation reschedule failed', e))
+      await scheduleReminder({ taskInstanceId: instance.id, attempt: attempt + 1 }, nextAt).catch(
+        (e) => console.error('escalation reschedule failed', e),
+      )
     }
   }
 }
@@ -186,9 +176,6 @@ function reminderCopy(
   // follow-up and not a fresh notification for a new task.
   return {
     title: `Still on your list: ${title}`,
-    body:
-      attempt >= MAX_REMINDER_ATTEMPTS
-        ? 'Last nudge for this one.'
-        : 'Ready to knock it out?',
+    body: attempt >= MAX_REMINDER_ATTEMPTS ? 'Last nudge for this one.' : 'Ready to knock it out?',
   }
 }

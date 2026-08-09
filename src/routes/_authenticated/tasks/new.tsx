@@ -1,23 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  createTask,
-  findSimilarTasks,
-  readdTask,
-} from '../../../server/functions/tasks'
+import { createTask, findSimilarTasks, readdTask } from '../../../server/functions/tasks'
 import { getMyHouseholdFn } from '../../../server/functions/households'
 import { getLlmStatus } from '../../../server/functions/config'
-import type {
-  DurationUnit,
-  MonthlyWeekIndex,
-  Recurrence,
-} from '../../../domain/recurrence'
+import type { DurationUnit, MonthlyWeekIndex, Recurrence } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
-import type {
-  SimilarTask,
-  TaskVisibility,
-} from '../../../server/services/tasks'
+import type { SimilarTask, TaskVisibility } from '../../../server/services/tasks'
 import { WeekdayPicker } from '../../../components/WeekdayPicker'
 import { PositiveNumberInput } from '../../../components/NumberInput'
 
@@ -71,10 +60,7 @@ function weekTargetOffset(
 
 // Build the target Date at 09:00 local on the chosen day, or null if
 // the chosen ("this week") day is already past.
-function buildWeekTargetDate(
-  weekKind: 'this' | 'next',
-  targetDow: number,
-): Date | null {
+function buildWeekTargetDate(weekKind: 'this' | 'next', targetDow: number): Date | null {
   const now = new Date()
   const offset = weekTargetOffset(now.getDay(), targetDow, weekKind)
   if (offset < 0) return null
@@ -172,8 +158,7 @@ function NewTaskPage() {
   //                            recurrence. Only meaningful for
   //                            recurring household chores, and only
   //                            available to admins.
-  const [rotationStrategy, setRotationStrategy] =
-    useState<'fixed' | 'round_robin'>('fixed')
+  const [rotationStrategy, setRotationStrategy] = useState<'fixed' | 'round_robin'>('fixed')
   const [rotationPool, setRotationPool] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   // When set, the form re-adds an instance to this existing task instead
@@ -217,8 +202,7 @@ function NewTaskPage() {
     const t = setTimeout(() => setDebouncedTitle(title.trim()), 300)
     return () => clearTimeout(t)
   }, [title])
-  const searchHouseholdId =
-    forHousehold && household ? household.household.id : null
+  const searchHouseholdId = forHousehold && household ? household.household.id : null
   const similarQuery = useQuery({
     queryKey: ['similar-tasks', debouncedTitle, searchHouseholdId],
     queryFn: () =>
@@ -292,19 +276,13 @@ function NewTaskPage() {
     setError(null)
     // Recurrence is irrelevant when combining (the existing task's
     // recurrence wins), so skip the weekly-days check in that case.
-    if (
-      !combining &&
-      !isSomeday &&
-      recurrenceKind === 'weekly' &&
-      weekdays.length === 0
-    ) {
+    if (!combining && !isSomeday && recurrenceKind === 'weekly' && weekdays.length === 0) {
       setError('Pick at least one day of the week.')
       return
     }
     let dueAtOverride: string | null = null
     if (dueKind === 'in') {
-      const ms =
-        inUnit === 'minutes' ? inAmount * 60_000 : inAmount * 60 * 60_000
+      const ms = inUnit === 'minutes' ? inAmount * 60_000 : inAmount * 60 * 60_000
       dueAtOverride = new Date(Date.now() + ms).toISOString()
     } else if (dueKind === 'date') {
       // Combine the picked date with optional time in the browser's
@@ -312,7 +290,7 @@ function NewTaskPage() {
       // (a sensible morning default for a date-only task).
       const time = dateTime || '09:00'
       const local = new Date(`${dateStr}T${time}:00`)
-      if (isNaN(local.getTime())) {
+      if (Number.isNaN(local.getTime())) {
         setError('Pick a valid date.')
         return
       }
@@ -326,11 +304,7 @@ function NewTaskPage() {
       dueAtOverride = target.toISOString()
     }
     const effectiveTimeOfDay =
-      dueKind === 'timed'
-        ? timeOfDay
-        : dueKind === 'date' && dateTime
-          ? dateTime
-          : null
+      dueKind === 'timed' ? timeOfDay : dueKind === 'date' && dateTime ? dateTime : null
     const effectiveTimeByWeekday =
       dueKind === 'timed' && recurrenceKind === 'daily' && weekendDiffers
         ? { '0': weekendTimeOfDay, '6': weekendTimeOfDay }
@@ -349,9 +323,7 @@ function NewTaskPage() {
       })
       return
     }
-    const cleanedSteps = steps
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
+    const cleanedSteps = steps.map((s) => s.trim()).filter((s) => s.length > 0)
     let householdId: string | null = null
     let assignedToUserId: string | null = null
     let outgoingAssigneeGroup: 'adults' | 'kids' | null = null
@@ -425,13 +397,11 @@ function NewTaskPage() {
   if (isKid) {
     return (
       <main className="page-wrap px-4 py-8">
-        <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">
-          New task
-        </h1>
+        <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">New task</h1>
         <div className="island-shell max-w-xl rounded-2xl p-6">
           <p className="text-sm text-[var(--sea-ink)]">
-            Ask a grown-up in your household to add chores for you. You can
-            complete chores from the Today page.
+            Ask a grown-up in your household to add chores for you. You can complete chores from the
+            Today page.
           </p>
         </div>
       </main>
@@ -440,9 +410,7 @@ function NewTaskPage() {
 
   return (
     <main className="page-wrap px-4 py-8">
-      <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">
-        New task
-      </h1>
+      <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">New task</h1>
       <form onSubmit={onSubmit} className="island-shell max-w-xl space-y-5 rounded-2xl p-6">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
@@ -476,9 +444,7 @@ function NewTaskPage() {
               setCombineTaskId(s.id)
               setCombineTitle(s.title)
               setCombineOpen(
-                s.hasOpenInstance
-                  ? { dueAt: s.openDueAt, snoozedUntil: s.openSnoozedUntil }
-                  : null,
+                s.hasOpenInstance ? { dueAt: s.openDueAt, snoozedUntil: s.openSnoozedUntil } : null,
               )
             }}
           />
@@ -562,8 +528,7 @@ function NewTaskPage() {
                 // past in this calendar week.
                 if (
                   next === 'week' &&
-                  weekTargetOffset(new Date().getDay(), weekTargetDow, 'this') <
-                    0
+                  weekTargetOffset(new Date().getDay(), weekTargetDow, 'this') < 0
                 ) {
                   setWeekKind('next')
                 }
@@ -612,9 +577,7 @@ function NewTaskPage() {
                 />
                 <select
                   value={inUnit}
-                  onChange={(e) =>
-                    setInUnit(e.target.value as 'minutes' | 'hours')
-                  }
+                  onChange={(e) => setInUnit(e.target.value as 'minutes' | 'hours')}
                   className="field-input max-w-[10rem]"
                 >
                   <option value="minutes">minutes</option>
@@ -641,10 +604,7 @@ function NewTaskPage() {
                   onChange={(e) => setTimeOfDay(e.target.value)}
                   className="field-input max-w-[10rem]"
                 />
-                <PastTimeHint
-                  time={timeOfDay}
-                  recurring={recurrenceKind !== 'none'}
-                />
+                <PastTimeHint time={timeOfDay} recurring={recurrenceKind !== 'none'} />
               </div>
               {recurrenceKind === 'daily' ? (
                 <div>
@@ -687,204 +647,197 @@ function NewTaskPage() {
 
         {combining ? null : (
           <>
-        <label className={`block ${recurrenceLocked ? 'opacity-50' : ''}`}>
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Recurrence
-          </span>
-          <select
-            value={recurrenceKind}
-            onChange={(e) => setKind(e.target.value as RecurrenceKind)}
-            disabled={recurrenceLocked}
-            className="field-input"
-          >
-            <option value="none">One-off</option>
-            <option value="daily">Every day</option>
-            <option value="weekly">On specific days of the week</option>
-            <option value="interval">Every N minutes / hours / days</option>
-            <option value="after_completion">N after last done</option>
-            <option value="monthly_day">Monthly — on a specific date</option>
-            <option value="monthly_weekday">
-              Monthly — on the Nth weekday
-            </option>
-          </select>
-          {isSomeday ? (
-            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Someday tasks don't repeat.
-            </p>
-          ) : dueKind === 'week' ? (
-            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Target-day tasks are one-off for now.
-            </p>
-          ) : null}
-        </label>
-
-        {recurrenceKind === 'weekly' && !recurrenceLocked ? (
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Days of the week
-            </legend>
-            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
-          </fieldset>
-        ) : null}
-
-        {recurrenceKind === 'interval' && !recurrenceLocked ? (
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Every
-            </legend>
-            <AmountUnitPicker
-              amount={intervalAmount}
-              unit={intervalUnit}
-              onAmountChange={setIntervalAmount}
-              onUnitChange={setIntervalUnit}
-            />
-          </fieldset>
-        ) : null}
-
-        {recurrenceKind === 'after_completion' && !recurrenceLocked ? (
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              After completion
-            </legend>
-            <AmountUnitPicker
-              amount={afterAmount}
-              unit={afterUnit}
-              onAmountChange={setAfterAmount}
-              onUnitChange={setAfterUnit}
-            />
-          </fieldset>
-        ) : null}
-
-        {recurrenceKind === 'monthly_day' && !recurrenceLocked ? (
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Day of the month
-            </legend>
-            <MonthlyDayPicker value={monthlyDay} onChange={setMonthlyDay} />
-            <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Months without that day (e.g. 31st in February) fire on the
-              last day instead.
-            </p>
-          </fieldset>
-        ) : null}
-
-        {recurrenceKind === 'monthly_weekday' && !recurrenceLocked ? (
-          <fieldset>
-            <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Which weekday each month
-            </legend>
-            <MonthlyWeekdayPicker
-              week={monthlyWeek}
-              dayOfWeek={monthlyDayOfWeek}
-              onWeekChange={setMonthlyWeek}
-              onDayOfWeekChange={setMonthlyDayOfWeek}
-            />
-          </fieldset>
-        ) : null}
-
-        {household && !isKid ? (
-          <fieldset className="block rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={forHousehold}
-                onChange={(e) => setForHousehold(e.target.checked)}
-                className="mt-1"
-              />
-              <span className="flex-1">
-                <span className="block text-sm font-semibold text-[var(--sea-ink)]">
-                  Household chore
-                </span>
-                <span className="block text-xs text-[var(--sea-ink-soft)]">
-                  Visible to the {household.household.name} household. XP goes
-                  to whoever completes it.
-                </span>
+            <label className={`block ${recurrenceLocked ? 'opacity-50' : ''}`}>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Recurrence
               </span>
+              <select
+                value={recurrenceKind}
+                onChange={(e) => setKind(e.target.value as RecurrenceKind)}
+                disabled={recurrenceLocked}
+                className="field-input"
+              >
+                <option value="none">One-off</option>
+                <option value="daily">Every day</option>
+                <option value="weekly">On specific days of the week</option>
+                <option value="interval">Every N minutes / hours / days</option>
+                <option value="after_completion">N after last done</option>
+                <option value="monthly_day">Monthly — on a specific date</option>
+                <option value="monthly_weekday">Monthly — on the Nth weekday</option>
+              </select>
+              {isSomeday ? (
+                <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+                  Someday tasks don't repeat.
+                </p>
+              ) : dueKind === 'week' ? (
+                <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+                  Target-day tasks are one-off for now.
+                </p>
+              ) : null}
             </label>
-            {forHousehold ? (
-              <div className="mt-3 space-y-3">
-                {/* Round-robin is only meaningful for recurring chores.
+
+            {recurrenceKind === 'weekly' && !recurrenceLocked ? (
+              <fieldset>
+                <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Days of the week
+                </legend>
+                <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+              </fieldset>
+            ) : null}
+
+            {recurrenceKind === 'interval' && !recurrenceLocked ? (
+              <fieldset>
+                <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Every
+                </legend>
+                <AmountUnitPicker
+                  amount={intervalAmount}
+                  unit={intervalUnit}
+                  onAmountChange={setIntervalAmount}
+                  onUnitChange={setIntervalUnit}
+                />
+              </fieldset>
+            ) : null}
+
+            {recurrenceKind === 'after_completion' && !recurrenceLocked ? (
+              <fieldset>
+                <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  After completion
+                </legend>
+                <AmountUnitPicker
+                  amount={afterAmount}
+                  unit={afterUnit}
+                  onAmountChange={setAfterAmount}
+                  onUnitChange={setAfterUnit}
+                />
+              </fieldset>
+            ) : null}
+
+            {recurrenceKind === 'monthly_day' && !recurrenceLocked ? (
+              <fieldset>
+                <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Day of the month
+                </legend>
+                <MonthlyDayPicker value={monthlyDay} onChange={setMonthlyDay} />
+                <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
+                  Months without that day (e.g. 31st in February) fire on the last day instead.
+                </p>
+              </fieldset>
+            ) : null}
+
+            {recurrenceKind === 'monthly_weekday' && !recurrenceLocked ? (
+              <fieldset>
+                <legend className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                  Which weekday each month
+                </legend>
+                <MonthlyWeekdayPicker
+                  week={monthlyWeek}
+                  dayOfWeek={monthlyDayOfWeek}
+                  onWeekChange={setMonthlyWeek}
+                  onDayOfWeekChange={setMonthlyDayOfWeek}
+                />
+              </fieldset>
+            ) : null}
+
+            {household && !isKid ? (
+              <fieldset className="block rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={forHousehold}
+                    onChange={(e) => setForHousehold(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span className="flex-1">
+                    <span className="block text-sm font-semibold text-[var(--sea-ink)]">
+                      Household chore
+                    </span>
+                    <span className="block text-xs text-[var(--sea-ink-soft)]">
+                      Visible to the {household.household.name} household. XP goes to whoever
+                      completes it.
+                    </span>
+                  </span>
+                </label>
+                {forHousehold ? (
+                  <div className="mt-3 space-y-3">
+                    {/* Round-robin is only meaningful for recurring chores.
                     Otherwise fall back to the fixed assignee picker. */}
-                {!recurrenceLocked && recurrenceKind !== 'none' ? (
-                  <div
-                    className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-1"
-                    role="radiogroup"
-                    aria-label="Rotation"
-                  >
-                    {(['fixed', 'round_robin'] as const).map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        role="radio"
-                        aria-checked={rotationStrategy === r}
-                        onClick={() => setRotationStrategy(r)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                          rotationStrategy === r
-                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
-                            : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
-                        }`}
+                    {!recurrenceLocked && recurrenceKind !== 'none' ? (
+                      <div
+                        className="flex gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-1"
+                        role="radiogroup"
+                        aria-label="Rotation"
                       >
-                        {r === 'fixed' ? 'Fixed assignee' : 'Round-robin'}
-                      </button>
-                    ))}
+                        {(['fixed', 'round_robin'] as const).map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            role="radio"
+                            aria-checked={rotationStrategy === r}
+                            onClick={() => setRotationStrategy(r)}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                              rotationStrategy === r
+                                ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
+                                : 'text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]'
+                            }`}
+                          >
+                            {r === 'fixed' ? 'Fixed assignee' : 'Round-robin'}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {rotationStrategy === 'round_robin' ? (
+                      <RotationPoolPicker
+                        members={household.members.filter((m) => m.role !== 'kiosk')}
+                        pool={rotationPool}
+                        onChange={setRotationPool}
+                      />
+                    ) : (
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                          Assignee
+                        </span>
+                        <select
+                          value={assignee}
+                          onChange={(e) => setAssignee(e.target.value)}
+                          className="field-input"
+                        >
+                          <option value="ffa">Free for all — anyone can complete</option>
+                          <option value="group:adults">Any adult — no specific person</option>
+                          {household.members.some((m) => m.role === 'kid') ? (
+                            <option value="group:kids">Any kid — no specific person</option>
+                          ) : null}
+                          {/* Any adult may assign to any specific member. */}
+                          {household.members
+                            .filter((m) => m.role !== 'kiosk')
+                            .map((m) => (
+                              <option key={m.userId} value={m.userId}>
+                                Assign to {m.name} (@{m.handle})
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    )}
                   </div>
                 ) : null}
-
-                {rotationStrategy === 'round_robin' ? (
-                  <RotationPoolPicker
-                    members={household.members.filter(
-                      (m) => m.role !== 'kiosk',
-                    )}
-                    pool={rotationPool}
-                    onChange={setRotationPool}
-                  />
-                ) : (
-                  <label className="block">
-                    <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-                      Assignee
-                    </span>
-                    <select
-                      value={assignee}
-                      onChange={(e) => setAssignee(e.target.value)}
-                      className="field-input"
-                    >
-                      <option value="ffa">Free for all — anyone can complete</option>
-                      <option value="group:adults">Any adult — no specific person</option>
-                      {household.members.some((m) => m.role === 'kid') ? (
-                        <option value="group:kids">Any kid — no specific person</option>
-                      ) : null}
-                      {/* Any adult may assign to any specific member. */}
-                      {household.members
-                        .filter((m) => m.role !== 'kiosk')
-                        .map((m) => (
-                          <option key={m.userId} value={m.userId}>
-                            Assign to {m.name} (@{m.handle})
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                )}
-              </div>
+              </fieldset>
             ) : null}
-          </fieldset>
-        ) : null}
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Who can see this
-          </span>
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as TaskVisibility)}
-            className="field-input"
-          >
-            <option value="private">Private — just me</option>
-            <option value="friends">Friends — shown in activity feed</option>
-            <option value="public">
-              Public — shown on my profile
-            </option>
-          </select>
-        </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Who can see this
+              </span>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as TaskVisibility)}
+                className="field-input"
+              >
+                <option value="private">Private — just me</option>
+                <option value="friends">Friends — shown in activity feed</option>
+                <option value="public">Public — shown on my profile</option>
+              </select>
+            </label>
           </>
         )}
 
@@ -927,8 +880,7 @@ function SimilarTaskHint({
   return (
     <div className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] px-3 py-2">
       <p className="text-xs text-[var(--sea-ink-soft)]">
-        Done this before? Combine to keep {household ? 'household ' : ''}stats
-        together.
+        Done this before? Combine to keep {household ? 'household ' : ''}stats together.
       </p>
       <ul className="mt-1.5 space-y-1">
         {suggestions.map((s) => (
@@ -971,13 +923,12 @@ function CombineBanner({
   return (
     <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] px-3 py-2">
       <span className="min-w-0 flex-1 text-sm text-[var(--sea-ink)]">
-        Combining stats with{' '}
-        <span className="font-semibold">{title}</span>. Pick when it&rsquo;s
+        Combining stats with <span className="font-semibold">{title}</span>. Pick when it&rsquo;s
         due again below — its other settings stay the same.
         {open ? (
           <span className="mt-1 block text-xs text-[var(--sea-ink-soft)]">
-            ⚠️ Already on your list — {describeOpenInstance(open)}. Picking a
-            date below reschedules it.
+            ⚠️ Already on your list — {describeOpenInstance(open)}. Picking a date below reschedules
+            it.
           </span>
         ) : null}
       </span>
@@ -995,19 +946,16 @@ function CombineBanner({
 // Human-readable summary of an open instance's current due/snooze state for
 // the combine banner, e.g. "due Jun 22", "no due date (someday)", or
 // "snoozed until Jun 22".
-function describeOpenInstance(open: {
-  dueAt: string | null
-  snoozedUntil: string | null
-}): string {
+function describeOpenInstance(open: { dueAt: string | null; snoozedUntil: string | null }): string {
   if (open.snoozedUntil) {
     const s = new Date(open.snoozedUntil)
-    if (!isNaN(s.getTime()) && s.getTime() > Date.now()) {
+    if (!Number.isNaN(s.getTime()) && s.getTime() > Date.now()) {
       return `snoozed until ${formatDueDate(s)}`
     }
   }
   if (!open.dueAt) return 'no due date (someday)'
   const d = new Date(open.dueAt)
-  if (isNaN(d.getTime())) return 'currently scheduled'
+  if (Number.isNaN(d.getTime())) return 'currently scheduled'
   return `due ${formatDueDate(d)}`
 }
 
@@ -1022,7 +970,7 @@ function formatDueDate(d: Date): string {
 
 function formatLastDone(iso: string): string {
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
+  if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
@@ -1051,8 +999,7 @@ function RotationPoolPicker({
         Who&rsquo;s in the rotation
       </p>
       <p className="mb-2 text-xs text-[var(--sea-ink-soft)]">
-        Each time this chore comes up, it cycles to the next person in
-        the list. Pick at least two.
+        Each time this chore comes up, it cycles to the next person in the list. Pick at least two.
       </p>
       <ul className="space-y-1.5">
         {members.length === 0 ? (
@@ -1071,16 +1018,9 @@ function RotationPoolPicker({
                       : 'border-[var(--line)] bg-[var(--surface-strong)]'
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(m.userId)}
-                  />
+                  <input type="checkbox" checked={checked} onChange={() => toggle(m.userId)} />
                   <span className="flex-1 text-[var(--sea-ink)]">
-                    {m.name}{' '}
-                    <span className="text-xs text-[var(--sea-ink-soft)]">
-                      @{m.handle}
-                    </span>
+                    {m.name} <span className="text-xs text-[var(--sea-ink-soft)]">@{m.handle}</span>
                   </span>
                 </label>
               </li>
@@ -1123,17 +1063,12 @@ function DueOption({
         className="mt-0.5"
       />
       <span className="flex-1">
-        <span className="block text-sm font-semibold text-[var(--sea-ink)]">
-          {label}
-        </span>
-        <span className="block text-xs text-[var(--sea-ink-soft)]">
-          {detail}
-        </span>
+        <span className="block text-sm font-semibold text-[var(--sea-ink)]">{label}</span>
+        <span className="block text-xs text-[var(--sea-ink-soft)]">{detail}</span>
       </span>
     </label>
   )
 }
-
 
 function WeekTargetPicker({
   weekKind,
@@ -1180,14 +1115,9 @@ function WeekTargetPicker({
           )
         })}
       </div>
-      <div
-        className="flex flex-wrap gap-1"
-        role="radiogroup"
-        aria-label="Target day"
-      >
+      <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Target day">
         {WEEKDAY_SHORT.map((label, dow) => {
-          const isPast =
-            weekKind === 'this' && weekTargetOffset(todayDow, dow, 'this') < 0
+          const isPast = weekKind === 'this' && weekTargetOffset(todayDow, dow, 'this') < 0
           const selected = targetDow === dow
           return (
             <button
@@ -1212,11 +1142,7 @@ function WeekTargetPicker({
       <p className="text-xs text-[var(--sea-ink-soft)]">
         {target
           ? `Target ${targetLabel} (${
-              offset === 0
-                ? 'today'
-                : offset === 1
-                  ? 'in 1 day'
-                  : `in ${offset} days`
+              offset === 0 ? 'today' : offset === 1 ? 'in 1 day' : `in ${offset} days`
             }). Bonus XP if done a day or more early; ~95% one day late, ~85% two days; full hard-late floor after that.`
           : 'That day is already past in this calendar week — pick another day or switch to Next week.'}
       </p>
@@ -1224,13 +1150,7 @@ function WeekTargetPicker({
   )
 }
 
-function PastTimeHint({
-  time,
-  recurring,
-}: {
-  time: string
-  recurring: boolean
-}) {
+function PastTimeHint({ time, recurring }: { time: string; recurring: boolean }) {
   // Parse the user's HH:MM pick and compare against now in local clock
   // time. A one-off past time fires today as overdue; a recurring task
   // rolls to its next occurrence. Both are explicit here so there's no
@@ -1281,13 +1201,7 @@ function AmountUnitPicker({
   )
 }
 
-function MonthlyDayPicker({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (n: number) => void
-}) {
+function MonthlyDayPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm text-[var(--sea-ink-soft)]">On the</span>
@@ -1341,9 +1255,7 @@ function MonthlyWeekdayPicker({
       <span className="text-sm text-[var(--sea-ink-soft)]">The</span>
       <select
         value={week}
-        onChange={(e) =>
-          onWeekChange(Number(e.target.value) as MonthlyWeekIndex)
-        }
+        onChange={(e) => onWeekChange(Number(e.target.value) as MonthlyWeekIndex)}
         className="field-input max-w-[8rem]"
       >
         {MONTHLY_WEEK_OPTIONS.map((o) => (
@@ -1383,13 +1295,7 @@ function ordinal(n: number): string {
   }
 }
 
-function StepsField({
-  steps,
-  onChange,
-}: {
-  steps: string[]
-  onChange: (next: string[]) => void
-}) {
+function StepsField({ steps, onChange }: { steps: string[]; onChange: (next: string[]) => void }) {
   const [newTitle, setNewTitle] = useState('')
 
   function update(i: number, value: string) {

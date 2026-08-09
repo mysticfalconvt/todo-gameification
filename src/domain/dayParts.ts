@@ -6,12 +6,7 @@
 
 export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night' | 'anytime'
 
-export const TIMED_DAY_PARTS: DayPart[] = [
-  'morning',
-  'afternoon',
-  'evening',
-  'night',
-]
+export const TIMED_DAY_PARTS: DayPart[] = ['morning', 'afternoon', 'evening', 'night']
 
 export const DAY_PART_LABEL: Record<DayPart, string> = {
   morning: 'Morning',
@@ -50,10 +45,7 @@ export function currentDayPart(at: Date, timeZone: string): DayPart {
 // Index into the timed-order array. Used to compare "is this bucket past
 // or current compared to now?" Night wraps: when the current part is
 // night, every other part is treated as future (tomorrow).
-export function isBucketCurrentOrPast(
-  bucket: DayPart,
-  current: DayPart,
-): boolean {
+export function isBucketCurrentOrPast(bucket: DayPart, current: DayPart): boolean {
   if (bucket === 'anytime') return true
   const order: Record<DayPart, number> = {
     morning: 0,

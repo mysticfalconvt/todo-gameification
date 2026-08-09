@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  drainQueue,
-  isOnline,
-  onQueueChange,
-} from '../lib/offline-queue'
+import { drainQueue, isOnline, onQueueChange } from '../lib/offline-queue'
 
 /**
  * Small pill near the nav showing offline state + queued mutation count.
@@ -41,9 +37,7 @@ export function OfflineIndicator() {
         qc.invalidateQueries({ queryKey: ['recent-activity'] })
       }
       for (const failed of result.dropped) {
-        toast.error(
-          `Couldn't sync a ${failed.op.type}: ${failed.error}`,
-        )
+        toast.error(`Couldn't sync a ${failed.op.type}: ${failed.error}`)
       }
     }
 

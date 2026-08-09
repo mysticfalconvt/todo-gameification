@@ -124,9 +124,7 @@ async function householdHasPaidMember(userId: string): Promise<boolean> {
     where: eq(householdMembers.householdId, mine.householdId),
     columns: { userId: true },
   })
-  const otherIds = siblings
-    .map((s) => s.userId)
-    .filter((id) => id !== userId)
+  const otherIds = siblings.map((s) => s.userId).filter((id) => id !== userId)
   if (otherIds.length === 0) return false
 
   const rows = await db.query.memberships.findMany({
@@ -140,9 +138,7 @@ async function householdHasPaidMember(userId: string): Promise<boolean> {
 // inherited full access. This is what gates member-only features and
 // drives the upsell banners, so kids/partners in a paid family get the
 // same access as the payer and never see "upgrade" prompts.
-export async function getEffectiveMemberStatus(
-  userId: string,
-): Promise<MemberStatus> {
+export async function getEffectiveMemberStatus(userId: string): Promise<MemberStatus> {
   const own = await getMemberStatus(userId)
   if (own.isMember) return own
   if (!(await householdHasPaidMember(userId))) return own
@@ -161,9 +157,7 @@ export async function requireMember(userId: string): Promise<MemberStatus> {
 // the folded state. Used by `rebuildMembership` and for forensics. The
 // volume per user is tiny (a handful of rows over a lifetime) so a full
 // scan with a sort is fine.
-async function loadMembershipEventsForUser(
-  userId: string,
-): Promise<DomainEvent[]> {
+async function loadMembershipEventsForUser(userId: string): Promise<DomainEvent[]> {
   const rows = await db
     .select({
       type: events.type,
@@ -171,12 +165,7 @@ async function loadMembershipEventsForUser(
       occurredAt: events.occurredAt,
     })
     .from(events)
-    .where(
-      and(
-        eq(events.userId, userId),
-        inArray(events.type, [...MEMBERSHIP_EVENT_TYPES]),
-      ),
-    )
+    .where(and(eq(events.userId, userId), inArray(events.type, [...MEMBERSHIP_EVENT_TYPES])))
     // Tiebreaker on event id: defends against same-millisecond writes
     // (e.g. trial_started + a near-instant manual grant) so replay is
     // deterministic.
@@ -185,15 +174,8 @@ async function loadMembershipEventsForUser(
   return rows.map((r) => deserializeEvent(r.type, r.payload, r.occurredAt))
 }
 
-function deserializeEvent(
-  type: string,
-  payload: unknown,
-  occurredAt: Date,
-): DomainEvent {
-  const p = (payload && typeof payload === 'object' ? payload : {}) as Record<
-    string,
-    unknown
-  >
+function deserializeEvent(type: string, payload: unknown, occurredAt: Date): DomainEvent {
+  const p = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
   switch (type) {
     case 'membership.granted':
       return {
@@ -214,17 +196,11 @@ function deserializeEvent(
         type: 'membership.activated',
         tier: p.tier as 'annual' | 'lifetime',
         stripeCustomerId:
-          typeof p.stripeCustomerId === 'string' && p.stripeCustomerId
-            ? p.stripeCustomerId
-            : null,
+          typeof p.stripeCustomerId === 'string' && p.stripeCustomerId ? p.stripeCustomerId : null,
         stripeSubscriptionId:
-          typeof p.stripeSubscriptionId === 'string'
-            ? p.stripeSubscriptionId
-            : null,
+          typeof p.stripeSubscriptionId === 'string' ? p.stripeSubscriptionId : null,
         currentPeriodEnd:
-          typeof p.currentPeriodEnd === 'string'
-            ? new Date(p.currentPeriodEnd)
-            : null,
+          typeof p.currentPeriodEnd === 'string' ? new Date(p.currentPeriodEnd) : null,
         stripeEventId: String(p.stripeEventId ?? ''),
         occurredAt,
       }
@@ -245,8 +221,7 @@ function deserializeEvent(
     case 'membership.lapsed':
       return {
         type: 'membership.lapsed',
-        reason: (p.reason as 'period_end' | 'payment_failed' | 'voluntary') ??
-          'period_end',
+        reason: (p.reason as 'period_end' | 'payment_failed' | 'voluntary') ?? 'period_end',
         stripeEventId: String(p.stripeEventId ?? ''),
         occurredAt,
       }
@@ -341,9 +316,7 @@ export async function upsertProjection(
 
 // Loads the current projection state (NOT the synthesized free fallback).
 // Webhooks call this to fold the new event onto the prior state.
-export async function loadProjectionState(
-  userId: string,
-): Promise<MembershipState> {
+export async function loadProjectionState(userId: string): Promise<MembershipState> {
   const row = await db.query.memberships.findFirst({
     where: eq(memberships.userId, userId),
   })

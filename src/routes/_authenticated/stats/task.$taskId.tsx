@@ -3,10 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getTaskStats } from '../../../server/functions/tasks'
 import { useAvailableWindows } from '../../../lib/useAvailableWindows'
-import {
-  TimingDistributionSection,
-  XpLineSection,
-} from '../../../components/stats/charts'
+import { TimingDistributionSection, XpLineSection } from '../../../components/stats/charts'
 
 export const Route = createFileRoute('/_authenticated/stats/task/$taskId')({
   component: TaskStatsPage,
@@ -47,9 +44,7 @@ function TaskStatsPage() {
               {stats?.task.title ?? 'Loading…'}
             </h1>
             {stats && (
-              <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-                {taskMetaLine(stats.task)}
-              </p>
+              <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">{taskMetaLine(stats.task)}</p>
             )}
           </div>
           <div
@@ -149,34 +144,19 @@ function SummaryRow({
           hint="within 30 min"
         />
       )}
-      {timing && (
-        <Stat
-          label="Avg offset"
-          value={offsetLabel(timing.avgOffsetMin)}
-        />
-      )}
+      {timing && <Stat label="Avg offset" value={offsetLabel(timing.avgOffsetMin)} />}
     </section>
   )
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint?: string
-}) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="island-shell rounded-2xl p-4">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
         {label}
       </p>
       <p className="mt-1 text-xl font-bold text-[var(--sea-ink)]">{value}</p>
-      {hint && (
-        <p className="mt-0.5 text-[10px] text-[var(--sea-ink-soft)]">{hint}</p>
-      )}
+      {hint && <p className="mt-0.5 text-[10px] text-[var(--sea-ink-soft)]">{hint}</p>}
     </div>
   )
 }
@@ -195,22 +175,16 @@ function RecentCompletionsSection({
     return (
       <section className="island-shell rounded-2xl p-4">
         <header className="mb-3">
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            Recent completions
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">Recent completions</h2>
         </header>
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          No completions in this window yet.
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">No completions in this window yet.</p>
       </section>
     )
   }
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Recent completions
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Recent completions</h2>
       </header>
       <ul className="space-y-1">
         {items.map((item, i) => (
@@ -244,17 +218,13 @@ function RecentCompletionsSection({
               ) : null}
               <p
                 className={
-                  item.by
-                    ? 'text-xs text-[var(--sea-ink-soft)]'
-                    : 'text-sm text-[var(--sea-ink)]'
+                  item.by ? 'text-xs text-[var(--sea-ink-soft)]' : 'text-sm text-[var(--sea-ink)]'
                 }
               >
                 {formatDateTime(item.occurredAt)}
               </p>
             </div>
-            <span className="text-xs font-semibold text-[var(--lagoon-deep)]">
-              +{item.xp} XP
-            </span>
+            <span className="text-xs font-semibold text-[var(--lagoon-deep)]">+{item.xp} XP</span>
           </li>
         ))}
       </ul>
@@ -262,9 +232,7 @@ function RecentCompletionsSection({
   )
 }
 
-type Household = NonNullable<
-  Awaited<ReturnType<typeof getTaskStats>>['household']
->
+type Household = NonNullable<Awaited<ReturnType<typeof getTaskStats>>['household']>
 
 function HouseholdBreakdownSection({ household }: { household: Household }) {
   const total = household.perPerson.reduce((s, p) => s + p.completions, 0)

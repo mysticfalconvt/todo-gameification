@@ -27,8 +27,7 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
   }, [open])
 
   const start = useMutation({
-    mutationFn: (durationMin: DoomScrollDurationMin) =>
-      startDoomScroll({ data: { durationMin } }),
+    mutationFn: (durationMin: DoomScrollDurationMin) => startDoomScroll({ data: { durationMin } }),
     onSuccess: (_result, durationMin) => {
       qc.invalidateQueries({ queryKey: ['progression'] })
       qc.invalidateQueries({ queryKey: ['recent-activity'] })
@@ -70,16 +69,12 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
               💀 Doom scroll timer
             </h3>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              Spend a token to goof off guilt-free. We'll ping you when it's
-              time to get back to work.
+              Spend a token to goof off guilt-free. We'll ping you when it's time to get back to
+              work.
             </p>
           </div>
 
-          <div
-            role="radiogroup"
-            aria-label="Break duration"
-            className="grid grid-cols-4 gap-2"
-          >
+          <div role="radiogroup" aria-label="Break duration" className="grid grid-cols-4 gap-2">
             {DOOMSCROLL_DURATIONS.map((d) => (
               <button
                 key={d}
@@ -100,8 +95,7 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
           </div>
 
           <p className="text-xs text-[var(--sea-ink-soft)]">
-            Costs {DOOMSCROLL_TOKEN_COST}🪙 · earns +{DOOMSCROLL_XP}xp · you have{' '}
-            {tokens}🪙
+            Costs {DOOMSCROLL_TOKEN_COST}🪙 · earns +{DOOMSCROLL_XP}xp · you have {tokens}🪙
           </p>
 
           <div className="flex justify-end gap-2">

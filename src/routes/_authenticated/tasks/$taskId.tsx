@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  createFileRoute,
-  useNavigate,
-  useParams,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -21,11 +17,7 @@ import { listCategories } from '../../../server/functions/categories'
 import { getLlmStatus } from '../../../server/functions/config'
 import { getMyHouseholdFn } from '../../../server/functions/households'
 import { useSession } from '../../../lib/auth-client'
-import type {
-  DurationUnit,
-  MonthlyWeekIndex,
-  Recurrence,
-} from '../../../domain/recurrence'
+import type { DurationUnit, MonthlyWeekIndex, Recurrence } from '../../../domain/recurrence'
 import { resolveDuration } from '../../../domain/recurrence'
 import type { Difficulty } from '../../../domain/events'
 import type { TaskVisibility } from '../../../server/services/tasks'
@@ -262,12 +254,10 @@ function EditTaskPage() {
     queryFn: () => listCategories(),
   })
   const categories = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
-  const currentCategory =
-    categories.find((c) => c.slug === taskQuery.data?.categorySlug) ?? null
+  const currentCategory = categories.find((c) => c.slug === taskQuery.data?.categorySlug) ?? null
 
   const snooze = useMutation({
-    mutationFn: (until: string | null) =>
-      snoozeTask({ data: { taskId, until } }),
+    mutationFn: (until: string | null) => snoozeTask({ data: { taskId, until } }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['task', taskId] })
       await qc.invalidateQueries({ queryKey: ['tasks'] })
@@ -304,8 +294,7 @@ function EditTaskPage() {
       await qc.invalidateQueries({ queryKey: ['garden'] })
       await qc.invalidateQueries({ queryKey: ['recent-activity'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to reopen'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to reopen'),
   })
 
   const { data: session } = useSession()
@@ -317,9 +306,7 @@ function EditTaskPage() {
   const myHousehold = myHouseholdQuery.data ?? null
   const myMembershipRole = myHousehold?.role ?? null
   const canMoveToHousehold =
-    !!myHousehold &&
-    myMembershipRole !== 'kid' &&
-    myMembershipRole !== 'kiosk'
+    !!myHousehold && myMembershipRole !== 'kid' && myMembershipRole !== 'kiosk'
 
   // Sentinels: 'ffa' = free-for-all (null), 'self' = me,
   // 'group:adults' / 'group:kids' = role group, else a member userId.
@@ -347,9 +334,7 @@ function EditTaskPage() {
       await qc.invalidateQueries({ queryKey: ['household-chores-week'] })
     },
     onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to move to household',
-      )
+      toast.error(err instanceof Error ? err.message : 'Failed to move to household')
     },
   })
 
@@ -358,7 +343,7 @@ function EditTaskPage() {
   const [reassignChoice, setReassignChoice] = useState<string>('ffa')
   useEffect(() => {
     const t = taskQuery.data
-    if (!t || !t.householdId) return
+    if (!t?.householdId) return
     if (t.assigneeGroup === 'adults') setReassignChoice('group:adults')
     else if (t.assigneeGroup === 'kids') setReassignChoice('group:kids')
     else if (t.assignedToUserId === null) setReassignChoice('ffa')
@@ -387,9 +372,7 @@ function EditTaskPage() {
       await qc.invalidateQueries({ queryKey: ['household-chores-week'] })
     },
     onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to update assignee',
-      )
+      toast.error(err instanceof Error ? err.message : 'Failed to update assignee')
     },
   })
 
@@ -402,18 +385,13 @@ function EditTaskPage() {
       await qc.invalidateQueries({ queryKey: ['someday'] })
       await qc.invalidateQueries({ queryKey: ['task', taskId] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to re-add task'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to re-add task'),
   })
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (
-      !recurrenceLocked &&
-      recurrenceKind === 'weekly' &&
-      form.weekdays.length === 0
-    ) {
+    if (!recurrenceLocked && recurrenceKind === 'weekly' && form.weekdays.length === 0) {
       setError('Pick at least one day of the week.')
       return
     }
@@ -422,9 +400,7 @@ function EditTaskPage() {
       title,
       notes: notes.trim() ? notes : null,
       difficulty,
-      recurrence: recurrenceLocked
-        ? null
-        : buildRecurrence({ ...form, kind: recurrenceKind }),
+      recurrence: recurrenceLocked ? null : buildRecurrence({ ...form, kind: recurrenceKind }),
       timeOfDay: dueKind === 'timed' ? timeOfDay : null,
       timeByWeekday:
         dueKind === 'timed' && recurrenceKind === 'daily' && weekendDiffers
@@ -455,9 +431,7 @@ function EditTaskPage() {
 
   return (
     <main className="page-wrap px-4 py-8">
-      <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">
-        Edit task
-      </h1>
+      <h1 className="display-title mb-6 text-4xl font-bold text-[var(--sea-ink)]">Edit task</h1>
 
       <form onSubmit={onSubmit} className="island-shell max-w-xl space-y-5 rounded-2xl p-6">
         <label className="block">
@@ -516,9 +490,7 @@ function EditTaskPage() {
                       {currentCategory.label}
                     </p>
                   ) : (
-                    <p className="text-sm text-[var(--sea-ink-soft)]">
-                      Uncategorized
-                    </p>
+                    <p className="text-sm text-[var(--sea-ink-soft)]">Uncategorized</p>
                   )}
                 </div>
               </div>
@@ -629,8 +601,7 @@ function EditTaskPage() {
             </div>
           ) : null}
           <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
-            Changes affect future instances. The current open instance keeps its
-            existing due time.
+            Changes affect future instances. The current open instance keeps its existing due time.
           </p>
         </fieldset>
 
@@ -655,9 +626,7 @@ function EditTaskPage() {
             <option value="interval">Every N minutes / hours / days</option>
             <option value="after_completion">N after last done</option>
             <option value="monthly_day">Monthly — on a specific date</option>
-            <option value="monthly_weekday">
-              Monthly — on the Nth weekday
-            </option>
+            <option value="monthly_weekday">Monthly — on the Nth weekday</option>
           </select>
           {dueKind === 'week' ? (
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
@@ -686,12 +655,8 @@ function EditTaskPage() {
             <AmountUnitPicker
               amount={form.intervalAmount}
               unit={form.intervalUnit}
-              onAmountChange={(n) =>
-                setForm((f) => ({ ...f, intervalAmount: n }))
-              }
-              onUnitChange={(u) =>
-                setForm((f) => ({ ...f, intervalUnit: u }))
-              }
+              onAmountChange={(n) => setForm((f) => ({ ...f, intervalAmount: n }))}
+              onUnitChange={(u) => setForm((f) => ({ ...f, intervalUnit: u }))}
             />
           </fieldset>
         ) : null}
@@ -704,12 +669,8 @@ function EditTaskPage() {
             <AmountUnitPicker
               amount={form.afterAmount}
               unit={form.afterUnit}
-              onAmountChange={(n) =>
-                setForm((f) => ({ ...f, afterAmount: n }))
-              }
-              onUnitChange={(u) =>
-                setForm((f) => ({ ...f, afterUnit: u }))
-              }
+              onAmountChange={(n) => setForm((f) => ({ ...f, afterAmount: n }))}
+              onUnitChange={(u) => setForm((f) => ({ ...f, afterUnit: u }))}
             />
           </fieldset>
         ) : null}
@@ -724,8 +685,7 @@ function EditTaskPage() {
               onChange={(n) => setForm((f) => ({ ...f, monthlyDay: n }))}
             />
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Months without that day (e.g. 31st in February) fire on the
-              last day instead.
+              Months without that day (e.g. 31st in February) fire on the last day instead.
             </p>
           </fieldset>
         ) : null}
@@ -738,12 +698,8 @@ function EditTaskPage() {
             <MonthlyWeekdayPicker
               week={form.monthlyWeek}
               dayOfWeek={form.monthlyDayOfWeek}
-              onWeekChange={(w) =>
-                setForm((f) => ({ ...f, monthlyWeek: w }))
-              }
-              onDayOfWeekChange={(d) =>
-                setForm((f) => ({ ...f, monthlyDayOfWeek: d }))
-              }
+              onWeekChange={(w) => setForm((f) => ({ ...f, monthlyWeek: w }))}
+              onDayOfWeekChange={(d) => setForm((f) => ({ ...f, monthlyDayOfWeek: d }))}
             />
           </fieldset>
         ) : null}
@@ -759,9 +715,7 @@ function EditTaskPage() {
           >
             <option value="private">Private — just me</option>
             <option value="friends">Friends — shown in activity feed</option>
-            <option value="public">
-              Public — shown on my profile
-            </option>
+            <option value="public">Public — shown on my profile</option>
           </select>
         </label>
 
@@ -775,35 +729,27 @@ function EditTaskPage() {
             </p>
           ) : (
             <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
-              Hide from Today + stop reminders until a chosen date. Existing
-              instances stay scheduled but won't fire.
+              Hide from Today + stop reminders until a chosen date. Existing instances stay
+              scheduled but won't fire.
             </p>
           )}
           <div className="flex flex-wrap gap-2">
             <SnoozeButton
               label="1 week"
-              onClick={() =>
-                snooze.mutate(
-                  new Date(Date.now() + 7 * 24 * 3_600_000).toISOString(),
-                )
-              }
+              onClick={() => snooze.mutate(new Date(Date.now() + 7 * 24 * 3_600_000).toISOString())}
               disabled={snooze.isPending}
             />
             <SnoozeButton
               label="1 month"
               onClick={() =>
-                snooze.mutate(
-                  new Date(Date.now() + 30 * 24 * 3_600_000).toISOString(),
-                )
+                snooze.mutate(new Date(Date.now() + 30 * 24 * 3_600_000).toISOString())
               }
               disabled={snooze.isPending}
             />
             <SnoozeButton
               label="3 months"
               onClick={() =>
-                snooze.mutate(
-                  new Date(Date.now() + 90 * 24 * 3_600_000).toISOString(),
-                )
+                snooze.mutate(new Date(Date.now() + 90 * 24 * 3_600_000).toISOString())
               }
               disabled={snooze.isPending}
             />
@@ -829,9 +775,9 @@ function EditTaskPage() {
               Move to household
             </legend>
             <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
-              Promote this personal task into <strong>{myHousehold.household.name}</strong>{' '}
-              so the rest of the household can see it. Your past completions stay
-              on your personal stats; new completions count toward the household.
+              Promote this personal task into <strong>{myHousehold.household.name}</strong> so the
+              rest of the household can see it. Your past completions stay on your personal stats;
+              new completions count toward the household.
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <label className="block">
@@ -870,8 +816,7 @@ function EditTaskPage() {
                     moveAssigneeChoice === 'group:adults' ||
                     moveAssigneeChoice === 'group:kids'
                   ) {
-                    assigneeGroup =
-                      moveAssigneeChoice === 'group:adults' ? 'adults' : 'kids'
+                    assigneeGroup = moveAssigneeChoice === 'group:adults' ? 'adults' : 'kids'
                   } else if (moveAssigneeChoice === 'self') {
                     assignedToUserId = myUserId
                   } else {
@@ -895,15 +840,14 @@ function EditTaskPage() {
             </legend>
             {task.rotationStrategy === 'round_robin' ? (
               <p className="text-sm text-[var(--sea-ink-soft)]">
-                This chore rotates automatically through its round-robin
-                pool, so it can&rsquo;t be reassigned to one person here.
+                This chore rotates automatically through its round-robin pool, so it can&rsquo;t be
+                reassigned to one person here.
               </p>
-            ) : myHousehold &&
-              myHousehold.household.id === task.householdId ? (
+            ) : myHousehold && myHousehold.household.id === task.householdId ? (
               <>
                 <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
-                  Change who&rsquo;s responsible for this chore. New
-                  completions count toward whoever does it.
+                  Change who&rsquo;s responsible for this chore. New completions count toward
+                  whoever does it.
                 </p>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="block">
@@ -923,9 +867,7 @@ function EditTaskPage() {
                       <option value="self">Assign to me</option>
                       {/* Any adult may assign to any specific member. */}
                       {myHousehold.members
-                        .filter(
-                          (m) => m.role !== 'kiosk' && m.userId !== myUserId,
-                        )
+                        .filter((m) => m.role !== 'kiosk' && m.userId !== myUserId)
                         .map((m) => (
                           <option key={m.userId} value={m.userId}>
                             Assign to {m.name} (@{m.handle})
@@ -944,8 +886,7 @@ function EditTaskPage() {
                         reassignChoice === 'group:adults' ||
                         reassignChoice === 'group:kids'
                       ) {
-                        assigneeGroup =
-                          reassignChoice === 'group:adults' ? 'adults' : 'kids'
+                        assigneeGroup = reassignChoice === 'group:adults' ? 'adults' : 'kids'
                       } else if (reassignChoice === 'self') {
                         assignedToUserId = myUserId
                       } else {
@@ -984,19 +925,16 @@ function EditTaskPage() {
             Correction
           </legend>
           <p className="mb-2 text-sm text-[var(--sea-ink-soft)]">
-            Checked off the wrong one? Reopen the most recent completion
-            and it'll move back into your Today list. If the task is
-            recurring, the speculative follow-up instance is cleaned up
-            so you don't end up with duplicates. XP and streaks are
-            re-computed from the event log.
+            Checked off the wrong one? Reopen the most recent completion and it'll move back into
+            your Today list. If the task is recurring, the speculative follow-up instance is cleaned
+            up so you don't end up with duplicates. XP and streaks are re-computed from the event
+            log.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
-                if (
-                  confirm('Reopen the most recent completion of this task?')
-                ) {
+                if (confirm('Reopen the most recent completion of this task?')) {
                   reopen.mutate()
                 }
               }}
@@ -1005,9 +943,7 @@ function EditTaskPage() {
             >
               {reopen.isPending ? 'Reopening…' : 'Reopen last completion'}
             </button>
-            {!task.recurrence &&
-            task.lastCompletedAt &&
-            !task.hasOpenInstance ? (
+            {!task.recurrence && task.lastCompletedAt && !task.hasOpenInstance ? (
               <button
                 type="button"
                 onClick={() => repeat.mutate()}
@@ -1019,10 +955,9 @@ function EditTaskPage() {
             ) : null}
           </div>
           <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
-            <strong>Reopen</strong> rolls back the prior completion (XP &amp;
-            streak adjust). <strong>Do it again</strong> keeps the prior
-            completion in your stats and just adds a fresh open instance for
-            today.
+            <strong>Reopen</strong> rolls back the prior completion (XP &amp; streak adjust).{' '}
+            <strong>Do it again</strong> keeps the prior completion in your stats and just adds a
+            fresh open instance for today.
           </p>
         </fieldset>
 
@@ -1111,12 +1046,8 @@ function DueOption({
         className="mt-0.5"
       />
       <span className="flex-1">
-        <span className="block text-sm font-semibold text-[var(--sea-ink)]">
-          {label}
-        </span>
-        <span className="block text-xs text-[var(--sea-ink-soft)]">
-          {detail}
-        </span>
+        <span className="block text-sm font-semibold text-[var(--sea-ink)]">{label}</span>
+        <span className="block text-xs text-[var(--sea-ink-soft)]">{detail}</span>
       </span>
     </label>
   )
@@ -1153,13 +1084,7 @@ function AmountUnitPicker({
   )
 }
 
-function MonthlyDayPicker({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (n: number) => void
-}) {
+function MonthlyDayPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm text-[var(--sea-ink-soft)]">On the</span>
@@ -1213,9 +1138,7 @@ function MonthlyWeekdayPicker({
       <span className="text-sm text-[var(--sea-ink-soft)]">The</span>
       <select
         value={week}
-        onChange={(e) =>
-          onWeekChange(Number(e.target.value) as MonthlyWeekIndex)
-        }
+        onChange={(e) => onWeekChange(Number(e.target.value) as MonthlyWeekIndex)}
         className="field-input max-w-[8rem]"
       >
         {MONTHLY_WEEK_OPTIONS.map((o) => (

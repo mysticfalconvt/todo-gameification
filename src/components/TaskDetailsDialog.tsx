@@ -57,8 +57,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
   const taskId = instance?.taskId ?? null
 
   const defer = useMutation({
-    mutationFn: (instanceId: string) =>
-      runOrQueue({ type: 'defer', instanceId }),
+    mutationFn: (instanceId: string) => runOrQueue({ type: 'defer', instanceId }),
     onSuccess: () => {
       toast.success('Moved to tomorrow (−30% XP)')
       qc.invalidateQueries({ queryKey: ['today'] })
@@ -97,9 +96,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
     enabled: !!taskId,
   })
 
-  const cat = instance?.categorySlug
-    ? catBySlug.get(instance.categorySlug)
-    : null
+  const cat = instance?.categorySlug ? catBySlug.get(instance.categorySlug) : null
 
   const stats = statsQuery.data
   const task = taskQuery.data
@@ -149,7 +146,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
           </header>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            {task?.notes && task.notes.trim() ? (
+            {task?.notes?.trim() ? (
               <section className="mb-4">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
                   Notes
@@ -160,10 +157,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
               </section>
             ) : null}
 
-            <TaskStepsSection
-              taskId={instance.taskId}
-              instanceId={instance.instanceId}
-            />
+            <TaskStepsSection taskId={instance.taskId} instanceId={instance.instanceId} />
 
             <section className="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Field label="XP" value={xpLabel(instance.difficulty, instance.xpOverride)} />
@@ -180,23 +174,15 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
               ) : null}
             </section>
 
-            {task?.recurrence && stats?.cadence ? (
-              <CadenceSection cadence={stats.cadence} />
-            ) : null}
+            {task?.recurrence && stats?.cadence ? <CadenceSection cadence={stats.cadence} /> : null}
 
             <section className="mb-2">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--kicker)]">
                 {stats?.household ? 'Household — all-time' : 'All-time'}
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <Stat
-                  label="Completions"
-                  value={stats ? String(stats.completionCount) : '—'}
-                />
-                <Stat
-                  label="Total XP"
-                  value={stats ? `+${stats.totalXp}` : '—'}
-                />
+                <Stat label="Completions" value={stats ? String(stats.completionCount) : '—'} />
+                <Stat label="Total XP" value={stats ? `+${stats.totalXp}` : '—'} />
               </div>
             </section>
 
@@ -225,15 +211,11 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
                                 backgroundColor: item.by.color ?? 'var(--lagoon-deep)',
                               }}
                             />
-                            <span className="truncate font-semibold">
-                              {item.by.name}
-                            </span>
+                            <span className="truncate font-semibold">{item.by.name}</span>
                             <span className="text-[var(--sea-ink-soft)]">·</span>
                           </>
                         ) : null}
-                        <span className="truncate">
-                          {formatDateTime(item.occurredAt)}
-                        </span>
+                        <span className="truncate">{formatDateTime(item.occurredAt)}</span>
                       </span>
                       <span className="flex-shrink-0 font-semibold text-[var(--lagoon-deep)]">
                         +{item.xp} XP
@@ -256,10 +238,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
                 🌅 Tomorrow (−30% XP)
               </button>
             ) : null}
-            {task &&
-            !task.recurrence &&
-            task.lastCompletedAt &&
-            !task.hasOpenInstance ? (
+            {task && !task.recurrence && task.lastCompletedAt && !task.hasOpenInstance ? (
               <button
                 type="button"
                 onClick={() => repeat.mutate(instance.taskId)}
@@ -292,18 +271,11 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
   )
 }
 
-function TaskStepsSection({
-  taskId,
-  instanceId,
-}: {
-  taskId: string
-  instanceId: string | null
-}) {
+function TaskStepsSection({ taskId, instanceId }: { taskId: string; instanceId: string | null }) {
   const qc = useQueryClient()
   const stepsQuery = useQuery({
     queryKey: ['taskSteps', taskId, instanceId],
-    queryFn: () =>
-      listTaskSteps({ data: { taskId, instanceId: instanceId ?? null } }),
+    queryFn: () => listTaskSteps({ data: { taskId, instanceId: instanceId ?? null } }),
   })
 
   const [newTitle, setNewTitle] = useState('')
@@ -334,8 +306,7 @@ function TaskStepsSection({
   })
 
   const renameMut = useMutation({
-    mutationFn: (vars: { stepId: string; title: string }) =>
-      renameTaskStep({ data: vars }),
+    mutationFn: (vars: { stepId: string; title: string }) => renameTaskStep({ data: vars }),
     onSuccess: () => {
       setEditingId(null)
       setEditTitle('')
@@ -344,8 +315,7 @@ function TaskStepsSection({
   })
 
   const reorderMut = useMutation({
-    mutationFn: (orderedIds: string[]) =>
-      reorderTaskSteps({ data: { taskId, orderedIds } }),
+    mutationFn: (orderedIds: string[]) => reorderTaskSteps({ data: { taskId, orderedIds } }),
     onSuccess: refresh,
   })
 
@@ -431,9 +401,7 @@ function TaskStepsSection({
                       setEditTitle(step.title)
                     }}
                     className={`min-w-0 flex-1 cursor-text bg-transparent text-left text-sm ${
-                      checked
-                        ? 'text-[var(--sea-ink-soft)] line-through'
-                        : 'text-[var(--sea-ink)]'
+                      checked ? 'text-[var(--sea-ink-soft)] line-through' : 'text-[var(--sea-ink)]'
                     }`}
                   >
                     {step.title}
@@ -518,31 +486,19 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint?: string
-}) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="island-shell rounded-xl p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
         {label}
       </p>
       <p className="mt-0.5 text-lg font-bold text-[var(--sea-ink)]">{value}</p>
-      {hint ? (
-        <p className="mt-0.5 text-[10px] text-[var(--sea-ink-soft)]">{hint}</p>
-      ) : null}
+      {hint ? <p className="mt-0.5 text-[10px] text-[var(--sea-ink-soft)]">{hint}</p> : null}
     </div>
   )
 }
 
-type Household = NonNullable<
-  Awaited<ReturnType<typeof getTaskStats>>['household']
->
+type Household = NonNullable<Awaited<ReturnType<typeof getTaskStats>>['household']>
 
 function HouseholdSection({ household }: { household: Household }) {
   const total = household.perPerson.reduce((s, p) => s + p.completions, 0)
@@ -572,13 +528,9 @@ function HouseholdSection({ household }: { household: Household }) {
                   className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
                   style={{ backgroundColor: p.color ?? 'var(--lagoon-deep)' }}
                 />
-                <span className="truncate font-semibold text-[var(--sea-ink)]">
-                  {p.name}
-                </span>
+                <span className="truncate font-semibold text-[var(--sea-ink)]">{p.name}</span>
               </span>
-              <span className="flex-shrink-0 text-[var(--sea-ink-soft)]">
-                {meta}
-              </span>
+              <span className="flex-shrink-0 text-[var(--sea-ink-soft)]">{meta}</span>
             </li>
           )
         })}
@@ -587,22 +539,16 @@ function HouseholdSection({ household }: { household: Household }) {
   )
 }
 
-type Cadence = NonNullable<
-  Awaited<ReturnType<typeof getTaskStats>>['cadence']
->
+type Cadence = NonNullable<Awaited<ReturnType<typeof getTaskStats>>['cadence']>
 
 function CadenceSection({ cadence }: { cadence: Cadence }) {
-  const { onTime, consistencyPct, avgGapDays, currentStreak, bestDayOfWeek } =
-    cadence
+  const { onTime, consistencyPct, avgGapDays, currentStreak, bestDayOfWeek } = cadence
   const footnotes: string[] = []
   if (currentStreak > 0) {
-    footnotes.push(
-      `🔥 ${currentStreak} on-time in a row`,
-    )
+    footnotes.push(`🔥 ${currentStreak} on-time in a row`)
   }
   if (avgGapDays !== null) footnotes.push(`~${avgGapDays}d between`)
-  if (bestDayOfWeek)
-    footnotes.push(`most on ${WEEKDAY_NAMES[bestDayOfWeek.weekday] ?? '—'}`)
+  if (bestDayOfWeek) footnotes.push(`most on ${WEEKDAY_NAMES[bestDayOfWeek.weekday] ?? '—'}`)
 
   return (
     <section className="mb-4">
@@ -612,11 +558,7 @@ function CadenceSection({ cadence }: { cadence: Cadence }) {
       <div className="grid grid-cols-2 gap-2">
         <Stat label="Per week" value={formatRate(cadence.perWeek)} />
         <Stat label="Per month" value={formatRate(cadence.perMonth)} />
-        <Stat
-          label="On-time"
-          value={onTime ? `${onTime.pct}%` : '—'}
-          hint="on/before due"
-        />
+        <Stat label="On-time" value={onTime ? `${onTime.pct}%` : '—'} hint="on/before due" />
         <Stat
           label="Consistency"
           value={consistencyPct !== null ? `${consistencyPct}%` : '—'}
@@ -624,9 +566,7 @@ function CadenceSection({ cadence }: { cadence: Cadence }) {
         />
       </div>
       {footnotes.length > 0 ? (
-        <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
-          {footnotes.join(' · ')}
-        </p>
+        <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">{footnotes.join(' · ')}</p>
       ) : null}
     </section>
   )

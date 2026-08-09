@@ -70,9 +70,7 @@ export function CategoryHistogram() {
     <section className="island-shell mb-5 rounded-2xl p-4">
       <header className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            By category
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">By category</h2>
           <p className="text-xs text-[var(--sea-ink-soft)]">
             {total} {scope === 'active' ? 'active' : 'completed in 30d'}
           </p>
@@ -82,16 +80,10 @@ export function CategoryHistogram() {
           role="radiogroup"
           aria-label="Scope"
         >
-          <ScopeButton
-            on={scope === 'active'}
-            onClick={() => setScope('active')}
-          >
+          <ScopeButton on={scope === 'active'} onClick={() => setScope('active')}>
             Active
           </ScopeButton>
-          <ScopeButton
-            on={scope === 'completed'}
-            onClick={() => setScope('completed')}
-          >
+          <ScopeButton on={scope === 'completed'} onClick={() => setScope('completed')}>
             Completed (30d)
           </ScopeButton>
         </div>
@@ -108,8 +100,7 @@ export function CategoryHistogram() {
             // (flex-column parents with auto height) doesn't collapse them.
             const BAR_MAX_PX = 96
             const MIN_PX = 6
-            const barHeight =
-              max === 0 ? MIN_PX : Math.max((b.count / max) * BAR_MAX_PX, MIN_PX)
+            const barHeight = max === 0 ? MIN_PX : Math.max((b.count / max) * BAR_MAX_PX, MIN_PX)
             return (
               <div
                 key={b.slug ?? 'uncategorized'}

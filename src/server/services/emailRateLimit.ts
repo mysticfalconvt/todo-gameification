@@ -23,10 +23,7 @@ function normalize(email: string): string {
 // allow it so the next caller sees it in the window. Best-effort — any
 // query error is logged and treated as "allow" so a transient DB blip
 // doesn't lock users out of password reset.
-export async function recordAndCheck(
-  email: string,
-  kind: EmailKind,
-): Promise<boolean> {
+export async function recordAndCheck(email: string, kind: EmailKind): Promise<boolean> {
   const e = normalize(email)
   if (!e) return false
   try {
@@ -43,9 +40,7 @@ export async function recordAndCheck(
       )
     const count = Number(rows[0]?.n ?? 0)
     if (count >= MAX_SENDS_PER_WINDOW) {
-      console.warn(
-        `[emailRateLimit] skipping ${kind} to ${e}: ${count} sends in window`,
-      )
+      console.warn(`[emailRateLimit] skipping ${kind} to ${e}: ${count} sends in window`)
       return false
     }
     await db.insert(emailSendLog).values({ email: e, kind })

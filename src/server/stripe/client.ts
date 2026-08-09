@@ -11,9 +11,7 @@ export function getStripe(): Stripe {
   if (instance) return instance
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) {
-    throw new Error(
-      'STRIPE_SECRET_KEY is not set. Add it to your environment to enable billing.',
-    )
+    throw new Error('STRIPE_SECRET_KEY is not set. Add it to your environment to enable billing.')
   }
   // Pin to the SDK's bundled apiVersion so webhook payload shapes match
   // the TypeScript types in the installed Stripe package.

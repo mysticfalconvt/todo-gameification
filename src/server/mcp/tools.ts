@@ -32,13 +32,7 @@ const recurrenceSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('monthly_weekday'),
-    week: z.union([
-      z.literal(1),
-      z.literal(2),
-      z.literal(3),
-      z.literal(4),
-      z.literal(-1),
-    ]),
+    week: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(-1)]),
     dayOfWeek: z.number().int().min(0).max(6),
   }),
 ])
@@ -49,7 +43,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
     {
       title: "List today's tasks",
       description:
-        "Returns open task instances due within the next ~36 hours for the authenticated user. Each item has an instanceId you can pass to complete/skip/snooze tools.",
+        'Returns open task instances due within the next ~36 hours for the authenticated user. Each item has an instanceId you can pass to complete/skip/snooze tools.',
       inputSchema: {},
     },
     async () => jsonResult(await tasks.listTodayInstances(getUserId())),
@@ -84,8 +78,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
       description: 'Fetch full detail for a single task by id.',
       inputSchema: { taskId: z.string().uuid() },
     },
-    async ({ taskId }) =>
-      jsonResult(await tasks.getTask(getUserId(), taskId)),
+    async ({ taskId }) => jsonResult(await tasks.getTask(getUserId(), taskId)),
   )
 
   server.registerTool(
@@ -99,7 +92,11 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         notes: z.string().nullable().optional(),
         difficulty: difficulty.default('medium'),
         recurrence: recurrenceSchema.nullable().default(null),
-        timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().default(null),
+        timeOfDay: z
+          .string()
+          .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+          .nullable()
+          .default(null),
         someday: z.boolean().default(false),
       },
     },
@@ -124,8 +121,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         'Mark an instance done. Writes a task.completed event, updates progression (XP, streak), and materializes the next instance for recurring tasks. Returns the updated progression.',
       inputSchema: { instanceId: z.string().uuid() },
     },
-    async ({ instanceId }) =>
-      jsonResult(await tasks.completeInstance(getUserId(), instanceId)),
+    async ({ instanceId }) => jsonResult(await tasks.completeInstance(getUserId(), instanceId)),
   )
 
   server.registerTool(
@@ -133,11 +129,10 @@ export function registerTools(server: McpServer, getUserId: () => string) {
     {
       title: 'Skip a task instance',
       description:
-        "Skip this occurrence without completing it. Records a task.skipped event, does NOT grant XP, but materializes the next instance if the task recurs.",
+        'Skip this occurrence without completing it. Records a task.skipped event, does NOT grant XP, but materializes the next instance if the task recurs.',
       inputSchema: { instanceId: z.string().uuid() },
     },
-    async ({ instanceId }) =>
-      jsonResult(await tasks.skipInstance(getUserId(), instanceId)),
+    async ({ instanceId }) => jsonResult(await tasks.skipInstance(getUserId(), instanceId)),
   )
 
   server.registerTool(
@@ -148,7 +143,10 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         'Hide a single instance from Today for N hours. When the snooze elapses, the instance reappears.',
       inputSchema: {
         instanceId: z.string().uuid(),
-        hours: z.number().positive().max(24 * 30),
+        hours: z
+          .number()
+          .positive()
+          .max(24 * 30),
       },
     },
     async ({ instanceId, hours }) =>
@@ -166,8 +164,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         until: z.string().datetime().nullable(),
       },
     },
-    async ({ taskId, until }) =>
-      jsonResult(await tasks.snoozeTask(getUserId(), taskId, until)),
+    async ({ taskId, until }) => jsonResult(await tasks.snoozeTask(getUserId(), taskId, until)),
   )
 
   server.registerTool(
@@ -178,8 +175,7 @@ export function registerTools(server: McpServer, getUserId: () => string) {
         'Soft-delete a task (active=false). Existing instances stop surfacing and no new ones are materialized.',
       inputSchema: { taskId: z.string().uuid() },
     },
-    async ({ taskId }) =>
-      jsonResult(await tasks.deleteTask(getUserId(), taskId)),
+    async ({ taskId }) => jsonResult(await tasks.deleteTask(getUserId(), taskId)),
   )
 
   server.registerTool(

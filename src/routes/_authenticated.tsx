@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  Outlet,
-  createFileRoute,
-  redirect,
-  useLocation,
-  useNavigate,
-} from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useLocation, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentSession } from '../server/session'
 import { getMyHouseholdFn } from '../server/functions/households'

@@ -46,9 +46,11 @@ export function useFocusSession(
 
   const requestWakeLock = useCallback(async () => {
     try {
-      const wl = (navigator as unknown as {
-        wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinelLike> }
-      }).wakeLock
+      const wl = (
+        navigator as unknown as {
+          wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinelLike> }
+        }
+      ).wakeLock
       if (!wl) return
       wakeLockRef.current = await wl.request('screen')
     } catch {

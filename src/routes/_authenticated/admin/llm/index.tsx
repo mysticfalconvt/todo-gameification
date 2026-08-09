@@ -47,12 +47,10 @@ function AdminLlmPage() {
             ← Admin
           </Link>
         </p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          LLM usage
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">LLM usage</h1>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          Cost + volume across all LLM calls. Window defaults to 14 days; log
-          below shows every call regardless of window.
+          Cost + volume across all LLM calls. Window defaults to 14 days; log below shows every call
+          regardless of window.
         </p>
       </header>
 
@@ -79,22 +77,12 @@ function TotalsSection({ data }: { data: UsageData }) {
   const all = data.totalsAllTime
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-        Totals (last {data.windowDays}d)
-      </h2>
+      <h2 className="text-lg font-bold text-[var(--sea-ink)]">Totals (last {data.windowDays}d)</h2>
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-        <Stat
-          label="Calls"
-          value={w.callCount}
-          hint={`${all.callCount} all-time`}
-        />
+        <Stat label="Calls" value={w.callCount} hint={`${all.callCount} all-time`} />
         <Stat
           label="Success rate"
-          value={
-            w.callCount === 0
-              ? '—'
-              : `${Math.round((w.successCount / w.callCount) * 100)}%`
-          }
+          value={w.callCount === 0 ? '—' : `${Math.round((w.successCount / w.callCount) * 100)}%`}
           hint={`${w.successCount}/${w.callCount}`}
         />
         <Stat
@@ -104,32 +92,18 @@ function TotalsSection({ data }: { data: UsageData }) {
         />
         <Stat
           label="Avg per call"
-          value={
-            w.callCount === 0
-              ? '—'
-              : formatMs(Math.round(w.totalDurationMs / w.callCount))
-          }
+          value={w.callCount === 0 ? '—' : formatMs(Math.round(w.totalDurationMs / w.callCount))}
         />
         <Stat
           label="Total tokens"
           value={w.totalTokens.toLocaleString()}
           hint={`${all.totalTokens.toLocaleString()} all-time`}
         />
-        <Stat
-          label="Prompt tokens"
-          value={w.promptTokens.toLocaleString()}
-        />
-        <Stat
-          label="Completion tokens"
-          value={w.completionTokens.toLocaleString()}
-        />
+        <Stat label="Prompt tokens" value={w.promptTokens.toLocaleString()} />
+        <Stat label="Completion tokens" value={w.completionTokens.toLocaleString()} />
         <Stat
           label="Avg tokens / call"
-          value={
-            w.callCount === 0
-              ? '—'
-              : Math.round(w.totalTokens / w.callCount).toLocaleString()
-          }
+          value={w.callCount === 0 ? '—' : Math.round(w.totalTokens / w.callCount).toLocaleString()}
         />
       </div>
     </section>
@@ -157,20 +131,13 @@ function PerKindSection({ data }: { data: UsageData }) {
             </thead>
             <tbody>
               {data.perKind.map((r) => (
-                <tr
-                  key={r.kind}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
-                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                    {r.kind}
-                  </td>
+                <tr key={r.kind} className="border-b border-[var(--line)] last:border-none">
+                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{r.kind}</td>
                   <td className="px-3 py-2">{r.callCount}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {r.successCount}/{r.callCount}
                   </td>
-                  <td className="px-3 py-2">
-                    {formatDuration(r.totalDurationMs)}
-                  </td>
+                  <td className="px-3 py-2">{formatDuration(r.totalDurationMs)}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {r.callCount === 0
                       ? '—'
@@ -209,20 +176,13 @@ function PerDaySection({ data }: { data: UsageData }) {
             </thead>
             <tbody>
               {data.perDay.map((d) => (
-                <tr
-                  key={d.day}
-                  className="border-b border-[var(--line)] last:border-none"
-                >
-                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">
-                    {d.day}
-                  </td>
+                <tr key={d.day} className="border-b border-[var(--line)] last:border-none">
+                  <td className="px-3 py-2 font-semibold text-[var(--sea-ink)]">{d.day}</td>
                   <td className="px-3 py-2">{d.callCount}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {d.successCount}/{d.callCount}
                   </td>
-                  <td className="px-3 py-2">
-                    {formatDuration(d.totalDurationMs)}
-                  </td>
+                  <td className="px-3 py-2">{formatDuration(d.totalDurationMs)}</td>
                   <td className="px-3 py-2">
                     <div className="h-2 rounded bg-[var(--option-bg)]">
                       <div
@@ -279,23 +239,17 @@ function PerUserSection({ data }: { data: UsageData }) {
                         {r.userName ?? r.userHandle}
                       </Link>
                     ) : (
-                      <span className="text-[var(--sea-ink-soft)]">
-                        (unattributed)
-                      </span>
+                      <span className="text-[var(--sea-ink-soft)]">(unattributed)</span>
                     )}
                     {r.email ? (
-                      <div className="text-xs text-[var(--sea-ink-soft)]">
-                        {r.email}
-                      </div>
+                      <div className="text-xs text-[var(--sea-ink-soft)]">{r.email}</div>
                     ) : null}
                   </td>
                   <td className="px-3 py-2">{r.callCount}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {r.successCount}/{r.callCount}
                   </td>
-                  <td className="px-3 py-2">
-                    {formatDuration(r.totalDurationMs)}
-                  </td>
+                  <td className="px-3 py-2">{formatDuration(r.totalDurationMs)}</td>
                   <td className="px-3 py-2">{r.totalTokens.toLocaleString()}</td>
                   <td className="px-3 py-2 text-[var(--sea-ink-soft)]">
                     {r.lastCallAt ? relativeTime(r.lastCallAt) : '—'}
@@ -420,16 +374,12 @@ function CallLogSection({ initialFilters }: { initialFilters: Search }) {
                   </td>
                   <td className="px-3 py-2">{formatMs(r.durationMs)}</td>
                   <td className="px-3 py-2">{r.totalTokens ?? '—'}</td>
-                  <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">
-                    {r.model ?? '—'}
-                  </td>
+                  <td className="px-3 py-2 text-xs text-[var(--sea-ink-soft)]">{r.model ?? '—'}</td>
                   <td className="px-3 py-2">
                     {r.success ? (
                       <span className="text-[var(--sea-ink-soft)]">ok</span>
                     ) : (
-                      <span className="text-red-600">
-                        {r.errorMessage ?? 'fail'}
-                      </span>
+                      <span className="text-red-600">{r.errorMessage ?? 'fail'}</span>
                     )}
                   </td>
                 </tr>
@@ -451,9 +401,7 @@ function CallLogSection({ initialFilters }: { initialFilters: Search }) {
         <button
           type="button"
           disabled={!query.data?.nextCursor}
-          onClick={() =>
-            setCursors((prev) => [...prev, query.data?.nextCursor ?? null])
-          }
+          onClick={() => setCursors((prev) => [...prev, query.data?.nextCursor ?? null])}
           className="field-input max-w-[6rem] disabled:opacity-50"
         >
           Next →
@@ -463,26 +411,12 @@ function CallLogSection({ initialFilters }: { initialFilters: Search }) {
   )
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: number | string
-  hint?: string
-}) {
+function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
     <div className="island-shell rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">
-        {value}
-      </div>
-      {hint ? (
-        <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div>
-      ) : null}
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-[var(--sea-ink-soft)]">{hint}</div> : null}
     </div>
   )
 }

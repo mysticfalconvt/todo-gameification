@@ -54,10 +54,7 @@ describe('leaderboard service', () => {
 
   it('global scope includes public users but not friends-only strangers', async () => {
     await withTestUsers(3, async ([me, pub, hidden]) => {
-      await db
-        .update(user)
-        .set({ profileVisibility: 'public' })
-        .where(eq(user.id, pub.id))
+      await db.update(user).set({ profileVisibility: 'public' }).where(eq(user.id, pub.id))
       // `hidden` stays at the default 'friends' visibility.
       await seedCompletion(pub.id, { difficulty: 'large' })
       await seedCompletion(hidden.id, { difficulty: 'large' })

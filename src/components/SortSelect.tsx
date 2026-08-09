@@ -13,9 +13,7 @@ export function SortSelect({
 }) {
   return (
     <label className="inline-flex items-center gap-2 text-xs">
-      <span className="font-semibold uppercase tracking-wide text-[var(--kicker)]">
-        {label}
-      </span>
+      <span className="font-semibold uppercase tracking-wide text-[var(--kicker)]">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as SortKey)}

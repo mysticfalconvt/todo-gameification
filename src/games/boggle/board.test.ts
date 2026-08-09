@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  BOARD_SIZE,
-  CELLS,
-  adjacent,
-  generateBoard,
-  scoreForLength,
-  tileLetters,
-} from './board'
+import { BOARD_SIZE, CELLS, adjacent, generateBoard, scoreForLength, tileLetters } from './board'
 
 describe('boggle board', () => {
   it('generates a full 4x4 board', () => {

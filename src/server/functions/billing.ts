@@ -45,8 +45,8 @@ export const createPortalSessionFn = createServerFn({ method: 'POST' })
 
 // Public — no auth needed. Surfaced on the unauthenticated /pricing
 // route and the landing page so visitors see real prices.
-export const getPricingDisplayFn = createServerFn({ method: 'GET' }).handler(
-  () => getPricingDisplay(),
+export const getPricingDisplayFn = createServerFn({ method: 'GET' }).handler(() =>
+  getPricingDisplay(),
 )
 
 // Used by /settings and the locked-feature overlays to know whether to

@@ -1,9 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import {
-  getAdminLlmCallFn,
-  getIsAdminFn,
-} from '../../../../server/functions/admin'
+import { getAdminLlmCallFn, getIsAdminFn } from '../../../../server/functions/admin'
 
 export const Route = createFileRoute('/_authenticated/admin/llm/$callId')({
   beforeLoad: async () => {
@@ -29,9 +26,7 @@ function AdminLlmCallDetailPage() {
             ← LLM usage
           </Link>
         </p>
-        <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
-          LLM call
-        </h1>
+        <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">LLM call</h1>
       </header>
 
       {query.isLoading ? (
@@ -60,10 +55,7 @@ function Summary({ data }: { data: CallDetail }) {
     <section className="island-shell rounded-2xl p-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <Field label="Kind" value={data.kind} />
-        <Field
-          label="Started"
-          value={new Date(data.startedAt).toLocaleString()}
-        />
+        <Field label="Started" value={new Date(data.startedAt).toLocaleString()} />
         <Field label="Duration" value={formatMs(data.durationMs)} />
         <Field
           label="Result"
@@ -87,18 +79,9 @@ function Summary({ data }: { data: CallDetail }) {
             )
           }
         />
-        <Field
-          label="Prompt tokens"
-          value={data.promptTokens?.toLocaleString() ?? '—'}
-        />
-        <Field
-          label="Completion tokens"
-          value={data.completionTokens?.toLocaleString() ?? '—'}
-        />
-        <Field
-          label="Total tokens"
-          value={data.totalTokens?.toLocaleString() ?? '—'}
-        />
+        <Field label="Prompt tokens" value={data.promptTokens?.toLocaleString() ?? '—'} />
+        <Field label="Completion tokens" value={data.completionTokens?.toLocaleString() ?? '—'} />
+        <Field label="Total tokens" value={data.totalTokens?.toLocaleString() ?? '—'} />
       </div>
     </section>
   )
@@ -115,10 +98,7 @@ function Messages({ data }: { data: CallDetail }) {
       ) : (
         <div className="space-y-3">
           {data.messages.map((m, i) => (
-            <article
-              key={i}
-              className="island-shell rounded-2xl p-3 text-sm"
-            >
+            <article key={i} className="island-shell rounded-2xl p-3 text-sm">
               <div className="mb-2 text-xs uppercase tracking-wide text-[var(--kicker)]">
                 {m.role}
               </div>
@@ -143,9 +123,7 @@ function ResponseBlock({ data }: { data: CallDetail }) {
         </pre>
       ) : (
         <p className="text-[var(--sea-ink-soft)]">
-          {data.errorMessage
-            ? `No response — ${data.errorMessage}`
-            : 'No response recorded.'}
+          {data.errorMessage ? `No response — ${data.errorMessage}` : 'No response recorded.'}
         </p>
       )}
     </section>
@@ -163,9 +141,7 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">
-        {label}
-      </div>
+      <div className="text-xs uppercase tracking-wide text-[var(--sea-ink-soft)]">{label}</div>
       <div
         className={`mt-1 text-sm font-semibold ${
           danger ? 'text-red-600' : 'text-[var(--sea-ink)]'

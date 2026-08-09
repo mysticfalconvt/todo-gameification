@@ -10,6 +10,4 @@ export const getPublicProfileFn = createServerFn({ method: 'POST' })
     }
     return { handle: data.handle.trim().replace(/^@/, '') }
   })
-  .handler(async ({ data, context }) =>
-    getPublicProfile(context.userId, data.handle),
-  )
+  .handler(async ({ data, context }) => getPublicProfile(context.userId, data.handle))

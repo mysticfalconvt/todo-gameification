@@ -308,13 +308,9 @@ export function Two048({ onFinish, onExit }: GameProps) {
       </p>
 
       {top >= WIN_TILE ? (
-        <p className="text-sm font-semibold text-[var(--lagoon-deep)]">
-          You hit {top}!
-        </p>
+        <p className="text-sm font-semibold text-[var(--lagoon-deep)]">You hit {top}!</p>
       ) : stuck ? (
-        <p className="text-sm font-semibold text-red-600">
-          No moves left. Best tile: {top}.
-        </p>
+        <p className="text-sm font-semibold text-red-600">No moves left. Best tile: {top}.</p>
       ) : null}
     </div>
   )

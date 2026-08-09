@@ -16,10 +16,7 @@ interface Props {
 
 export function MemberBadge({ tier, size = 'inline', className }: Props) {
   if (tier !== 'lifetime' && tier !== 'annual') return null
-  const sizeClasses =
-    size === 'large'
-      ? 'px-3 py-1 text-xs'
-      : 'px-1.5 py-0.5 text-[10px]'
+  const sizeClasses = size === 'large' ? 'px-3 py-1 text-xs' : 'px-1.5 py-0.5 text-[10px]'
   const variantClasses =
     tier === 'lifetime'
       ? 'bg-[rgba(50,143,151,0.14)] text-[var(--lagoon-deep)]'

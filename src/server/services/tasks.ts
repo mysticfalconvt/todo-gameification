@@ -21,6 +21,7 @@ import {
   isNull,
   lt,
   or,
+  type SQL,
   sql,
 } from 'drizzle-orm'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
@@ -38,11 +39,7 @@ import {
   user as userTable,
 } from '../db/schema'
 import type { Recurrence } from '../../domain/recurrence'
-import {
-  computeNextDue,
-  expectedCompletionsPerWeek,
-  firstDueAt,
-} from '../../domain/recurrence'
+import { computeNextDue, expectedCompletionsPerWeek, firstDueAt } from '../../domain/recurrence'
 import {
   assertHouseholdRole,
   getMembership,
@@ -345,10 +342,7 @@ function validateCreate(input: CreateTaskInput) {
   if (input.someday && input.recurrence) {
     throw new Error('someday tasks cannot be recurring')
   }
-  if (
-    input.visibility !== undefined &&
-    !TASK_VISIBILITY_VALUES.includes(input.visibility)
-  ) {
+  if (input.visibility !== undefined && !TASK_VISIBILITY_VALUES.includes(input.visibility)) {
     throw new Error('invalid visibility')
   }
 }
@@ -361,20 +355,14 @@ function validateUpdate(input: UpdateTaskInput) {
   }
   if (input.timeOfDay) assertValidTimeOfDay(input.timeOfDay)
   validateWeekdayTimes(input.timeByWeekday, input.timeOfDay)
-  if (
-    input.visibility !== undefined &&
-    !TASK_VISIBILITY_VALUES.includes(input.visibility)
-  ) {
+  if (input.visibility !== undefined && !TASK_VISIBILITY_VALUES.includes(input.visibility)) {
     throw new Error('invalid visibility')
   }
 }
 
 // Per-weekday time overrides require a base timeOfDay to fall back to (a day
 // not listed in the map uses it), and every entry must be a valid weekday->HH:MM.
-function validateWeekdayTimes(
-  map: WeekdayTimes | null | undefined,
-  timeOfDay: string | null,
-) {
+function validateWeekdayTimes(map: WeekdayTimes | null | undefined, timeOfDay: string | null) {
   if (!map || Object.keys(map).length === 0) return
   if (!timeOfDay) {
     throw new Error('timeByWeekday requires a base timeOfDay')
@@ -440,9 +428,7 @@ export async function createTask(
       if (!input.recurrence) {
         throw new Error('Round-robin requires a recurring chore.')
       }
-      const pool = (input.rotationPool ?? []).filter(
-        (id, idx, arr) => arr.indexOf(id) === idx,
-      )
+      const pool = (input.rotationPool ?? []).filter((id, idx, arr) => arr.indexOf(id) === idx)
       if (pool.length < 2) {
         throw new Error('Pick at least two people for the rotation.')
       }
@@ -504,9 +490,7 @@ export async function createTask(
   // A weekday-time map only makes sense alongside a base time; drop it for
   // someday/anytime tasks so the column never holds an orphaned override.
   const effectiveTimeOfDay = input.someday ? null : input.timeOfDay
-  const effectiveTimeByWeekday = effectiveTimeOfDay
-    ? (input.timeByWeekday ?? null)
-    : null
+  const effectiveTimeByWeekday = effectiveTimeOfDay ? (input.timeByWeekday ?? null) : null
 
   const dueAt = input.dueAtOverride
     ? new Date(input.dueAtOverride)
@@ -548,8 +532,7 @@ export async function createTask(
   ])
 
   const result = await db.transaction(async (tx) => {
-    const dueKind: 'hard' | 'week_target' =
-      input.dueKind === 'week_target' ? 'week_target' : 'hard'
+    const dueKind: 'hard' | 'week_target' = input.dueKind === 'week_target' ? 'week_target' : 'hard'
 
     const [task] = await tx
       .insert(tasks)
@@ -587,9 +570,7 @@ export async function createTask(
       })
       .returning()
 
-    const cleanedSteps = (input.steps ?? [])
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
+    const cleanedSteps = (input.steps ?? []).map((s) => s.trim()).filter((s) => s.length > 0)
     if (cleanedSteps.length > 0) {
       await tx.insert(taskSteps).values(
         cleanedSteps.map((title, position) => ({
@@ -605,17 +586,14 @@ export async function createTask(
   })
 
   if (result.dueAt && result.dueAt > new Date()) {
-    await scheduleReminder(
-      { taskInstanceId: result.instanceId, attempt: 1 },
-      result.dueAt,
-    ).catch((e) => console.error('scheduleReminder failed', e))
+    await scheduleReminder({ taskInstanceId: result.instanceId, attempt: 1 }, result.dueAt).catch(
+      (e) => console.error('scheduleReminder failed', e),
+    )
   }
 
   return {
     id: result.id,
-    scored: scored
-      ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning }
-      : null,
+    scored: scored ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning } : null,
     categorization: categorization
       ? { slug: categorization.slug, reasoning: categorization.reasoning }
       : null,
@@ -655,7 +633,9 @@ export async function findSimilarTasks(
   const q = input.title.trim()
   if (q.length < 3) return []
 
-  let scope
+  // eq() narrows to SQL, and() widens to SQL | undefined — annotate so the
+  // branches unify instead of collapsing to implicit any.
+  let scope: SQL | undefined
   if (input.householdId) {
     const mine = await getMyMembership(userId)
     if (
@@ -678,9 +658,7 @@ export async function findSimilarTasks(
     .select({
       id: tasks.id,
       title: tasks.title,
-      lastCompletedAt: sql<
-        string | null
-      >`max(${taskInstances.completedAt})`,
+      lastCompletedAt: sql<string | null>`max(${taskInstances.completedAt})`,
       openCount: sql<number>`count(*) filter (where ${taskInstances.completedAt} is null and ${taskInstances.skippedAt} is null)`,
       openDueAt: sql<
         string | null
@@ -693,22 +671,16 @@ export async function findSimilarTasks(
     .leftJoin(taskInstances, eq(taskInstances.taskId, tasks.id))
     .where(and(eq(tasks.active, true), scope, ilike(tasks.title, pattern)))
     .groupBy(tasks.id, tasks.title)
-    .orderBy(
-      desc(sql`coalesce(max(${taskInstances.completedAt}), ${tasks.createdAt})`),
-    )
+    .orderBy(desc(sql`coalesce(max(${taskInstances.completedAt}), ${tasks.createdAt})`))
     .limit(5)
 
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
-    lastCompletedAt: r.lastCompletedAt
-      ? new Date(r.lastCompletedAt).toISOString()
-      : null,
+    lastCompletedAt: r.lastCompletedAt ? new Date(r.lastCompletedAt).toISOString() : null,
     hasOpenInstance: Number(r.openCount) > 0,
     openDueAt: r.openDueAt ? new Date(r.openDueAt).toISOString() : null,
-    openSnoozedUntil: r.openSnoozedUntil
-      ? new Date(r.openSnoozedUntil).toISOString()
-      : null,
+    openSnoozedUntil: r.openSnoozedUntil ? new Date(r.openSnoozedUntil).toISOString() : null,
   }))
 }
 
@@ -745,7 +717,7 @@ export async function readdTaskInstance(
   const task = await db.query.tasks.findFirst({
     where: eq(tasks.id, input.taskId),
   })
-  if (!task || !task.active) throw new Error('Task not found.')
+  if (!task?.active) throw new Error('Task not found.')
 
   if (task.householdId) {
     const mine = await db.query.householdMembers.findFirst({
@@ -777,9 +749,7 @@ export async function readdTaskInstance(
   const timeZone = await getUserTimeZone(userId)
   const effectiveTimeOfDay = input.someday ? null : input.timeOfDay
   if (effectiveTimeOfDay) assertValidTimeOfDay(effectiveTimeOfDay)
-  const effectiveTimeByWeekday = effectiveTimeOfDay
-    ? (input.timeByWeekday ?? null)
-    : null
+  const effectiveTimeByWeekday = effectiveTimeOfDay ? (input.timeByWeekday ?? null) : null
 
   const dueAt = input.dueAtOverride
     ? new Date(input.dueAtOverride)
@@ -792,8 +762,7 @@ export async function readdTaskInstance(
         someday: input.someday,
       })
 
-  const dueKind: 'hard' | 'week_target' =
-    input.dueKind === 'week_target' ? 'week_target' : 'hard'
+  const dueKind: 'hard' | 'week_target' = input.dueKind === 'week_target' ? 'week_target' : 'hard'
 
   // Already on the list: move the open instance to the new due date and
   // un-snooze it so it surfaces where the user expects, rather than
@@ -804,10 +773,9 @@ export async function readdTaskInstance(
       .set({ dueAt, dueKind, snoozedUntil: null })
       .where(eq(taskInstances.id, open.id))
     if (dueAt && dueAt > new Date()) {
-      await scheduleReminder(
-        { taskInstanceId: open.id, attempt: 1 },
-        dueAt,
-      ).catch((e) => console.error('scheduleReminder failed', e))
+      await scheduleReminder({ taskInstanceId: open.id, attempt: 1 }, dueAt).catch((e) =>
+        console.error('scheduleReminder failed', e),
+      )
     }
     return { id: task.id, instanceId: open.id, alreadyOpen: true }
   }
@@ -828,10 +796,9 @@ export async function readdTaskInstance(
     .returning()
 
   if (inst.dueAt && inst.dueAt > new Date()) {
-    await scheduleReminder(
-      { taskInstanceId: inst.id, attempt: 1 },
-      inst.dueAt,
-    ).catch((e) => console.error('scheduleReminder failed', e))
+    await scheduleReminder({ taskInstanceId: inst.id, attempt: 1 }, inst.dueAt).catch((e) =>
+      console.error('scheduleReminder failed', e),
+    )
   }
 
   return { id: task.id, instanceId: inst.id, alreadyOpen: false }
@@ -844,9 +811,7 @@ export async function listAllTasks(userId: string): Promise<TaskListRow[]> {
   // what's "later" vs "now" (see listTodayInstances).
   const todayLocal = formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
   const [y, m, d] = todayLocal.split('-').map(Number)
-  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1))
-    .toISOString()
-    .slice(0, 10)} 00:00:00`
+  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)} 00:00:00`
   const horizon = fromZonedTime(tomorrowStr, timeZone)
 
   const rows = await db
@@ -937,9 +902,7 @@ export async function listAllTasks(userId: string): Promise<TaskListRow[]> {
       createdAt: r.createdAt.toISOString(),
       visibility: r.visibility as TaskVisibility,
       dueKind: r.dueKind as 'hard' | 'week_target',
-      lastCompletedAt: r.lastCompletedAt
-        ? new Date(r.lastCompletedAt).toISOString()
-        : null,
+      lastCompletedAt: r.lastCompletedAt ? new Date(r.lastCompletedAt).toISOString() : null,
       hasOpenInstance: open !== null,
       openInstanceId: open?.id ?? null,
       nextDueAt: dueAt ? dueAt.toISOString() : null,
@@ -963,10 +926,7 @@ async function canManageTask(
   return false
 }
 
-export async function getTask(
-  userId: string,
-  taskId: string,
-): Promise<TaskDetail> {
+export async function getTask(userId: string, taskId: string): Promise<TaskDetail> {
   if (!taskId) throw new Error('taskId required')
   const row = await db.query.tasks.findFirst({
     where: eq(tasks.id, taskId),
@@ -976,12 +936,7 @@ export async function getTask(
   const [latestCompletion] = await db
     .select({ completedAt: taskInstances.completedAt })
     .from(taskInstances)
-    .where(
-      and(
-        eq(taskInstances.taskId, taskId),
-        isNotNull(taskInstances.completedAt),
-      ),
-    )
+    .where(and(eq(taskInstances.taskId, taskId), isNotNull(taskInstances.completedAt)))
     .orderBy(desc(taskInstances.completedAt))
     .limit(1)
   const [openInst] = await db
@@ -1022,10 +977,7 @@ export async function getTask(
   }
 }
 
-export async function updateTask(
-  userId: string,
-  input: UpdateTaskInput,
-): Promise<{ id: string }> {
+export async function updateTask(userId: string, input: UpdateTaskInput): Promise<{ id: string }> {
   validateUpdate(input)
   const existing = await db.query.tasks.findFirst({
     where: eq(tasks.id, input.taskId),
@@ -1059,10 +1011,7 @@ export async function updateTask(
   return { id: result[0].id }
 }
 
-export async function deleteTask(
-  userId: string,
-  taskId: string,
-): Promise<{ id: string }> {
+export async function deleteTask(userId: string, taskId: string): Promise<{ id: string }> {
   if (!taskId) throw new Error('taskId required')
   const existing = await db.query.tasks.findFirst({
     where: eq(tasks.id, taskId),
@@ -1107,9 +1056,7 @@ export async function resetTasks(
     // Drop the cached coach blurb — its signature is for tasks that no
     // longer exist, and we don't want the next coach load to reference
     // them. The next read will regenerate against the empty list.
-    await tx
-      .delete(coachSummaries)
-      .where(eq(coachSummaries.userId, userId))
+    await tx.delete(coachSummaries).where(eq(coachSummaries.userId, userId))
 
     return {
       deletedInstances: deletedInstances.length,
@@ -1283,9 +1230,7 @@ export async function reassignHouseholdTask(
       throw new Error('That task is not a household chore.')
     }
     if (task.rotationStrategy === 'round_robin') {
-      throw new Error(
-        'Round-robin chores rotate automatically and can’t be reassigned here.',
-      )
+      throw new Error('Round-robin chores rotate automatically and can’t be reassigned here.')
     }
 
     const membership = await tx.query.householdMembers.findFirst({
@@ -1301,9 +1246,7 @@ export async function reassignHouseholdTask(
     const isCreator = task.userId === userId
     const isAdmin = membership.role === 'admin'
     if (!isCreator && !isAdmin) {
-      throw new Error(
-        'Only the chore’s creator or a household admin can reassign it.',
-      )
+      throw new Error('Only the chore’s creator or a household admin can reassign it.')
     }
 
     // Resolve the new assignment. Same rules as createTask.
@@ -1359,19 +1302,11 @@ export async function reassignHouseholdTask(
   })
 }
 
-export async function countUncategorizedTasks(
-  userId: string,
-): Promise<number> {
+export async function countUncategorizedTasks(userId: string): Promise<number> {
   const rows = await db
     .select({ id: tasks.id })
     .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, userId),
-        eq(tasks.active, true),
-        isNull(tasks.categorySlug),
-      ),
-    )
+    .where(and(eq(tasks.userId, userId), eq(tasks.active, true), isNull(tasks.categorySlug)))
   return rows.length
 }
 
@@ -1381,9 +1316,7 @@ export interface BackfillResult {
   skipped: number
 }
 
-export async function backfillCategories(
-  userId: string,
-): Promise<BackfillResult> {
+export async function backfillCategories(userId: string): Promise<BackfillResult> {
   const categories = await listCategories(userId)
   if (categories.length === 0) {
     return { attempted: 0, assigned: 0, skipped: 0 }
@@ -1401,13 +1334,7 @@ export async function backfillCategories(
       notes: tasks.notes,
     })
     .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, userId),
-        eq(tasks.active, true),
-        isNull(tasks.categorySlug),
-      ),
-    )
+    .where(and(eq(tasks.userId, userId), eq(tasks.active, true), isNull(tasks.categorySlug)))
 
   let assigned = 0
   let skipped = 0
@@ -1498,9 +1425,7 @@ export async function reanalyzeTask(
     id: row.id,
     xpOverride: scored?.xp ?? row.xpOverride,
     categorySlug: categorization?.slug ?? row.categorySlug,
-    scored: scored
-      ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning }
-      : null,
+    scored: scored ? { xp: scored.xp, tier: scored.tier, reasoning: scored.reasoning } : null,
     categorization: categorization
       ? { slug: categorization.slug, reasoning: categorization.reasoning }
       : null,
@@ -1572,16 +1497,11 @@ async function repairDriftedRecurring(
     if (!row.recurrence || !row.timeOfDay || !row.instanceDueAt) continue
     // Cap shift distance — don't touch instances scheduled more than a
     // week out; those are almost certainly intentional.
-    const daysAhead =
-      (row.instanceDueAt.getTime() - endOfTodayLocal.getTime()) /
-      86_400_000
+    const daysAhead = (row.instanceDueAt.getTime() - endOfTodayLocal.getTime()) / 86_400_000
     if (daysAhead > 7) continue
 
     const latestCompleted = await db.query.taskInstances.findFirst({
-      where: and(
-        eq(taskInstances.taskId, row.taskId),
-        isNotNull(taskInstances.completedAt),
-      ),
+      where: and(eq(taskInstances.taskId, row.taskId), isNotNull(taskInstances.completedAt)),
       orderBy: (t, { desc: d }) => [d(t.completedAt)],
     })
     if (!latestCompleted?.completedAt || !latestCompleted.dueAt) continue
@@ -1640,10 +1560,7 @@ async function buildTodayVisibility(userId: string) {
     myMembership?.role === 'kid'
       ? and(
           isNull(taskInstances.assignedToUserId),
-          or(
-            isNull(taskInstances.assigneeGroup),
-            eq(taskInstances.assigneeGroup, 'kids'),
-          ),
+          or(isNull(taskInstances.assigneeGroup), eq(taskInstances.assigneeGroup, 'kids')),
         )
       : isNull(taskInstances.assignedToUserId)
   return myMembership
@@ -1657,9 +1574,7 @@ async function buildTodayVisibility(userId: string) {
     : and(eq(taskInstances.userId, userId), isNull(taskInstances.householdId))
 }
 
-export async function listTodayInstances(
-  userId: string,
-): Promise<TodayInstance[]> {
+export async function listTodayInstances(userId: string): Promise<TodayInstance[]> {
   const now = new Date()
   const timeZone = await getUserTimeZone(userId)
   // Horizon is the end of the user's local day (i.e., tomorrow's
@@ -1671,9 +1586,7 @@ export async function listTodayInstances(
   // filter is strictly "dueAt < horizon".
   const todayLocal = formatInTimeZone(now, timeZone, 'yyyy-MM-dd')
   const [y, m, d] = todayLocal.split('-').map(Number)
-  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1))
-    .toISOString()
-    .slice(0, 10)} 00:00:00`
+  const tomorrowStr = `${new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)} 00:00:00`
   const horizon = fromZonedTime(tomorrowStr, timeZone)
 
   // Self-heal any tasks that drifted a day ahead from the old 36h
@@ -1724,14 +1637,8 @@ export async function listTodayInstances(
         // overdue. Week-target tasks live in the list from creation
         // through their target day (and remain visible after, as overdue)
         // so the user can pick them up early — that's the whole point.
-        or(
-          lt(taskInstances.dueAt, horizon),
-          eq(taskInstances.dueKind, 'week_target'),
-        ),
-        or(
-          isNull(taskInstances.snoozedUntil),
-          lt(taskInstances.snoozedUntil, now),
-        ),
+        or(lt(taskInstances.dueAt, horizon), eq(taskInstances.dueKind, 'week_target')),
+        or(isNull(taskInstances.snoozedUntil), lt(taskInstances.snoozedUntil, now)),
         eq(tasks.active, true),
         or(isNull(tasks.snoozeUntil), lt(tasks.snoozeUntil, now)),
       ),
@@ -1923,9 +1830,7 @@ export async function listPendingApprovals(
   if (rows.length === 0) return []
 
   const claimerIds = Array.from(
-    new Set(
-      rows.map((r) => r.claimedByUserId).filter((x): x is string => !!x),
-    ),
+    new Set(rows.map((r) => r.claimedByUserId).filter((x): x is string => !!x)),
   )
   const claimerRows =
     claimerIds.length > 0
@@ -1941,9 +1846,7 @@ export async function listPendingApprovals(
   const claimerById = new Map(claimerRows.map((u) => [u.id, u]))
 
   return rows.map((r) => {
-    const claimer = r.claimedByUserId
-      ? claimerById.get(r.claimedByUserId) ?? null
-      : null
+    const claimer = r.claimedByUserId ? (claimerById.get(r.claimedByUserId) ?? null) : null
     return {
       instanceId: r.id,
       taskId: r.taskId,
@@ -1998,9 +1901,7 @@ export async function approveClaim(
     })
     if (!membership) throw new Error('not a household member')
     if (membership.role === 'kid' || membership.role === 'kiosk') {
-      throw new Error(
-        'Only admins or members can approve a pending claim.',
-      )
+      throw new Error('Only admins or members can approve a pending claim.')
     }
 
     const task = await tx.query.tasks.findFirst({
@@ -2054,11 +1955,7 @@ export async function approveClaim(
 
     // The claimer is the kid, so this is where their chore-completion
     // tokens accrue (1 every Nth approved chore).
-    const tokensEarned = await kidCompletionTokens(
-      tx,
-      xpRecipientId,
-      instance.householdId,
-    )
+    const tokensEarned = await kidCompletionTokens(tx, xpRecipientId, instance.householdId)
 
     const event: DomainEvent = {
       type: 'task.completed',
@@ -2165,9 +2062,7 @@ export async function approveClaim(
 
     const celebration: CompletionCelebration = {
       leveledUp: next.level > prevState.level ? next.level : null,
-      milestone:
-        milestonesCrossed(prevState.currentStreak, next.currentStreak).at(-1) ??
-        null,
+      milestone: milestonesCrossed(prevState.currentStreak, next.currentStreak).at(-1) ?? null,
       freezesEarned: next.streakFreezes - prevState.streakFreezes,
     }
 
@@ -2317,9 +2212,7 @@ export async function listHouseholdChoresWeek(
       assigneeGroup: tasks.assigneeGroup,
     })
     .from(tasks)
-    .where(
-      and(eq(tasks.householdId, householdId), eq(tasks.active, true)),
-    )
+    .where(and(eq(tasks.householdId, householdId), eq(tasks.active, true)))
 
   if (taskRows.length === 0) return []
   const taskIds = taskRows.map((t) => t.id)
@@ -2512,8 +2405,7 @@ function nextRotationAssignee(
   if (pool.length === 0) return null
   const cursorIdx = cursor ? pool.indexOf(cursor) : -1
   for (let i = 1; i <= pool.length; i++) {
-    const idx =
-      ((cursorIdx === -1 ? -1 : cursorIdx) + i + pool.length) % pool.length
+    const idx = ((cursorIdx === -1 ? -1 : cursorIdx) + i + pool.length) % pool.length
     const candidate = pool[idx]
     if (validUserIds.has(candidate)) return candidate
   }
@@ -2538,11 +2430,7 @@ async function resolveNextRecurrenceAssignee(
     lastAssigneeCursor: string | null
   },
 ): Promise<string | null> {
-  if (
-    task.rotationStrategy !== 'round_robin' ||
-    !task.rotationPool ||
-    !task.householdId
-  ) {
+  if (task.rotationStrategy !== 'round_robin' || !task.rotationPool || !task.householdId) {
     return task.assignedToUserId
   }
   const members = await tx
@@ -2550,11 +2438,7 @@ async function resolveNextRecurrenceAssignee(
     .from(householdMembers)
     .where(eq(householdMembers.householdId, task.householdId))
   const validIds = new Set(members.map((m) => m.userId))
-  const next = nextRotationAssignee(
-    task.rotationPool,
-    task.lastAssigneeCursor,
-    validIds,
-  )
+  const next = nextRotationAssignee(task.rotationPool, task.lastAssigneeCursor, validIds)
   if (!next) return task.assignedToUserId
   await tx
     .update(tasks)
@@ -2578,9 +2462,7 @@ function buildProjection(
   assigneeById: Map<string, { id: string; handle: string; name: string }>,
   timeZone: string,
 ): WeekChoreOccurrence {
-  const assignee = t.assignedToUserId
-    ? assigneeById.get(t.assignedToUserId) ?? null
-    : null
+  const assignee = t.assignedToUserId ? (assigneeById.get(t.assignedToUserId) ?? null) : null
   return {
     instanceId: null,
     taskId: t.id,
@@ -2601,9 +2483,7 @@ function buildProjection(
   }
 }
 
-export async function listSomedayInstances(
-  userId: string,
-): Promise<SomedayInstance[]> {
+export async function listSomedayInstances(userId: string): Promise<SomedayInstance[]> {
   // Same visibility rules as Today so no-due-date household chores
   // assigned to the viewer (by another member) surface here too, not
   // just on the Household tab. Previously keyed on taskInstances.userId
@@ -2672,10 +2552,7 @@ export async function reopenLastCompletion(
 
     // Latest completed instance for this task (any completer).
     const latest = await tx.query.taskInstances.findFirst({
-      where: and(
-        eq(taskInstances.taskId, taskId),
-        isNotNull(taskInstances.completedAt),
-      ),
+      where: and(eq(taskInstances.taskId, taskId), isNotNull(taskInstances.completedAt)),
       orderBy: (t, { desc: d }) => [d(t.completedAt)],
     })
     if (!latest) throw new Error('no completed instance to reopen')
@@ -2731,19 +2608,17 @@ export async function reopenLastCompletion(
     // that landed on those completions (so cheer XP doesn't linger after
     // the original is gone).
     for (const recipientId of recipientIds) {
-      await tx
-        .delete(events)
-        .where(
-          and(
-            eq(events.userId, recipientId),
-            eq(events.type, 'task.cheered'),
-            sql`${events.payload}->>'completionEventId' IN (
+      await tx.delete(events).where(
+        and(
+          eq(events.userId, recipientId),
+          eq(events.type, 'task.cheered'),
+          sql`${events.payload}->>'completionEventId' IN (
               SELECT id FROM ${events} WHERE ${events.userId} = ${recipientId}
                 AND ${events.type} = 'task.completed'
                 AND ${events.payload}->>'instanceId' = ${latest.id}
             )`,
-          ),
-        )
+        ),
+      )
       await tx
         .delete(events)
         .where(
@@ -2835,10 +2710,9 @@ export async function repeatTask(
     .returning()
 
   if (dueAt && dueAt > now) {
-    scheduleReminder(
-      { taskInstanceId: inst.id, attempt: 1 },
-      dueAt,
-    ).catch((e) => console.error('scheduleReminder failed', e))
+    scheduleReminder({ taskInstanceId: inst.id, attempt: 1 }, dueAt).catch((e) =>
+      console.error('scheduleReminder failed', e),
+    )
   }
 
   return { instanceId: inst.id, dueAt: inst.dueAt }
@@ -2866,44 +2740,25 @@ async function rebuildProgression(
   for (const r of rows) {
     if (!r.occurredAt) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
     const occurredAt = r.occurredAt
     if (r.type === 'task.completed') {
       state = applyEvent(
         state,
         {
           type: 'task.completed',
-          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
-          instanceId:
-            typeof p['instanceId'] === 'string'
-              ? (p['instanceId'] as string)
-              : '',
-          difficulty:
-            (typeof p['difficulty'] === 'string'
-              ? (p['difficulty'] as Difficulty)
-              : 'medium') as Difficulty,
-          xpOverride:
-            typeof p['xpOverride'] === 'number'
-              ? (p['xpOverride'] as number)
-              : null,
-          xpFinal:
-            typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null,
-          dueAt:
-            typeof p['dueAt'] === 'string'
-              ? new Date(p['dueAt'] as string)
-              : null,
-          timeOfDay:
-            typeof p['timeOfDay'] === 'string'
-              ? (p['timeOfDay'] as string)
-              : null,
-          dueKind: p['dueKind'] === 'week_target' ? 'week_target' : 'hard',
+          taskId: typeof p.taskId === 'string' ? (p.taskId as string) : '',
+          instanceId: typeof p.instanceId === 'string' ? (p.instanceId as string) : '',
+          difficulty: (typeof p.difficulty === 'string'
+            ? (p.difficulty as Difficulty)
+            : 'medium') as Difficulty,
+          xpOverride: typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null,
+          xpFinal: typeof p.xpFinal === 'number' ? (p.xpFinal as number) : null,
+          dueAt: typeof p.dueAt === 'string' ? new Date(p.dueAt as string) : null,
+          timeOfDay: typeof p.timeOfDay === 'string' ? (p.timeOfDay as string) : null,
+          dueKind: p.dueKind === 'week_target' ? 'week_target' : 'hard',
           // Preserve kid completion-tokens across replay (reopen rebuilds).
-          tokensEarned:
-            typeof p['tokensEarned'] === 'number'
-              ? (p['tokensEarned'] as number)
-              : 0,
+          tokensEarned: typeof p.tokensEarned === 'number' ? (p.tokensEarned as number) : 0,
           occurredAt,
         },
         { timeZone },
@@ -2914,14 +2769,9 @@ async function rebuildProgression(
         {
           type: 'task.cheered',
           completionEventId:
-            typeof p['completionEventId'] === 'string'
-              ? (p['completionEventId'] as string)
-              : '',
-          giverUserId:
-            typeof p['giverUserId'] === 'string'
-              ? (p['giverUserId'] as string)
-              : '',
-          xp: typeof p['xp'] === 'number' ? (p['xp'] as number) : 0,
+            typeof p.completionEventId === 'string' ? (p.completionEventId as string) : '',
+          giverUserId: typeof p.giverUserId === 'string' ? (p.giverUserId as string) : '',
+          xp: typeof p.xp === 'number' ? (p.xp as number) : 0,
           occurredAt,
         },
         { timeZone },
@@ -2931,11 +2781,8 @@ async function rebuildProgression(
         state,
         {
           type: 'friend.added',
-          otherUserId:
-            typeof p['otherUserId'] === 'string'
-              ? (p['otherUserId'] as string)
-              : '',
-          xp: typeof p['xp'] === 'number' ? (p['xp'] as number) : 0,
+          otherUserId: typeof p.otherUserId === 'string' ? (p.otherUserId as string) : '',
+          xp: typeof p.xp === 'number' ? (p.xp as number) : 0,
           occurredAt,
         },
         { timeZone },
@@ -2944,12 +2791,12 @@ async function rebuildProgression(
       // No-op for progression projection.
     } else if (r.type === 'focus.completed') {
       const durationMin =
-        p['durationMin'] === 5 ||
-        p['durationMin'] === 10 ||
-        p['durationMin'] === 15 ||
-        p['durationMin'] === 25 ||
-        p['durationMin'] === 50
-          ? (p['durationMin'] as 5 | 10 | 15 | 25 | 50)
+        p.durationMin === 5 ||
+        p.durationMin === 10 ||
+        p.durationMin === 15 ||
+        p.durationMin === 25 ||
+        p.durationMin === 50
+          ? (p.durationMin as 5 | 10 | 15 | 25 | 50)
           : 25
       state = applyEvent(
         state,
@@ -2957,36 +2804,26 @@ async function rebuildProgression(
           type: 'focus.completed',
           durationMin,
           taskInstanceId:
-            typeof p['taskInstanceId'] === 'string'
-              ? (p['taskInstanceId'] as string)
-              : null,
-          tokensEarned:
-            typeof p['tokensEarned'] === 'number'
-              ? (p['tokensEarned'] as number)
-              : 0,
-          xpEarned:
-            typeof p['xpEarned'] === 'number' ? (p['xpEarned'] as number) : 0,
+            typeof p.taskInstanceId === 'string' ? (p.taskInstanceId as string) : null,
+          tokensEarned: typeof p.tokensEarned === 'number' ? (p.tokensEarned as number) : 0,
+          xpEarned: typeof p.xpEarned === 'number' ? (p.xpEarned as number) : 0,
           occurredAt,
         },
         { timeZone },
       )
     } else if (r.type === 'game.played') {
       const result =
-        p['result'] && typeof p['result'] === 'object'
-          ? (p['result'] as Record<string, unknown>)
-          : {}
+        p.result && typeof p.result === 'object' ? (p.result as Record<string, unknown>) : {}
       state = applyEvent(
         state,
         {
           type: 'game.played',
-          gameId: typeof p['gameId'] === 'string' ? (p['gameId'] as string) : '',
-          tokenCost:
-            typeof p['tokenCost'] === 'number' ? (p['tokenCost'] as number) : 0,
-          xpReward:
-            typeof p['xpReward'] === 'number' ? (p['xpReward'] as number) : 0,
+          gameId: typeof p.gameId === 'string' ? (p.gameId as string) : '',
+          tokenCost: typeof p.tokenCost === 'number' ? (p.tokenCost as number) : 0,
+          xpReward: typeof p.xpReward === 'number' ? (p.xpReward as number) : 0,
           result: {
-            won: result['won'] === true,
-            score: typeof result['score'] === 'number' ? (result['score'] as number) : null,
+            won: result.won === true,
+            score: typeof result.score === 'number' ? (result.score as number) : null,
           },
           occurredAt,
         },
@@ -2997,10 +2834,9 @@ async function rebuildProgression(
         state,
         {
           type: 'tokens.granted',
-          amount: typeof p['amount'] === 'number' ? (p['amount'] as number) : 0,
-          reason: typeof p['reason'] === 'string' ? (p['reason'] as string) : null,
-          grantedBy:
-            typeof p['grantedBy'] === 'string' ? (p['grantedBy'] as string) : '',
+          amount: typeof p.amount === 'number' ? (p.amount as number) : 0,
+          reason: typeof p.reason === 'string' ? (p.reason as string) : null,
+          grantedBy: typeof p.grantedBy === 'string' ? (p.grantedBy as string) : '',
           occurredAt,
         },
         { timeZone },
@@ -3010,14 +2846,10 @@ async function rebuildProgression(
         state,
         {
           type: 'task.step.completed',
-          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
-          stepId: typeof p['stepId'] === 'string' ? (p['stepId'] as string) : '',
-          instanceId:
-            typeof p['instanceId'] === 'string'
-              ? (p['instanceId'] as string)
-              : '',
-          xpEarned:
-            typeof p['xpEarned'] === 'number' ? (p['xpEarned'] as number) : 0,
+          taskId: typeof p.taskId === 'string' ? (p.taskId as string) : '',
+          stepId: typeof p.stepId === 'string' ? (p.stepId as string) : '',
+          instanceId: typeof p.instanceId === 'string' ? (p.instanceId as string) : '',
+          xpEarned: typeof p.xpEarned === 'number' ? (p.xpEarned as number) : 0,
           occurredAt,
         },
         { timeZone },
@@ -3027,16 +2859,10 @@ async function rebuildProgression(
         state,
         {
           type: 'task.step.uncompleted',
-          taskId: typeof p['taskId'] === 'string' ? (p['taskId'] as string) : '',
-          stepId: typeof p['stepId'] === 'string' ? (p['stepId'] as string) : '',
-          instanceId:
-            typeof p['instanceId'] === 'string'
-              ? (p['instanceId'] as string)
-              : '',
-          xpRefunded:
-            typeof p['xpRefunded'] === 'number'
-              ? (p['xpRefunded'] as number)
-              : 0,
+          taskId: typeof p.taskId === 'string' ? (p.taskId as string) : '',
+          stepId: typeof p.stepId === 'string' ? (p.stepId as string) : '',
+          instanceId: typeof p.instanceId === 'string' ? (p.instanceId as string) : '',
+          xpRefunded: typeof p.xpRefunded === 'number' ? (p.xpRefunded as number) : 0,
           occurredAt,
         },
         { timeZone },
@@ -3096,9 +2922,7 @@ async function kidCompletionTokens(
   const [row] = await tx
     .select({ n: count() })
     .from(events)
-    .where(
-      and(eq(events.userId, recipientId), eq(events.type, 'task.completed')),
-    )
+    .where(and(eq(events.userId, recipientId), eq(events.type, 'task.completed')))
   const completionNumber = (row?.n ?? 0) + 1
   return completionNumber % KID_TOKENS_EVERY_N_COMPLETIONS === 0 ? 1 : 0
 }
@@ -3185,11 +3009,7 @@ export async function assignKidXp(
       })
       .returning({ id: taskInstances.id })
 
-    const tokensEarned = await kidCompletionTokens(
-      tx,
-      input.kidUserId,
-      householdId,
-    )
+    const tokensEarned = await kidCompletionTokens(tx, input.kidUserId, householdId)
 
     const event: DomainEvent = {
       type: 'task.completed',
@@ -3303,7 +3123,7 @@ export async function setHouseholdChoreXp(
     where: eq(tasks.id, input.taskId),
     columns: { id: true, householdId: true },
   })
-  if (!task || !task.householdId) {
+  if (!task?.householdId) {
     throw new Error('Household chore not found.')
   }
   await assertHouseholdRole(userId, task.householdId, ['admin', 'member'])
@@ -3346,15 +3166,13 @@ export async function setKidCompletionXp(
     const row = await tx.query.events.findFirst({
       where: eq(events.id, input.eventId),
     })
-    if (!row || row.type !== 'task.completed') {
+    if (row?.type !== 'task.completed') {
       throw new Error('Completion not found.')
     }
     const recipientId = row.userId
     const payload =
-      row.payload && typeof row.payload === 'object'
-        ? (row.payload as Record<string, unknown>)
-        : {}
-    if (payload['householdId'] !== householdId) {
+      row.payload && typeof row.payload === 'object' ? (row.payload as Record<string, unknown>) : {}
+    if (payload.householdId !== householdId) {
       throw new Error('That completion is not in your household.')
     }
 
@@ -3466,11 +3284,9 @@ export async function completeInstance(
       if (instance.assigneeGroup === 'adults' && membership.role === 'kid') {
         throw new Error('This chore is for adults.')
       }
-      const isAssigneeOrFFA =
-        !instance.assignedToUserId ||
-        instance.assignedToUserId === userId
+      const isAssigneeOrFFA = !instance.assignedToUserId || instance.assignedToUserId === userId
       if (!isAssigneeOrFFA && membership.role === 'kid') {
-        throw new Error("Kids can only complete their own chores.")
+        throw new Error('Kids can only complete their own chores.')
       }
 
       // Two managed-account models for completion:
@@ -3506,9 +3322,7 @@ export async function completeInstance(
       }
 
       if (membership.role === 'kiosk' && requestedCredits.length === 0) {
-        throw new Error(
-          'Pick who did this chore from the dialog before completing.',
-        )
+        throw new Error('Pick who did this chore from the dialog before completing.')
       }
 
       if (requestedCredits.length > 0) {
@@ -3598,23 +3412,17 @@ export async function completeInstance(
     const effectiveXpOverride = instance.xpOverride ?? task.xpOverride
     const parentXpOverride =
       totalSteps > 0
-        ? parentBonusBaseXp(
-            baseXpForDifficulty(
-              task.difficulty as Difficulty,
-              effectiveXpOverride,
-            ),
-          )
+        ? parentBonusBaseXp(baseXpForDifficulty(task.difficulty as Difficulty, effectiveXpOverride))
         : effectiveXpOverride
 
     const dueKind: 'hard' | 'week_target' =
       instance.dueKind === 'week_target' ? 'week_target' : 'hard'
 
-    const completedAs: 'personal' | 'assigned' | 'free_for_all' =
-      !instance.householdId
-        ? 'personal'
-        : instance.assignedToUserId
-          ? 'assigned'
-          : 'free_for_all'
+    const completedAs: 'personal' | 'assigned' | 'free_for_all' = !instance.householdId
+      ? 'personal'
+      : instance.assignedToUserId
+        ? 'assigned'
+        : 'free_for_all'
 
     // One task.completed event per credited recipient — each earns the
     // full reward and advances their own streak independently. For a
@@ -3630,9 +3438,7 @@ export async function completeInstance(
       // chore for a kid traveling in EST); pull the recipient's tz so the
       // streak boundary is computed in *their* day.
       const recipientTimeZone =
-        recipientId === userId
-          ? timeZone
-          : await getUserTimeZone(recipientId)
+        recipientId === userId ? timeZone : await getUserTimeZone(recipientId)
 
       // The clock time that applied to this occurrence's weekday (per-weekday
       // schedules vary it), so punctuality + timing stats use the right target.
@@ -3645,11 +3451,7 @@ export async function completeInstance(
         : null
 
       // Kid recipients earn an arcade token every Nth completion (adults: 0).
-      const tokensEarned = await kidCompletionTokens(
-        tx,
-        recipientId,
-        instance.householdId,
-      )
+      const tokensEarned = await kidCompletionTokens(tx, recipientId, instance.householdId)
 
       const event: DomainEvent = {
         type: 'task.completed',
@@ -3882,10 +3684,7 @@ export async function skipInstance(
     })
     if (!task) throw new Error('task missing')
 
-    await tx
-      .update(taskInstances)
-      .set({ skippedAt: now })
-      .where(eq(taskInstances.id, instance.id))
+    await tx.update(taskInstances).set({ skippedAt: now }).where(eq(taskInstances.id, instance.id))
 
     await tx.insert(events).values({
       userId,
@@ -4018,11 +3817,7 @@ export async function surfaceInstanceNow(
     const newDueAt = task?.timeOfDay
       ? setTimeInTz(
           now,
-          resolveTimeOfDay(
-            dayOfWeekInTz(now, timeZone),
-            task.timeOfDay,
-            task.timeByWeekday,
-          ),
+          resolveTimeOfDay(dayOfWeekInTz(now, timeZone), task.timeOfDay, task.timeByWeekday),
           timeZone,
         )
       : now
@@ -4034,9 +3829,7 @@ export async function surfaceInstanceNow(
     await tx
       .update(tasks)
       .set({ snoozeUntil: null })
-      .where(
-        and(eq(tasks.id, instance.taskId), isNotNull(tasks.snoozeUntil)),
-      )
+      .where(and(eq(tasks.id, instance.taskId), isNotNull(tasks.snoozeUntil)))
     return { dueAt: newDueAt.toISOString() }
   })
 }
@@ -4065,9 +3858,7 @@ export async function snoozeInstance(
 // Progression & activity
 // ---------------------------------------------------------------------------
 
-export async function getProgression(
-  userId: string,
-): Promise<ProgressionSummary> {
+export async function getProgression(userId: string): Promise<ProgressionSummary> {
   const row = await db.query.progression.findFirst({
     where: eq(progression.userId, userId),
   })
@@ -4105,10 +3896,7 @@ export interface HistoryDay {
   items: HistoryEntry[]
 }
 
-export async function listCompletionHistory(
-  userId: string,
-  days = 30,
-): Promise<HistoryDay[]> {
+export async function listCompletionHistory(userId: string, days = 30): Promise<HistoryDay[]> {
   const timeZone = await getUserTimeZone(userId)
   const since = new Date(Date.now() - days * 24 * 3_600_000)
 
@@ -4127,8 +3915,6 @@ export async function listCompletionHistory(
     )
     .orderBy(events.occurredAt)
 
-  type Row = (typeof rows)[number]
-
   const recent = rows.filter((r) => r.occurredAt && r.occurredAt >= since)
 
   const taskIds = Array.from(
@@ -4136,10 +3922,8 @@ export async function listCompletionHistory(
       recent
         .map((r) => {
           const p =
-            r.payload && typeof r.payload === 'object'
-              ? (r.payload as Record<string, unknown>)
-              : {}
-          return typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+            r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+          return typeof p.taskId === 'string' ? (p.taskId as string) : null
         })
         .filter((v): v is string => Boolean(v)),
     ),
@@ -4166,23 +3950,16 @@ export async function listCompletionHistory(
     if (!r.occurredAt) continue
     const day = formatter.format(r.occurredAt)
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const taskId =
-      typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
-    const instanceId =
-      typeof p['instanceId'] === 'string' ? (p['instanceId'] as string) : ''
-    const xpOverride =
-      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
-    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
-    const base =
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const taskId = typeof p.taskId === 'string' ? (p.taskId as string) : null
+    const instanceId = typeof p.instanceId === 'string' ? (p.instanceId as string) : ''
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
+    const base = xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
     const entry: HistoryEntry = {
       instanceId,
       taskId,
-      title: taskId ? titleMap.get(taskId) ?? '(deleted)' : '(unknown)',
+      title: taskId ? (titleMap.get(taskId) ?? '(deleted)') : '(unknown)',
       xp: base,
       completedAt: r.occurredAt.toISOString(),
     }
@@ -4196,12 +3973,7 @@ export async function listCompletionHistory(
   }
 
   // Newest date first
-  return Array.from(byDay.values()).sort((a, b) =>
-    a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
-  )
-
-  // Silence unused-local warning on Row (helps future typing).
-  void ({} as Row)
+  return Array.from(byDay.values()).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 }
 
 export interface CategoryCount {
@@ -4220,8 +3992,7 @@ export async function categoryCounts(
   scope: 'active' | 'completed',
 ): Promise<CategoryCount[]> {
   const counts = new Map<string | null, number>()
-  const bump = (slug: string | null) =>
-    counts.set(slug, (counts.get(slug) ?? 0) + 1)
+  const bump = (slug: string | null) => counts.set(slug, (counts.get(slug) ?? 0) + 1)
 
   if (scope === 'active') {
     const rows = await db
@@ -4250,9 +4021,7 @@ export async function categoryCounts(
               e.payload && typeof e.payload === 'object'
                 ? (e.payload as Record<string, unknown>)
                 : {}
-            return typeof p['taskId'] === 'string'
-              ? (p['taskId'] as string)
-              : null
+            return typeof p.taskId === 'string' ? (p.taskId as string) : null
           })
           .filter((v): v is string => Boolean(v)),
       ),
@@ -4267,10 +4036,8 @@ export async function categoryCounts(
     }
     for (const e of completions) {
       const p =
-        e.payload && typeof e.payload === 'object'
-          ? (e.payload as Record<string, unknown>)
-          : {}
-      const tid = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+        e.payload && typeof e.payload === 'object' ? (e.payload as Record<string, unknown>) : {}
+      const tid = typeof p.taskId === 'string' ? (p.taskId as string) : null
       if (!tid) continue
       if (!catByTask.has(tid)) continue
       bump(catByTask.get(tid) ?? null)
@@ -4300,15 +4067,10 @@ export interface Stats {
 
 const MAX_ALL_TIME_DAYS = 365 * 10 // safety cap on the filled series
 
-export async function getStats(
-  userId: string,
-  days: number | 'all',
-): Promise<Stats> {
+export async function getStats(userId: string, days: number | 'all'): Promise<Stats> {
   const timeZone = await getUserTimeZone(userId)
   const allTime = days === 'all'
-  const since = allTime
-    ? new Date(0)
-    : new Date(Date.now() - (days as number) * 24 * 3_600_000)
+  const since = allTime ? new Date(0) : new Date(Date.now() - (days as number) * 24 * 3_600_000)
 
   const rows = await db
     .select({
@@ -4375,15 +4137,10 @@ export async function getStats(
   for (const r of rows) {
     if (!r.occurredAt) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const xpOverride =
-      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
-    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
-    const xp =
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
+    const xp = xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
 
     const dayKey = dayFmt.format(r.occurredAt)
     const bucket = xpByDay.get(dayKey) ?? { xp: 0, count: 0 }
@@ -4400,27 +4157,20 @@ export async function getStats(
       hour[hourNum] += 1
     }
 
-    const taskId = typeof p['taskId'] === 'string' ? (p['taskId'] as string) : null
+    const taskId = typeof p.taskId === 'string' ? (p.taskId as string) : null
     if (taskId) {
       taskCounts.set(taskId, (taskCounts.get(taskId) ?? 0) + 1)
     }
 
-    const scheduledTod =
-      typeof p['timeOfDay'] === 'string' ? (p['timeOfDay'] as string) : null
+    const scheduledTod = typeof p.timeOfDay === 'string' ? (p.timeOfDay as string) : null
     if (scheduledTod) {
       const [schedHStr, schedMStr] = scheduledTod.split(':')
       const schedH = Number.parseInt(schedHStr ?? '', 10)
       const schedM = Number.parseInt(schedMStr ?? '', 10)
       if (Number.isFinite(schedH) && Number.isFinite(schedM)) {
         const parts = timeFmt.formatToParts(r.occurredAt)
-        const actualH = Number.parseInt(
-          parts.find((x) => x.type === 'hour')?.value ?? '',
-          10,
-        )
-        const actualM = Number.parseInt(
-          parts.find((x) => x.type === 'minute')?.value ?? '',
-          10,
-        )
+        const actualH = Number.parseInt(parts.find((x) => x.type === 'hour')?.value ?? '', 10)
+        const actualM = Number.parseInt(parts.find((x) => x.type === 'minute')?.value ?? '', 10)
         if (Number.isFinite(actualH) && Number.isFinite(actualM)) {
           const scheduledMin = schedH * 60 + schedM
           const actualMin = (actualH % 24) * 60 + actualM
@@ -4429,12 +4179,8 @@ export async function getStats(
           let offset = actualMin - scheduledMin
           if (offset > 720) offset -= 1440
           else if (offset < -720) offset += 1440
-          const clamped = Math.max(
-            -OFFSET_RANGE_MIN,
-            Math.min(OFFSET_RANGE_MIN, offset),
-          )
-          const bucket =
-            Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
+          const clamped = Math.max(-OFFSET_RANGE_MIN, Math.min(OFFSET_RANGE_MIN, offset))
+          const bucket = Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
           offsetBuckets.set(bucket, (offsetBuckets.get(bucket) ?? 0) + 1)
           timingTotal += 1
           offsetSum += offset
@@ -4456,10 +4202,7 @@ export async function getStats(
       }
     }
     const spanMs = Math.max(0, Date.now() - earliest)
-    fillDays = Math.min(
-      MAX_ALL_TIME_DAYS,
-      Math.max(1, Math.ceil(spanMs / 86_400_000) + 1),
-    )
+    fillDays = Math.min(MAX_ALL_TIME_DAYS, Math.max(1, Math.ceil(spanMs / 86_400_000) + 1))
   } else {
     fillDays = days as number
   }
@@ -4481,7 +4224,12 @@ export async function getStats(
     const idRows = await db
       .select({ id: tasks.id, title: tasks.title })
       .from(tasks)
-      .where(inArray(tasks.id, topIds.map(([id]) => id)))
+      .where(
+        inArray(
+          tasks.id,
+          topIds.map(([id]) => id),
+        ),
+      )
     for (const r of idRows) topTitles.set(r.id, r.title)
   }
   const topTasks = topIds.map(([taskId, count]) => ({
@@ -4503,8 +4251,7 @@ export async function getStats(
     timingOffset: {
       buckets: timingBuckets,
       totalScheduled: timingTotal,
-      avgOffsetMin:
-        timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
+      avgOffsetMin: timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
       withinThirtyCount: withinThirty,
     },
   }
@@ -4582,9 +4329,7 @@ export async function getTaskStats(
 ): Promise<TaskStats> {
   const timeZone = await getUserTimeZone(userId)
   const allTime = days === 'all'
-  const since = allTime
-    ? new Date(0)
-    : new Date(Date.now() - (days as number) * 24 * 3_600_000)
+  const since = allTime ? new Date(0) : new Date(Date.now() - (days as number) * 24 * 3_600_000)
 
   const taskRow = await db
     .select({
@@ -4609,12 +4354,7 @@ export async function getTaskStats(
   // task, only the owner can view and only their own completions count.
   const householdId = taskRow?.householdId ?? null
   if (householdId) {
-    await assertHouseholdRole(userId, householdId, [
-      'admin',
-      'member',
-      'kid',
-      'kiosk',
-    ])
+    await assertHouseholdRole(userId, householdId, ['admin', 'member', 'kid', 'kiosk'])
   } else if (taskRow && taskRow.ownerId !== userId) {
     throw new Error('task not found')
   }
@@ -4703,17 +4443,11 @@ export async function getTaskStats(
   for (const r of rows) {
     if (!r.occurredAt) continue
     const p =
-      r.payload && typeof r.payload === 'object'
-        ? (r.payload as Record<string, unknown>)
-        : {}
-    const xpOverride =
-      typeof p['xpOverride'] === 'number' ? (p['xpOverride'] as number) : null
-    const difficulty = typeof p['difficulty'] === 'string' ? p['difficulty'] : null
-    const xp =
-      xpOverride ??
-      (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
-    const instanceId =
-      typeof p['instanceId'] === 'string' ? (p['instanceId'] as string) : null
+      r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+    const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+    const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
+    const xp = xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+    const instanceId = typeof p.instanceId === 'string' ? (p.instanceId as string) : null
 
     completionCount += 1
     totalXp += xp
@@ -4755,7 +4489,7 @@ export async function getTaskStats(
     const weekday = new Date(`${dayKey}T00:00:00Z`).getUTCDay()
     if (weekday >= 0 && weekday <= 6) weekdayCounts[weekday] += 1
 
-    const dueRaw = typeof p['dueAt'] === 'string' ? (p['dueAt'] as string) : null
+    const dueRaw = typeof p.dueAt === 'string' ? (p.dueAt as string) : null
     if (dueRaw) {
       const dueDate = new Date(dueRaw)
       if (!Number.isNaN(dueDate.getTime())) {
@@ -4769,8 +4503,7 @@ export async function getTaskStats(
       }
     }
 
-    const scheduledTod =
-      typeof p['timeOfDay'] === 'string' ? (p['timeOfDay'] as string) : null
+    const scheduledTod = typeof p.timeOfDay === 'string' ? (p.timeOfDay as string) : null
     if (scheduledTod) {
       hasAnyScheduled = true
       const [schedHStr, schedMStr] = scheduledTod.split(':')
@@ -4778,26 +4511,16 @@ export async function getTaskStats(
       const schedM = Number.parseInt(schedMStr ?? '', 10)
       if (Number.isFinite(schedH) && Number.isFinite(schedM)) {
         const parts = timeFmt.formatToParts(r.occurredAt)
-        const actualH = Number.parseInt(
-          parts.find((x) => x.type === 'hour')?.value ?? '',
-          10,
-        )
-        const actualM = Number.parseInt(
-          parts.find((x) => x.type === 'minute')?.value ?? '',
-          10,
-        )
+        const actualH = Number.parseInt(parts.find((x) => x.type === 'hour')?.value ?? '', 10)
+        const actualM = Number.parseInt(parts.find((x) => x.type === 'minute')?.value ?? '', 10)
         if (Number.isFinite(actualH) && Number.isFinite(actualM)) {
           const scheduledMin = schedH * 60 + schedM
           const actualMin = (actualH % 24) * 60 + actualM
           let offset = actualMin - scheduledMin
           if (offset > 720) offset -= 1440
           else if (offset < -720) offset += 1440
-          const clamped = Math.max(
-            -OFFSET_RANGE_MIN,
-            Math.min(OFFSET_RANGE_MIN, offset),
-          )
-          const b =
-            Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
+          const clamped = Math.max(-OFFSET_RANGE_MIN, Math.min(OFFSET_RANGE_MIN, offset))
+          const b = Math.round(clamped / OFFSET_BUCKET_SIZE) * OFFSET_BUCKET_SIZE
           offsetBuckets.set(b, (offsetBuckets.get(b) ?? 0) + 1)
           timingTotal += 1
           offsetSum += offset
@@ -4817,10 +4540,7 @@ export async function getTaskStats(
       }
     }
     const spanMs = Math.max(0, Date.now() - earliest)
-    fillDays = Math.min(
-      MAX_ALL_TIME_DAYS,
-      Math.max(1, Math.ceil(spanMs / 86_400_000) + 1),
-    )
+    fillDays = Math.min(MAX_ALL_TIME_DAYS, Math.max(1, Math.ceil(spanMs / 86_400_000) + 1))
   } else {
     fillDays = days as number
   }
@@ -4842,19 +4562,15 @@ export async function getTaskStats(
   if (!resolvedTimeOfDay) {
     for (const r of rows) {
       const p =
-        r.payload && typeof r.payload === 'object'
-          ? (r.payload as Record<string, unknown>)
-          : {}
-      if (typeof p['timeOfDay'] === 'string') {
-        resolvedTimeOfDay = p['timeOfDay'] as string
+        r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+      if (typeof p.timeOfDay === 'string') {
+        resolvedTimeOfDay = p.timeOfDay as string
         break
       }
     }
   }
 
-  const lastTitle =
-    taskRow?.title ??
-    (rows.length > 0 ? '(deleted task)' : '(unknown task)')
+  const lastTitle = taskRow?.title ?? (rows.length > 0 ? '(deleted task)' : '(unknown task)')
 
   // Cadence stats — only for recurring tasks. Rates use a single span: the
   // window start for a fixed window, or the first completion for all-time
@@ -4862,9 +4578,7 @@ export async function getTaskStats(
   let cadence: TaskStats['cadence'] = null
   if (taskRow?.recurrence) {
     const now = Date.now()
-    const effectiveStartMs = allTime
-      ? (firstOccurredMs ?? now)
-      : since.getTime()
+    const effectiveStartMs = allTime ? (firstOccurredMs ?? now) : since.getTime()
     const spanDays = Math.max(1, (now - effectiveStartMs) / 86_400_000)
     const perWeek = completionCount / (spanDays / 7)
     const perMonth = completionCount / (spanDays / 30.44)
@@ -4901,10 +4615,7 @@ export async function getTaskStats(
           : null,
       expectedPerWeek,
       consistencyPct: completionCount > 0 ? consistencyPct : null,
-      avgGapDays:
-        gapCount > 0
-          ? Math.round((gapSumMs / gapCount / 86_400_000) * 10) / 10
-          : null,
+      avgGapDays: gapCount > 0 ? Math.round((gapSumMs / gapCount / 86_400_000) * 10) / 10 : null,
       currentStreak,
       bestDayOfWeek,
     }
@@ -4912,10 +4623,7 @@ export async function getTaskStats(
 
   // Household per-person breakdown + name map for "who completed it" labels.
   let household: TaskStats['household'] = null
-  const nameByUser = new Map<
-    string,
-    { name: string; color: string | null }
-  >()
+  const nameByUser = new Map<string, { name: string; color: string | null }>()
   if (householdId) {
     const members = await listHouseholdMembers(userId, householdId)
     const memberById = new Map(members.map((m) => [m.userId, m]))
@@ -4939,14 +4647,12 @@ export async function getTaskStats(
             agg.onTimeComparable > 0
               ? Math.round((agg.onTimeCount / agg.onTimeComparable) * 100)
               : null,
-          lastCompletedAt:
-            agg.lastMs > 0 ? new Date(agg.lastMs).toISOString() : null,
+          lastCompletedAt: agg.lastMs > 0 ? new Date(agg.lastMs).toISOString() : null,
         }
       })
       .sort((a, b) => b.completions - a.completions)
     household = {
-      rotation:
-        taskRow?.rotationStrategy === 'round_robin' ? 'round_robin' : 'fixed',
+      rotation: taskRow?.rotationStrategy === 'round_robin' ? 'round_robin' : 'fixed',
       perPerson: perPersonRows,
     }
   }
@@ -4979,8 +4685,7 @@ export async function getTaskStats(
       ? {
           buckets: timingBuckets,
           totalScheduled: timingTotal,
-          avgOffsetMin:
-            timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
+          avgOffsetMin: timingTotal > 0 ? Math.round(offsetSum / timingTotal) : 0,
           withinThirtyCount: withinThirty,
         }
       : null,
@@ -5038,10 +4743,7 @@ export interface TaskStep {
 async function loadStepCounts(
   pairs: Array<{ taskId: string; instanceId: string }>,
 ): Promise<Map<string, { total: number; completedByInstance: Map<string, number> }>> {
-  const result = new Map<
-    string,
-    { total: number; completedByInstance: Map<string, number> }
-  >()
+  const result = new Map<string, { total: number; completedByInstance: Map<string, number> }>()
   if (pairs.length === 0) return result
 
   const taskIds = Array.from(new Set(pairs.map((p) => p.taskId)))
@@ -5084,10 +4786,7 @@ async function loadStepCounts(
   return result
 }
 
-async function assertTaskOwned(
-  userId: string,
-  taskId: string,
-): Promise<void> {
+async function assertTaskOwned(userId: string, taskId: string): Promise<void> {
   const row = await db.query.tasks.findFirst({
     where: and(eq(tasks.id, taskId), eq(tasks.userId, userId)),
     columns: { id: true },
@@ -5174,9 +4873,7 @@ export async function addTaskStep(
       .from(taskSteps)
       .where(eq(taskSteps.taskId, taskId))
     const nextPosition =
-      existing.length === 0
-        ? 0
-        : Math.max(...existing.map((r) => r.position)) + 1
+      existing.length === 0 ? 0 : Math.max(...existing.map((r) => r.position)) + 1
     const [row] = await tx
       .insert(taskSteps)
       .values({
@@ -5231,10 +4928,7 @@ export async function reorderTaskSteps(
   return { ok: true }
 }
 
-export async function deleteTaskStep(
-  userId: string,
-  stepId: string,
-): Promise<{ id: string }> {
+export async function deleteTaskStep(userId: string, stepId: string): Promise<{ id: string }> {
   const step = await loadStepWithOwnership(userId, stepId)
   // Cascade through task_step_completions handled at the FK level.
   await db.delete(taskSteps).where(eq(taskSteps.id, step.id))
@@ -5274,10 +4968,7 @@ export async function toggleTaskStep(
     if (!step) throw new Error('step not found')
 
     const instance = await tx.query.taskInstances.findFirst({
-      where: and(
-        eq(taskInstances.id, instanceId),
-        eq(taskInstances.userId, userId),
-      ),
+      where: and(eq(taskInstances.id, instanceId), eq(taskInstances.userId, userId)),
     })
     if (!instance) throw new Error('instance not found')
     if (instance.taskId !== step.taskId) {

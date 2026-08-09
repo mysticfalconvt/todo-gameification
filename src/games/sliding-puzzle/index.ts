@@ -4,8 +4,7 @@ import { SlidingPuzzle } from './SlidingPuzzle'
 export const slidingPuzzle: GameDefinition = {
   id: 'sliding-puzzle',
   name: 'Sliding Puzzle',
-  description:
-    'Slide the 8 tiles into order. Fewer moves = more XP (20 → 5).',
+  description: 'Slide the 8 tiles into order. Fewer moves = more XP (20 → 5).',
   tokenCost: 1,
   tier: 'free',
   rewardXp: (result) => {

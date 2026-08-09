@@ -15,8 +15,7 @@ export function FocusStepsChecklist({
   const qc = useQueryClient()
   const stepsQuery = useQuery({
     queryKey: ['taskSteps', taskId, instanceId],
-    queryFn: () =>
-      listTaskSteps({ data: { taskId, instanceId: instanceId ?? null } }),
+    queryFn: () => listTaskSteps({ data: { taskId, instanceId: instanceId ?? null } }),
   })
 
   const toggleMut = useMutation({
@@ -63,9 +62,7 @@ export function FocusStepsChecklist({
               />
               <span
                 className={`min-w-0 flex-1 text-left text-sm ${
-                  checked
-                    ? 'text-[var(--sea-ink-soft)] line-through'
-                    : 'text-[var(--sea-ink)]'
+                  checked ? 'text-[var(--sea-ink-soft)] line-through' : 'text-[var(--sea-ink)]'
                 }`}
               >
                 {step.title}

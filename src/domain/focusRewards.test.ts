@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  FOCUS_REWARDS_POCKET,
-  FOCUS_REWARDS_VISIBLE,
-  focusRewardsFor,
-} from './events'
+import { FOCUS_REWARDS_POCKET, FOCUS_REWARDS_VISIBLE, focusRewardsFor } from './events'
 
 describe('focus rewards', () => {
   it('pocket and visible are identical at the short tiers (5m, 10m)', () => {
@@ -12,15 +8,9 @@ describe('focus rewards', () => {
   })
 
   it('visible earns +1 token at 15/25/50 versus pocket', () => {
-    expect(FOCUS_REWARDS_VISIBLE[15].tokens).toBe(
-      FOCUS_REWARDS_POCKET[15].tokens + 1,
-    )
-    expect(FOCUS_REWARDS_VISIBLE[25].tokens).toBe(
-      FOCUS_REWARDS_POCKET[25].tokens + 1,
-    )
-    expect(FOCUS_REWARDS_VISIBLE[50].tokens).toBe(
-      FOCUS_REWARDS_POCKET[50].tokens + 1,
-    )
+    expect(FOCUS_REWARDS_VISIBLE[15].tokens).toBe(FOCUS_REWARDS_POCKET[15].tokens + 1)
+    expect(FOCUS_REWARDS_VISIBLE[25].tokens).toBe(FOCUS_REWARDS_POCKET[25].tokens + 1)
+    expect(FOCUS_REWARDS_VISIBLE[50].tokens).toBe(FOCUS_REWARDS_POCKET[50].tokens + 1)
   })
 
   it('XP is identical across modes at every tier', () => {

@@ -13,11 +13,7 @@ export const Route = createFileRoute('/api/v1/household/chores/')({
       GET: authedRoute(async ({ userId }) => {
         const m = await getMyMembership(userId)
         if (!m) {
-          return jsonError(
-            'not_found',
-            'You are not in a household.',
-            404,
-          )
+          return jsonError('not_found', 'You are not in a household.', 404)
         }
         const data = await listHouseholdChores(userId, m.householdId)
         return jsonOk(data)

@@ -62,14 +62,12 @@ export function PricingTable({ publicVariant }: Props) {
   const annual = useMutation({
     mutationFn: () => createAnnualCheckoutFn(),
     onSuccess: ({ url }) => window.location.assign(url),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
   const lifetime = useMutation({
     mutationFn: () => createLifetimeCheckoutFn(),
     onSuccess: ({ url }) => window.location.assign(url),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
 
   const a = pricing.data?.annual
@@ -98,9 +96,7 @@ export function PricingTable({ publicVariant }: Props) {
               Create account
             </Link>
           ) : (
-            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">
-              You're on Free.
-            </p>
+            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">You're on Free.</p>
           )}
         </Card>
 
@@ -119,16 +115,11 @@ export function PricingTable({ publicVariant }: Props) {
             ))}
           </ul>
           {publicVariant ? (
-            <Link
-              to="/auth/signup"
-              className="btn-primary mt-4 inline-block"
-            >
+            <Link to="/auth/signup" className="btn-primary mt-4 inline-block">
               Sign up to upgrade
             </Link>
           ) : memberTier === 'lifetime' ? (
-            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">
-              You already have lifetime ✨
-            </p>
+            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">You already have lifetime ✨</p>
           ) : isMember ? (
             <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">
               You're already an annual member.
@@ -145,11 +136,7 @@ export function PricingTable({ publicVariant }: Props) {
           )}
         </Card>
 
-        <Card
-          title="Lifetime"
-          subtitle={lifetimePrice}
-          hint="One-time payment, never expires"
-        >
+        <Card title="Lifetime" subtitle={lifetimePrice} hint="One-time payment, never expires">
           <ul className="space-y-1.5 text-sm text-[var(--sea-ink)]">
             {ROWS.map((r) => (
               <li key={r.label}>
@@ -169,9 +156,7 @@ export function PricingTable({ publicVariant }: Props) {
               Sign up to upgrade
             </Link>
           ) : memberTier === 'lifetime' ? (
-            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">
-              You already have lifetime ✨
-            </p>
+            <p className="mt-4 text-xs text-[var(--sea-ink-soft)]">You already have lifetime ✨</p>
           ) : (
             <button
               type="button"
@@ -212,9 +197,7 @@ function Card({
     >
       <header>
         <p className="island-kicker mb-1">{title}</p>
-        <p className="display-title text-3xl font-bold text-[var(--sea-ink)]">
-          {subtitle}
-        </p>
+        <p className="display-title text-3xl font-bold text-[var(--sea-ink)]">{subtitle}</p>
         <p className="text-xs text-[var(--sea-ink-soft)]">{hint}</p>
       </header>
       {children}

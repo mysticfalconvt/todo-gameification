@@ -55,10 +55,7 @@ export function formatWeeklyLabel(daysOfWeek: number[]): string {
   if (sorted.length === 1) return `Every ${DAY_LABELS[sorted[0]]}`
   // Weekdays shortcut (Mon–Fri).
   const weekdays = [1, 2, 3, 4, 5]
-  if (
-    sorted.length === 5 &&
-    sorted.every((d, i) => d === weekdays[i])
-  ) {
+  if (sorted.length === 5 && sorted.every((d, i) => d === weekdays[i])) {
     return 'Weekdays'
   }
   // Weekends shortcut (Sat + Sun).

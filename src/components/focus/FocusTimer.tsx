@@ -49,9 +49,7 @@ export function FocusTimer({
   const started = status !== 'idle'
   const progress = Math.min(1, accumulatedMs / plannedMs)
 
-  const [autoStartIn, setAutoStartIn] = useState<number | null>(
-    AUTO_START_SECONDS,
-  )
+  const [autoStartIn, setAutoStartIn] = useState<number | null>(AUTO_START_SECONDS)
   const cancelAutoStart = useCallback(() => setAutoStartIn(null), [])
 
   useEffect(() => {
@@ -68,9 +66,7 @@ export function FocusTimer({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 p-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="text-sm text-[var(--sea-ink-soft)]">
-          {durationMin}-min focus session
-        </div>
+        <div className="text-sm text-[var(--sea-ink-soft)]">{durationMin}-min focus session</div>
         {taskId || taskTitle ? (
           <TaskContextCard
             taskId={taskId}
@@ -81,10 +77,7 @@ export function FocusTimer({
         ) : null}
       </div>
 
-      <div
-        className="text-7xl font-semibold tabular-nums text-[var(--sea-ink)]"
-        aria-live="polite"
-      >
+      <div className="text-7xl font-semibold tabular-nums text-[var(--sea-ink)]" aria-live="polite">
         {formatRemaining(remainingMs)}
       </div>
 
@@ -95,9 +88,7 @@ export function FocusTimer({
         />
       </div>
 
-      {taskId ? (
-        <FocusStepsChecklist taskId={taskId} instanceId={instanceId} />
-      ) : null}
+      {taskId ? <FocusStepsChecklist taskId={taskId} instanceId={instanceId} /> : null}
 
       {status === 'paused' ? (
         <p className="text-sm text-[var(--sea-ink-soft)]">
@@ -140,16 +131,9 @@ export function FocusTimer({
       </div>
 
       {!started && autoStartIn !== null ? (
-        <p
-          className="text-center text-xs text-[var(--sea-ink-soft)]"
-          aria-live="polite"
-        >
+        <p className="text-center text-xs text-[var(--sea-ink-soft)]" aria-live="polite">
           Auto-starting in {autoStartIn}s.{' '}
-          <button
-            type="button"
-            onClick={cancelAutoStart}
-            className="underline"
-          >
+          <button type="button" onClick={cancelAutoStart} className="underline">
             Cancel
           </button>
         </p>

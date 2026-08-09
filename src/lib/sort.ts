@@ -47,15 +47,12 @@ function effectiveXp(row: SortableCommon): number {
   return baseXp(row.difficulty, row.xpOverride)
 }
 
-export function compareBy<T extends SortableCommon>(
-  key: SortKey,
-): (a: T, b: T) => number {
+export function compareBy<T extends SortableCommon>(key: SortKey): (a: T, b: T) => number {
   switch (key) {
     case 'due-asc':
       return (a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')
     case 'title-asc':
-      return (a, b) =>
-        a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+      return (a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase())
     case 'xp-desc':
       return (a, b) => effectiveXp(b) - effectiveXp(a)
     case 'xp-asc':

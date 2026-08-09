@@ -28,8 +28,7 @@ export function TaskContextCard({
   })
   const stepsQuery = useQuery({
     queryKey: ['taskSteps', taskId, instanceId],
-    queryFn: () =>
-      listTaskSteps({ data: { taskId: taskId!, instanceId: instanceId ?? null } }),
+    queryFn: () => listTaskSteps({ data: { taskId: taskId!, instanceId: instanceId ?? null } }),
     enabled: !!taskId,
   })
   const categoriesQuery = useQuery({
@@ -57,11 +56,7 @@ export function TaskContextCard({
 
   return (
     <section className="island-shell w-full max-w-sm rounded-2xl p-4 text-left">
-      <div
-        className={`font-semibold text-[var(--sea-ink)] ${
-          compact ? 'text-base' : 'text-lg'
-        }`}
-      >
+      <div className={`font-semibold text-[var(--sea-ink)] ${compact ? 'text-base' : 'text-lg'}`}>
         {title}
       </div>
 
@@ -71,16 +66,11 @@ export function TaskContextCard({
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[var(--sea-ink)]"
             style={{ backgroundColor: `${cat.color}33` }}
           >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: cat.color }}
-            />
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
             {cat.label}
           </span>
         ) : null}
-        {xp != null ? (
-          <span className="text-[var(--lagoon-deep)]">+{xp} XP</span>
-        ) : null}
+        {xp != null ? <span className="text-[var(--lagoon-deep)]">+{xp} XP</span> : null}
         {stepsTotal > 0 ? (
           <span className="text-[var(--sea-ink-soft)]">
             {stepsDone}/{stepsTotal} steps
@@ -89,9 +79,7 @@ export function TaskContextCard({
       </div>
 
       {!compact && task?.notes ? (
-        <p className="mt-2 whitespace-pre-wrap text-xs text-[var(--sea-ink-soft)]">
-          {task.notes}
-        </p>
+        <p className="mt-2 whitespace-pre-wrap text-xs text-[var(--sea-ink-soft)]">{task.notes}</p>
       ) : null}
     </section>
   )

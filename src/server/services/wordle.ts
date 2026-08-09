@@ -4,12 +4,7 @@
 // SQL NOT EXISTS against the event log (no separate seen table).
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  taskInstances,
-  tasks,
-  user as userTable,
-  wordleWords,
-} from '../db/schema'
+import { taskInstances, tasks, user as userTable, wordleWords } from '../db/schema'
 import { isAdminEmail } from './admin'
 
 const WORD_LENGTH = 5
@@ -56,10 +51,7 @@ export interface AddWordsResult {
 // Accepts whitespace- or comma-separated input. Normalizes to uppercase,
 // rejects anything that isn't 5 A–Z letters. Duplicates (in input or
 // already in table) show up in `skipped`.
-export async function addWords(
-  raw: string,
-  createdBy: string,
-): Promise<AddWordsResult> {
+export async function addWords(raw: string, createdBy: string): Promise<AddWordsResult> {
   const tokens = raw.split(/[\s,]+/).filter(Boolean)
   const normalized: string[] = []
   const invalid: string[] = []
@@ -127,9 +119,7 @@ export async function countUnseen(userId: string): Promise<number> {
 }
 
 export async function countTotal(): Promise<number> {
-  const rows = await db.execute<{ n: number }>(
-    sql`SELECT COUNT(*)::int AS n FROM wordle_words`,
-  )
+  const rows = await db.execute<{ n: number }>(sql`SELECT COUNT(*)::int AS n FROM wordle_words`)
   return Number(rows[0]?.n ?? 0)
 }
 
@@ -151,25 +141,16 @@ export async function checkAndNotifyLowPool(userId: string): Promise<void> {
 }
 
 async function loadAdminUsers(): Promise<Array<{ id: string; email: string }>> {
-  const rows = await db
-    .select({ id: userTable.id, email: userTable.email })
-    .from(userTable)
+  const rows = await db.select({ id: userTable.id, email: userTable.email }).from(userTable)
   return rows.filter((r) => isAdminEmail(r.email))
 }
 
 // One active task per admin, keyed by externalRef. When the admin has
 // completed a prior nudge (task row still exists, instance closed), reopen
 // it by inserting a fresh instance so they get it in "today" again.
-async function ensureAdminTask(
-  userId: string,
-  title: string,
-  notes: string,
-): Promise<void> {
+async function ensureAdminTask(userId: string, title: string, notes: string): Promise<void> {
   const existing = await db.query.tasks.findFirst({
-    where: and(
-      eq(tasks.userId, userId),
-      eq(tasks.externalRef, ADMIN_TASK_EXTERNAL_REF),
-    ),
+    where: and(eq(tasks.userId, userId), eq(tasks.externalRef, ADMIN_TASK_EXTERNAL_REF)),
   })
   if (existing) {
     const openInstance = await db.query.taskInstances.findFirst({

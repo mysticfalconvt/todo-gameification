@@ -20,20 +20,10 @@
 import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { db } from '../db/client'
-import {
-  events,
-  taskInstances,
-  tasks,
-  userPrefs,
-  weeklySummaries,
-} from '../db/schema'
+import { events, taskInstances, tasks, userPrefs, weeklySummaries } from '../db/schema'
 import { callLlmChat } from '../llm/client'
 import { sanitizeCoachOutput } from './coach'
-import {
-  getProgression,
-  getUserTimeZone,
-  type ProgressionSummary,
-} from './tasks'
+import { getProgression, getUserTimeZone, type ProgressionSummary } from './tasks'
 import { getArcadeStats, type ArcadeStats } from './arcadeStats'
 import { getLeaderboard, type LeaderboardRow } from './leaderboard'
 import {
@@ -142,12 +132,7 @@ function isoDow(date: Date, tz: string): number {
 // (local weekday `dow` 1..7, local `hour` 0..23) occurred. Scans today back
 // through the last 7 local days. This is the "send boundary" the subject
 // week hangs off of. Returns null on an unparseable timezone.
-function lastScheduledInstant(
-  now: Date,
-  tz: string,
-  dow: number,
-  hour: number,
-): Date | null {
+function lastScheduledInstant(now: Date, tz: string, dow: number, hour: number): Date | null {
   try {
     const hh = String(hour).padStart(2, '0')
     for (let addDays = 0; addDays <= 7; addDays++) {
@@ -187,8 +172,7 @@ function computeWeekWindows(
   // Fall back to `now` as the boundary if the slot can't be resolved, so a
   // bad timezone still yields a sane trailing-7-days window.
   const boundary = lastScheduledInstant(now, tz, dow, hour) ?? now
-  const keyAt = (k: number) =>
-    dayKey(new Date(boundary.getTime() - k * DAY_MS), tz)
+  const keyAt = (k: number) => dayKey(new Date(boundary.getTime() - k * DAY_MS), tz)
   const thisWeekOrdered: string[] = []
   for (let k = 7; k >= 1; k--) thisWeekOrdered.push(keyAt(k)) // 7 days before boundary
   const thisWeekSet = new Set(thisWeekOrdered)
@@ -203,10 +187,7 @@ function computeWeekWindows(
 }
 
 function payloadObj(payload: unknown): Record<string, unknown> {
-  return (payload && typeof payload === 'object' ? payload : {}) as Record<
-    string,
-    unknown
-  >
+  return (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
 }
 
 // XP for a completion event, matching the derivation used everywhere else
@@ -215,11 +196,11 @@ function payloadObj(payload: unknown): Record<string, unknown> {
 function xpOf(payload: Record<string, unknown>): number {
   // A parent-set exact value (household "edit points") wins over the
   // base xpOverride / difficulty default.
-  const final = payload['xpFinal']
+  const final = payload.xpFinal
   if (typeof final === 'number') return final
-  const override = payload['xpOverride']
+  const override = payload.xpOverride
   if (typeof override === 'number') return override
-  const difficulty = payload['difficulty']
+  const difficulty = payload.difficulty
   return difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25
 }
 
@@ -234,11 +215,7 @@ async function loadCompletionsByWeek(
 ): Promise<{
   kpisPartial: Pick<
     WeeklyKpis,
-    | 'completionsThisWeek'
-    | 'completionsLastWeek'
-    | 'xpThisWeek'
-    | 'xpLastWeek'
-    | 'byWeekday'
+    'completionsThisWeek' | 'completionsLastWeek' | 'xpThisWeek' | 'xpLastWeek' | 'byWeekday'
   >
   xpByDay: Array<{ date: string; xp: number; count: number }>
   topTasks: WeeklyTopTask[]
@@ -279,7 +256,7 @@ async function loadCompletionsByWeek(
       xpThisWeek += xp
       perDayXp.set(key, (perDayXp.get(key) ?? 0) + xp)
       perDayCount.set(key, (perDayCount.get(key) ?? 0) + 1)
-      const taskId = p['taskId']
+      const taskId = p.taskId
       if (typeof taskId === 'string') {
         titleCounts.set(taskId, (titleCounts.get(taskId) ?? 0) + 1)
       }
@@ -360,10 +337,7 @@ async function loadRepeatingTaskTotals(
       ),
     )
 
-  const byTask = new Map<
-    string,
-    { title: string; all: number; week: number }
-  >()
+  const byTask = new Map<string, { title: string; all: number; week: number }>()
   for (const r of rows) {
     if (!r.completedAt) continue
     const cur = byTask.get(r.taskId) ?? { title: r.title, all: 0, week: 0 }
@@ -553,8 +527,7 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummary> {
 
   const start = windows.thisWeekOrdered[0]
   const end = windows.thisWeekOrdered[windows.thisWeekOrdered.length - 1]
-  const labelOf = (key: string) =>
-    formatInTimeZone(new Date(key + 'T12:00:00Z'), 'UTC', 'MMM d')
+  const labelOf = (key: string) => formatInTimeZone(new Date(`${key}T12:00:00Z`), 'UTC', 'MMM d')
 
   return {
     weekKey: windows.weekKey,
@@ -599,9 +572,7 @@ function buildAnalysisDigest(s: WeeklySummary): string {
   parts.push(
     `Completions — this week: ${k.completionsThisWeek}, last week: ${k.completionsLastWeek} (${dir(dCompletions)}).`,
   )
-  parts.push(
-    `XP earned — this week: ${k.xpThisWeek}, last week: ${k.xpLastWeek} (${dir(dXp)}).`,
-  )
+  parts.push(`XP earned — this week: ${k.xpThisWeek}, last week: ${k.xpLastWeek} (${dir(dXp)}).`)
   parts.push(
     `Progression: level ${k.level}, ${k.totalXp} total XP, current streak ${k.currentStreak} days (longest ${k.longestStreak}), ${k.tokens} tokens.`,
   )
@@ -629,9 +600,7 @@ function buildAnalysisDigest(s: WeeklySummary): string {
   const playedGames = s.arcade.personal.filter((g) => g.played > 0)
   if (playedGames.length > 0) {
     parts.push(
-      `Arcade: ${playedGames
-        .map((g) => `${g.gameId} (${g.won}/${g.played} won)`)
-        .join(', ')}.`,
+      `Arcade: ${playedGames.map((g) => `${g.gameId} (${g.won}/${g.played} won)`).join(', ')}.`,
     )
   }
 
@@ -669,8 +638,7 @@ OUTPUT RULES — STRICT:
 - The first character must be a regular letter or digit.`
 
 function buildHouseholdDigest(h: HouseholdWeekly): string {
-  const dir = (n: number) =>
-    n > 0 ? `up ${n}` : n < 0 ? `down ${Math.abs(n)}` : 'flat'
+  const dir = (n: number) => (n > 0 ? `up ${n}` : n < 0 ? `down ${Math.abs(n)}` : 'flat')
   const parts: string[] = []
   parts.push(`Family "${h.name}" weekly recap.`)
   parts.push(
@@ -702,17 +670,9 @@ export async function generateHouseholdAnalysis(
 
   if (!opts.force) {
     const cached = await db.query.weeklySummaries.findFirst({
-      where: and(
-        eq(weeklySummaries.userId, userId),
-        eq(weeklySummaries.weekKey, summary.weekKey),
-      ),
+      where: and(eq(weeklySummaries.userId, userId), eq(weeklySummaries.weekKey, summary.weekKey)),
     })
-    if (
-      cached &&
-      cached.householdAnalysis &&
-      cached.householdGeneratedAt &&
-      cached.attitude === attitude
-    ) {
+    if (cached?.householdAnalysis && cached.householdGeneratedAt && cached.attitude === attitude) {
       return {
         analysis: cached.householdAnalysis,
         generatedAt: cached.householdGeneratedAt.toISOString(),
@@ -782,10 +742,7 @@ export async function generateWeeklyAnalysis(
 
   if (!opts.force) {
     const cached = await db.query.weeklySummaries.findFirst({
-      where: and(
-        eq(weeklySummaries.userId, userId),
-        eq(weeklySummaries.weekKey, summary.weekKey),
-      ),
+      where: and(eq(weeklySummaries.userId, userId), eq(weeklySummaries.weekKey, summary.weekKey)),
     })
     if (cached && cached.attitude === attitude) {
       return {

@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { startWordSearchGame } from '../../server/functions/word-search'
 import type { GameProps } from '../types'
-import {
-  popularThemes,
-  moreThemes,
-  type WordSearchTheme,
-} from './themes'
+import { popularThemes, moreThemes, type WordSearchTheme } from './themes'
 
 type Size = 'small' | 'large'
 
@@ -50,10 +46,7 @@ export function WordSearch({ onFinish }: GameProps) {
   const [start, setStart] = useState<{ row: number; col: number } | null>(null)
   const [foundLines, setFoundLines] = useState<FoundLine[]>([])
 
-  const foundWords = useMemo(
-    () => new Set(foundLines.map((l) => l.word)),
-    [foundLines],
-  )
+  const foundWords = useMemo(() => new Set(foundLines.map((l) => l.word)), [foundLines])
   const foundCellSet = useMemo(() => {
     const s = new Set<string>()
     for (const l of foundLines) {
@@ -116,9 +109,7 @@ export function WordSearch({ onFinish }: GameProps) {
       }
       const text = line.map((c) => phase.grid[c.row][c.col]).join('')
       const reversed = text.split('').reverse().join('')
-      const target = phase.words.find(
-        (w) => !foundWords.has(w) && (w === text || w === reversed),
-      )
+      const target = phase.words.find((w) => !foundWords.has(w) && (w === text || w === reversed))
       if (target) {
         setFoundLines((prev) => [...prev, { word: target, cells: line }])
       }
@@ -128,8 +119,7 @@ export function WordSearch({ onFinish }: GameProps) {
   )
 
   // ---- Finish detection ----
-  const allFound =
-    phase.name === 'playing' && foundWords.size === phase.words.length
+  const allFound = phase.name === 'playing' && foundWords.size === phase.words.length
 
   const handleGiveUp = useCallback(() => {
     if (phase.name !== 'playing') return
@@ -187,9 +177,7 @@ export function WordSearch({ onFinish }: GameProps) {
   if (phase.name === 'loading') {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          Generating puzzle…
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">Generating puzzle…</p>
       </div>
     )
   }
@@ -197,9 +185,7 @@ export function WordSearch({ onFinish }: GameProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex w-full items-center justify-between text-sm">
-        <span className="font-semibold text-[var(--sea-ink)]">
-          {phase.theme}
-        </span>
+        <span className="font-semibold text-[var(--sea-ink)]">{phase.theme}</span>
         <span className="text-[var(--sea-ink-soft)]">
           {foundWords.size}/{phase.words.length}
         </span>
@@ -325,13 +311,8 @@ function SetupScreen(props: SetupProps) {
             <ThemeChip
               key={t.name}
               label={t.name}
-              active={
-                props.themeChoice?.kind === 'preset' &&
-                props.themeChoice.name === t.name
-              }
-              onClick={() =>
-                props.onThemeChoice({ kind: 'preset', name: t.name })
-              }
+              active={props.themeChoice?.kind === 'preset' && props.themeChoice.name === t.name}
+              onClick={() => props.onThemeChoice({ kind: 'preset', name: t.name })}
             />
           ))}
           <button
@@ -348,22 +329,15 @@ function SetupScreen(props: SetupProps) {
               <ThemeChip
                 key={t.name}
                 label={t.name}
-                active={
-                  props.themeChoice?.kind === 'preset' &&
-                  props.themeChoice.name === t.name
-                }
-                onClick={() =>
-                  props.onThemeChoice({ kind: 'preset', name: t.name })
-                }
+                active={props.themeChoice?.kind === 'preset' && props.themeChoice.name === t.name}
+                onClick={() => props.onThemeChoice({ kind: 'preset', name: t.name })}
               />
             ))}
           </div>
         ) : null}
 
         <div className="mt-3 flex flex-col gap-1">
-          <label className="text-xs text-[var(--sea-ink-soft)]">
-            Or write your own:
-          </label>
+          <label className="text-xs text-[var(--sea-ink-soft)]">Or write your own:</label>
           <input
             type="text"
             inputMode="text"
@@ -383,17 +357,13 @@ function SetupScreen(props: SetupProps) {
             }}
             className={classNames(
               'rounded border bg-[var(--option-bg)] px-3 py-2 text-sm text-[var(--sea-ink)]',
-              isCustom
-                ? 'border-[var(--lagoon-deep)]'
-                : 'border-[var(--btn-subtle-border)]',
+              isCustom ? 'border-[var(--lagoon-deep)]' : 'border-[var(--btn-subtle-border)]',
             )}
           />
         </div>
       </section>
 
-      {props.error ? (
-        <p className="text-sm font-semibold text-red-600">{props.error}</p>
-      ) : null}
+      {props.error ? <p className="text-sm font-semibold text-red-600">{props.error}</p> : null}
 
       <button
         type="button"
@@ -430,9 +400,7 @@ function SizeButton({
       )}
     >
       <span className="text-sm font-semibold">{label}</span>
-      <span className="text-[10px] uppercase tracking-wide opacity-80">
-        {sub}
-      </span>
+      <span className="text-[10px] uppercase tracking-wide opacity-80">{sub}</span>
     </button>
   )
 }

@@ -114,9 +114,7 @@ export interface AdminSummary {
 // Aggregates focus/game activity from the event log. Pass userId to scope to
 // one user; omit for platform-wide totals. Minutes sums durationMin from each
 // completed focus.completed event payload.
-export async function loadFocusGameStats(
-  userId?: string,
-): Promise<FocusGameStats> {
+export async function loadFocusGameStats(userId?: string): Promise<FocusGameStats> {
   const scope = userId ? eq(events.userId, userId) : undefined
 
   const whereFor = (type: string) =>
@@ -202,10 +200,7 @@ export async function loadAdminSummary(): Promise<AdminSummary> {
         ),
       ),
     db.select({ n: count() }).from(tasks).where(eq(tasks.active, true)),
-    db
-      .select({ n: count() })
-      .from(events)
-      .where(eq(events.type, 'task.completed')),
+    db.select({ n: count() }).from(events).where(eq(events.type, 'task.completed')),
     db.select({ n: count() }).from(pushSubscriptions),
   ])
 
@@ -233,9 +228,7 @@ export async function loadAdminSummary(): Promise<AdminSummary> {
           process.env.SMTP_PASS,
       ),
       vapid: Boolean(
-        process.env.VAPID_SUBJECT &&
-          process.env.VAPID_PUBLIC_KEY &&
-          process.env.VAPID_PRIVATE_KEY,
+        process.env.VAPID_SUBJECT && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY,
       ),
       adminCount: allowlist().size,
     },
@@ -306,9 +299,7 @@ export async function listAllUsers(): Promise<AdminUserRow[]> {
       .groupBy(events.userId),
   ])
   const taskByUser = new Map(taskCounts.map((t) => [t.userId, t.n]))
-  const completionsByUser = new Map(
-    completionCounts.map((c) => [c.userId, c.n]),
-  )
+  const completionsByUser = new Map(completionCounts.map((c) => [c.userId, c.n]))
   const admins = allowlist()
 
   return rows.map((r) => ({
@@ -345,9 +336,7 @@ export interface AdminEventRow {
   payload: string
 }
 
-export async function listRecentEvents(
-  limit = 50,
-): Promise<AdminEventRow[]> {
+export async function listRecentEvents(limit = 50): Promise<AdminEventRow[]> {
   const capped = Math.min(Math.max(limit, 1), 200)
   const rows = await db
     .select({
@@ -396,12 +385,7 @@ export async function countOpenInstances(): Promise<AdminOpenInstance> {
       withDue: sql<number>`count(*) filter (where ${taskInstances.dueAt} is not null)::int`,
     })
     .from(taskInstances)
-    .where(
-      and(
-        sql`${taskInstances.completedAt} is null`,
-        sql`${taskInstances.skippedAt} is null`,
-      ),
-    )
+    .where(and(sql`${taskInstances.completedAt} is null`, sql`${taskInstances.skippedAt} is null`))
   const total = Number(rows[0]?.total ?? 0)
   const withDue = Number(rows[0]?.withDue ?? 0)
   return { count: total, withDueAt: withDue, someday: total - withDue }
@@ -494,9 +478,7 @@ export interface AdminUserDetail {
   }
 }
 
-export async function loadUserDetail(
-  targetUserId: string,
-): Promise<AdminUserDetail | null> {
+export async function loadUserDetail(targetUserId: string): Promise<AdminUserDetail | null> {
   const u = await db.query.user.findFirst({
     where: eq(userTable.id, targetUserId),
   })
@@ -524,12 +506,7 @@ export async function loadUserDetail(
     db
       .select({ n: count() })
       .from(events)
-      .where(
-        and(
-          eq(events.userId, targetUserId),
-          eq(events.type, 'task.completed'),
-        ),
-      ),
+      .where(and(eq(events.userId, targetUserId), eq(events.type, 'task.completed'))),
     db
       .select({
         total: count(),
@@ -760,9 +737,7 @@ export interface LlmUsage {
 
 export async function loadLlmUsage(windowDays = 14): Promise<LlmUsage> {
   const now = new Date()
-  const sinceWindow = new Date(
-    now.getTime() - windowDays * 24 * 60 * 60 * 1000,
-  )
+  const sinceWindow = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000)
 
   const totalExpr = {
     callCount: sql<number>`count(*)::int`,
@@ -773,62 +748,53 @@ export async function loadLlmUsage(windowDays = 14): Promise<LlmUsage> {
     completionTokens: sql<number>`coalesce(sum(${llmCallLog.completionTokens}), 0)::bigint`,
   }
 
-  const [allTimeRow, inWindowRow, perKindRows, perUserRows, perDayRows] =
-    await Promise.all([
-      db.select(totalExpr).from(llmCallLog),
-      db
-        .select(totalExpr)
-        .from(llmCallLog)
-        .where(gte(llmCallLog.startedAt, sinceWindow)),
-      db
-        .select({
-          kind: llmCallLog.kind,
-          callCount: sql<number>`count(*)::int`,
-          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
-          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
-          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
-        })
-        .from(llmCallLog)
-        .where(gte(llmCallLog.startedAt, sinceWindow))
-        .groupBy(llmCallLog.kind)
-        .orderBy(sql`count(*) desc`),
-      db
-        .select({
-          userId: llmCallLog.userId,
-          userName: userTable.name,
-          userHandle: userTable.handle,
-          email: userTable.email,
-          callCount: sql<number>`count(*)::int`,
-          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
-          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
-          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
-          lastCallAt: sql<Date>`max(${llmCallLog.startedAt})`,
-        })
-        .from(llmCallLog)
-        .leftJoin(userTable, eq(userTable.id, llmCallLog.userId))
-        .where(gte(llmCallLog.startedAt, sinceWindow))
-        .groupBy(
-          llmCallLog.userId,
-          userTable.name,
-          userTable.handle,
-          userTable.email,
-        )
-        .orderBy(sql`sum(${llmCallLog.durationMs}) desc nulls last`),
-      // date_trunc bucketing keeps this accurate regardless of how many
-      // days fit in the window; UI renders the last `windowDays` entries.
-      db
-        .select({
-          day: sql<string>`to_char(date_trunc('day', ${llmCallLog.startedAt}), 'YYYY-MM-DD')`,
-          callCount: sql<number>`count(*)::int`,
-          successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
-          totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
-          totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
-        })
-        .from(llmCallLog)
-        .where(gte(llmCallLog.startedAt, sinceWindow))
-        .groupBy(sql`date_trunc('day', ${llmCallLog.startedAt})`)
-        .orderBy(sql`date_trunc('day', ${llmCallLog.startedAt}) desc`),
-    ])
+  const [allTimeRow, inWindowRow, perKindRows, perUserRows, perDayRows] = await Promise.all([
+    db.select(totalExpr).from(llmCallLog),
+    db.select(totalExpr).from(llmCallLog).where(gte(llmCallLog.startedAt, sinceWindow)),
+    db
+      .select({
+        kind: llmCallLog.kind,
+        callCount: sql<number>`count(*)::int`,
+        successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+        totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+        totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+      })
+      .from(llmCallLog)
+      .where(gte(llmCallLog.startedAt, sinceWindow))
+      .groupBy(llmCallLog.kind)
+      .orderBy(sql`count(*) desc`),
+    db
+      .select({
+        userId: llmCallLog.userId,
+        userName: userTable.name,
+        userHandle: userTable.handle,
+        email: userTable.email,
+        callCount: sql<number>`count(*)::int`,
+        successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+        totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+        totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+        lastCallAt: sql<Date>`max(${llmCallLog.startedAt})`,
+      })
+      .from(llmCallLog)
+      .leftJoin(userTable, eq(userTable.id, llmCallLog.userId))
+      .where(gte(llmCallLog.startedAt, sinceWindow))
+      .groupBy(llmCallLog.userId, userTable.name, userTable.handle, userTable.email)
+      .orderBy(sql`sum(${llmCallLog.durationMs}) desc nulls last`),
+    // date_trunc bucketing keeps this accurate regardless of how many
+    // days fit in the window; UI renders the last `windowDays` entries.
+    db
+      .select({
+        day: sql<string>`to_char(date_trunc('day', ${llmCallLog.startedAt}), 'YYYY-MM-DD')`,
+        callCount: sql<number>`count(*)::int`,
+        successCount: sql<number>`count(*) filter (where ${llmCallLog.success} = true)::int`,
+        totalDurationMs: sql<number>`coalesce(sum(${llmCallLog.durationMs}), 0)::bigint`,
+        totalTokens: sql<number>`coalesce(sum(${llmCallLog.totalTokens}), 0)::bigint`,
+      })
+      .from(llmCallLog)
+      .where(gte(llmCallLog.startedAt, sinceWindow))
+      .groupBy(sql`date_trunc('day', ${llmCallLog.startedAt})`)
+      .orderBy(sql`date_trunc('day', ${llmCallLog.startedAt}) desc`),
+  ])
 
   const toTotal = (r: Record<string, unknown> | undefined): LlmUsageTotal => ({
     callCount: Number(r?.callCount ?? 0),
@@ -933,9 +899,7 @@ export async function listLlmCalls(params: {
 
   const hasMore = rows.length > limit
   const page = hasMore ? rows.slice(0, limit) : rows
-  const nextCursor = hasMore
-    ? page[page.length - 1].startedAt.toISOString()
-    : null
+  const nextCursor = hasMore ? page[page.length - 1].startedAt.toISOString() : null
 
   return {
     rows: page.map((r) => ({
@@ -973,9 +937,7 @@ export interface LlmCallDetail {
   response: string | null
 }
 
-export async function getLlmCallDetail(
-  id: string,
-): Promise<LlmCallDetail | null> {
+export async function getLlmCallDetail(id: string): Promise<LlmCallDetail | null> {
   const rows = await db
     .select({
       id: llmCallLog.id,
@@ -1270,9 +1232,7 @@ export interface SessionDiagnostics {
 }
 
 function unwrapRows<T>(res: unknown): T[] {
-  return Array.isArray(res)
-    ? (res as T[])
-    : (((res as { rows?: T[] }).rows ?? []) as T[])
+  return Array.isArray(res) ? (res as T[]) : (((res as { rows?: T[] }).rows ?? []) as T[])
 }
 
 export async function loadSessionDiagnostics(): Promise<SessionDiagnostics> {
@@ -1410,12 +1370,7 @@ export interface WeeklyEmailStatus {
 // today plus the next 7 local days and returns the first future match, so it
 // naturally lands on next week when today's slot has already passed. Returns
 // null if the timezone is unparseable.
-function nextScheduledInstant(
-  now: Date,
-  tz: string,
-  dow: number,
-  hour: number,
-): string | null {
+function nextScheduledInstant(now: Date, tz: string, dow: number, hour: number): string | null {
   try {
     const hh = String(hour).padStart(2, '0')
     for (let addDays = 0; addDays <= 7; addDays++) {
@@ -1520,14 +1475,10 @@ export async function loadWeeklyEmailStatus(): Promise<WeeklyEmailStatus> {
   }
 }
 
-export async function triggerWeeklyEmail(
-  userId: string,
-): Promise<DeliverWeeklyResult> {
+export async function triggerWeeklyEmail(userId: string): Promise<DeliverWeeklyResult> {
   // Deferred import (not top-level) to avoid a static edge from
   // services/admin → jobs/sendWeeklySummary; see the type-only import note.
-  const { deliverWeeklySummaryToUser } = await import(
-    '../jobs/sendWeeklySummary'
-  )
+  const { deliverWeeklySummaryToUser } = await import('../jobs/sendWeeklySummary')
   // Admin override: force past the slot + dedup gates so a resend works even
   // if this week already went out.
   return deliverWeeklySummaryToUser(userId, { force: true })

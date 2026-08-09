@@ -14,10 +14,9 @@ function FeedbackPage() {
   const [description, setDescription] = useState('')
 
   const submit = useMutation({
-    mutationFn: () =>
-      submitFeatureRequest({ data: { title, description } }),
+    mutationFn: () => submitFeatureRequest({ data: { title, description } }),
     onSuccess: () => {
-      toast.success("Thanks! Your feature request has been sent.")
+      toast.success('Thanks! Your feature request has been sent.')
       setTitle('')
       setDescription('')
       navigate({ to: '/today' })
@@ -29,8 +28,7 @@ function FeedbackPage() {
 
   const titleTrim = title.trim()
   const descriptionTrim = description.trim()
-  const canSubmit =
-    titleTrim.length > 0 && descriptionTrim.length > 0 && !submit.isPending
+  const canSubmit = titleTrim.length > 0 && descriptionTrim.length > 0 && !submit.isPending
 
   return (
     <main className="page-wrap px-4 py-8">
@@ -38,9 +36,8 @@ function FeedbackPage() {
         Send a feature request
       </h1>
       <p className="mb-6 max-w-xl text-sm text-[var(--sea-ink-soft)]">
-        Got an idea for the app? Tell us about it. Your request goes
-        straight to the maintainers as a task they'll see in their own
-        list.
+        Got an idea for the app? Tell us about it. Your request goes straight to the maintainers as
+        a task they'll see in their own list.
       </p>
 
       <form

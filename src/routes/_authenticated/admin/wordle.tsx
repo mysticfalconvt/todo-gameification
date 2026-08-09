@@ -3,11 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getIsAdminFn } from '../../../server/functions/admin'
-import {
-  addWordleWords,
-  listWordleWords,
-  removeWordleWord,
-} from '../../../server/functions/wordle'
+import { addWordleWords, listWordleWords, removeWordleWord } from '../../../server/functions/wordle'
 
 export const Route = createFileRoute('/_authenticated/admin/wordle')({
   beforeLoad: async () => {
@@ -57,24 +53,16 @@ function AdminWordlePage() {
 
   const words = wordsQuery.data ?? []
   const lowered = filter.trim().toLowerCase()
-  const visible = lowered
-    ? words.filter((w) => w.word.toLowerCase().includes(lowered))
-    : words
+  const visible = lowered ? words.filter((w) => w.word.toLowerCase().includes(lowered)) : words
 
   return (
     <main className="page-wrap space-y-6 px-4 py-8">
       <header className="space-y-1">
         <p className="island-kicker">Admin</p>
-        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-          Wordle words
-        </h1>
+        <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">Wordle words</h1>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          The arcade pool. Each entry must be 5 A–Z letters; input is
-          normalized to uppercase.{' '}
-          <Link
-            to="/admin"
-            className="text-[var(--lagoon-deep)] no-underline"
-          >
+          The arcade pool. Each entry must be 5 A–Z letters; input is normalized to uppercase.{' '}
+          <Link to="/admin" className="text-[var(--lagoon-deep)] no-underline">
             ← Back to admin
           </Link>
         </p>
@@ -83,8 +71,7 @@ function AdminWordlePage() {
       <section className="island-shell space-y-3 rounded-2xl p-4">
         <h2 className="text-lg font-bold text-[var(--sea-ink)]">Add words</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">
-          Paste words separated by whitespace or commas. Duplicates are
-          silently skipped.
+          Paste words separated by whitespace or commas. Duplicates are silently skipped.
         </p>
         <textarea
           value={draft}

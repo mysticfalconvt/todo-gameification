@@ -30,11 +30,7 @@ export function XpLineSection({
           total {total} · avg {avg}/day
         </p>
       </header>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-32 w-full"
-        preserveAspectRatio="none"
-      >
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
         <polygon points={area} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <polyline
           points={points}
@@ -67,9 +63,7 @@ export function TimingDistributionSection({
     return (
       <section className="island-shell rounded-2xl p-4">
         <header className="mb-3">
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-            Timing curve
-          </h2>
+          <h2 className="text-sm font-bold text-[var(--sea-ink)]">Timing curve</h2>
         </header>
         <p className="text-sm text-[var(--sea-ink-soft)]">{emptyMessage}</p>
       </section>
@@ -95,26 +89,18 @@ export function TimingDistributionSection({
   const zeroIdx = data.buckets.findIndex((b) => b.offsetMin === 0)
   const zeroX = zeroIdx >= 0 ? padX + zeroIdx * stepX : null
 
-  const withinPct = Math.round(
-    (data.withinThirtyCount / data.totalScheduled) * 100,
-  )
+  const withinPct = Math.round((data.withinThirtyCount / data.totalScheduled) * 100)
 
   return (
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[var(--sea-ink)]">
-          Timing curve
-        </h2>
+        <h2 className="text-sm font-bold text-[var(--sea-ink)]">Timing curve</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">
           {data.totalScheduled} scheduled · {withinPct}% within 30 min · avg{' '}
           {offsetLabel(data.avgOffsetMin)}
         </p>
       </header>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-32 w-full"
-        preserveAspectRatio="none"
-      >
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
         <path d={areaPath} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <path
           d={linePath}

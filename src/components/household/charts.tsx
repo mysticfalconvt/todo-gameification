@@ -40,9 +40,7 @@ export function HouseholdCompletionBar({
   const totalXp = members.reduce((sum, m) => sum + m.totalXp, 0)
 
   return (
-    <section
-      className={`island-shell rounded-2xl ${compact ? 'p-3' : 'p-4'}`}
-    >
+    <section className={`island-shell rounded-2xl ${compact ? 'p-3' : 'p-4'}`}>
       <header className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-bold text-[var(--sea-ink)]">{title}</h2>
         <p className="text-xs text-[var(--sea-ink-soft)]">
@@ -52,9 +50,7 @@ export function HouseholdCompletionBar({
         </p>
       </header>
       {totalCompletions === 0 ? (
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          Complete a chore to start the chart.
-        </p>
+        <p className="text-xs text-[var(--sea-ink-soft)]">Complete a chore to start the chart.</p>
       ) : (
         <ul className="space-y-2">
           {sorted.map((m) => {
@@ -68,9 +64,7 @@ export function HouseholdCompletionBar({
                       className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
                       style={{ backgroundColor: colorOf(m) }}
                     />
-                    <span className="truncate font-semibold text-[var(--sea-ink)]">
-                      {m.name}
-                    </span>
+                    <span className="truncate font-semibold text-[var(--sea-ink)]">{m.name}</span>
                   </span>
                   <span className="flex-shrink-0 tabular-nums text-[var(--sea-ink-soft)]">
                     {m.totalCount} chores · {m.totalXp} XP · {pct}%
@@ -113,15 +107,12 @@ export function HouseholdXpMultiLine({
     return (
       <section className="island-shell rounded-2xl p-4">
         <h2 className="text-sm font-bold text-[var(--sea-ink)]">{label}</h2>
-        <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-          No data in this window yet.
-        </p>
+        <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">No data in this window yet.</p>
       </section>
     )
   }
 
-  const seriesFor = (m: HouseholdSeries): number[] =>
-    metric === 'xp' ? m.daily : m.dailyCount
+  const seriesFor = (m: HouseholdSeries): number[] => (metric === 'xp' ? m.daily : m.dailyCount)
 
   // Global max across all members so series are comparable. Min 1 so
   // an all-zero state still renders a flat baseline at the bottom.
@@ -153,15 +144,9 @@ export function HouseholdXpMultiLine({
     <section className="island-shell rounded-2xl p-4">
       <header className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-bold text-[var(--sea-ink)]">{label}</h2>
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          {n}-day window
-        </p>
+        <p className="text-xs text-[var(--sea-ink-soft)]">{n}-day window</p>
       </header>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-40 w-full"
-        preserveAspectRatio="none"
-      >
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full" preserveAspectRatio="none">
         {/* Baseline / grid is implicit via the polylines themselves —
             keep it visually quiet so multiple series can overlap. */}
         {members.map((m) => (
@@ -188,9 +173,7 @@ export function HouseholdXpMultiLine({
               className="inline-block h-2 w-3 rounded-sm"
               style={{ backgroundColor: colorOf(m) }}
             />
-            <span className="font-semibold text-[var(--sea-ink)]">
-              {m.name}
-            </span>
+            <span className="font-semibold text-[var(--sea-ink)]">{m.name}</span>
             <span className="tabular-nums">
               {metric === 'xp' ? `${m.totalXp} XP` : `${m.totalCount}`}
             </span>

@@ -103,10 +103,7 @@ function randomColOrder(): number[] {
   return stackOrder.flat()
 }
 
-function transform(
-  puzzle: string,
-  solution: string,
-): { puzzle: string; solution: string } {
+function transform(puzzle: string, solution: string): { puzzle: string; solution: string } {
   const perm = digitPermutation()
   let p = mapDigits(puzzle, perm)
   let s = mapDigits(solution, perm)

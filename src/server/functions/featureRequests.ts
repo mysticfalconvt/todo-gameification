@@ -4,9 +4,5 @@ import * as service from '../services/featureRequests'
 
 export const submitFeatureRequest = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
-    (data: { title: string; description: string }) => data,
-  )
-  .handler(({ data, context }) =>
-    service.submitFeatureRequest(context.userId, data),
-  )
+  .inputValidator((data: { title: string; description: string }) => data)
+  .handler(({ data, context }) => service.submitFeatureRequest(context.userId, data))

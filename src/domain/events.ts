@@ -268,13 +268,14 @@ export const FOCUS_REWARDS_POCKET: Record<5 | 10 | 15 | 25 | 50, { tokens: numbe
 // Visible mode commits the screen to the focus app for the whole
 // session (any backgrounding pauses the timer), so the longer tiers
 // earn an extra token over Pocket.
-export const FOCUS_REWARDS_VISIBLE: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> = {
-  5: { tokens: 1, xp: 5 },
-  10: { tokens: 1, xp: 11 },
-  15: { tokens: 2, xp: 18 },
-  25: { tokens: 3, xp: 35 },
-  50: { tokens: 5, xp: 80 },
-}
+export const FOCUS_REWARDS_VISIBLE: Record<5 | 10 | 15 | 25 | 50, { tokens: number; xp: number }> =
+  {
+    5: { tokens: 1, xp: 5 },
+    10: { tokens: 1, xp: 11 },
+    15: { tokens: 2, xp: 18 },
+    25: { tokens: 3, xp: 35 },
+    50: { tokens: 5, xp: 80 },
+  }
 
 export function focusRewardsFor(mode: FocusMode) {
   return mode === 'pocket' ? FOCUS_REWARDS_POCKET : FOCUS_REWARDS_VISIBLE
@@ -294,9 +295,7 @@ export const KID_TOKENS_EVERY_N_COMPLETIONS = 2
 export const FOCUS_TEST_OVERRIDE_SECONDS = 0
 
 export function focusDurationMs(durationMin: FocusDurationMin): number {
-  return FOCUS_TEST_OVERRIDE_SECONDS > 0
-    ? FOCUS_TEST_OVERRIDE_SECONDS * 1000
-    : durationMin * 60_000
+  return FOCUS_TEST_OVERRIDE_SECONDS > 0 ? FOCUS_TEST_OVERRIDE_SECONDS * 1000 : durationMin * 60_000
 }
 
 // Doom-scroll break timer. Fixed tiers; costs one token to start (the

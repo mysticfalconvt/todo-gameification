@@ -1,9 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  authedRoute,
-  jsonOk,
-  readJson,
-} from '../../../../../server/api/rest'
+import { authedRoute, jsonOk, readJson } from '../../../../../server/api/rest'
 import * as service from '../../../../../server/services/tasks'
 
 interface Body {
@@ -18,11 +14,7 @@ export const Route = createFileRoute('/api/v1/instances/$instanceId/snooze')({
         if (typeof body.hours !== 'number') {
           throw new Error('hours is required and must be a number')
         }
-        const data = await service.snoozeInstance(
-          userId,
-          params.instanceId,
-          body.hours,
-        )
+        const data = await service.snoozeInstance(userId, params.instanceId, body.hours)
         return jsonOk(data)
       }),
     },

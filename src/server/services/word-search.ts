@@ -72,10 +72,7 @@ async function resolveTheme(args: ResolveThemeArgs): Promise<ResolvedTheme> {
   return { ...normalized, isCustom }
 }
 
-async function recentThemeKeys(
-  userId: string,
-  limit: number,
-): Promise<Set<string>> {
+async function recentThemeKeys(userId: string, limit: number): Promise<Set<string>> {
   // Theme is promoted to a top-level payload field by finishGame, mirroring
   // how wordle persists the played word.
   const rows = await db.execute<{ theme: string }>(sql`
@@ -109,9 +106,7 @@ export interface GeneratedGame {
   placements: Placement[]
 }
 
-export async function generateGame(
-  args: GenerateGameArgs,
-): Promise<GeneratedGame> {
+export async function generateGame(args: GenerateGameArgs): Promise<GeneratedGame> {
   const resolved = await resolveTheme({
     userId: args.userId,
     requested: args.theme,

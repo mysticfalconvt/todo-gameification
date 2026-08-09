@@ -37,21 +37,17 @@ function ForgotPasswordPage() {
         {sent ? (
           <>
             <p className="mb-4 text-sm text-[var(--sea-ink)]">
-              If there's an account for <strong>{email}</strong>, a password
-              reset link is on its way. The link expires in a short while.
+              If there's an account for <strong>{email}</strong>, a password reset link is on its
+              way. The link expires in a short while.
             </p>
-            <Link
-              to="/auth/login"
-              className="font-semibold text-[var(--lagoon-deep)]"
-            >
+            <Link to="/auth/login" className="font-semibold text-[var(--lagoon-deep)]">
               Back to sign in
             </Link>
           </>
         ) : (
           <>
             <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-              Enter the email you signed up with and we'll send you a reset
-              link.
+              Enter the email you signed up with and we'll send you a reset link.
             </p>
             <form onSubmit={onSubmit} className="space-y-4">
               <label className="block">

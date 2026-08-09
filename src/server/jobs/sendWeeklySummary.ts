@@ -113,12 +113,7 @@ export async function sendWeeklySummaryHandler(): Promise<void> {
         // Release the claim so the send isn't silently marked done.
         await db
           .delete(weeklyEmailLog)
-          .where(
-            and(
-              eq(weeklyEmailLog.userId, u.id),
-              eq(weeklyEmailLog.weekKey, summary.weekKey),
-            ),
-          )
+          .where(and(eq(weeklyEmailLog.userId, u.id), eq(weeklyEmailLog.weekKey, summary.weekKey)))
           .catch(() => {})
         throw sendErr
       }
@@ -205,12 +200,7 @@ export async function deliverWeeklySummaryToUser(
     if (claimedHere) {
       await db
         .delete(weeklyEmailLog)
-        .where(
-          and(
-            eq(weeklyEmailLog.userId, userId),
-            eq(weeklyEmailLog.weekKey, summary.weekKey),
-          ),
-        )
+        .where(and(eq(weeklyEmailLog.userId, userId), eq(weeklyEmailLog.weekKey, summary.weekKey)))
         .catch(() => {})
     }
     throw sendErr

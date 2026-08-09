@@ -62,9 +62,7 @@ export async function loadLlmMetrics(): Promise<LlmMetrics> {
       success: llmCallLog.success,
     })
     .from(llmCallLog)
-    .where(
-      and(gte(llmCallLog.startedAt, since24h), isNotNull(llmCallLog.startedAt)),
-    )
+    .where(and(gte(llmCallLog.startedAt, since24h), isNotNull(llmCallLog.startedAt)))
 
   const kindsSeen = new Set<string>(rows.map((r) => r.kind))
   for (const k of DEFAULT_KINDS) kindsSeen.add(k)
@@ -92,12 +90,7 @@ export async function loadLlmMetrics(): Promise<LlmMetrics> {
       errorMessage: llmCallLog.errorMessage,
     })
     .from(llmCallLog)
-    .where(
-      and(
-        eq(llmCallLog.success, false),
-        gte(llmCallLog.startedAt, since24h),
-      ),
-    )
+    .where(and(eq(llmCallLog.success, false), gte(llmCallLog.startedAt, since24h)))
     .orderBy(sql`${llmCallLog.startedAt} desc`)
     .limit(50)
 
@@ -168,9 +161,6 @@ function emptyCell(): LlmMetricCell {
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0
   const sorted = [...values].sort((a, b) => a - b)
-  const idx = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
-  )
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))
   return sorted[idx]
 }

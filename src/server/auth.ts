@@ -17,10 +17,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function appUrl(): string {
-  return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(
-    /\/$/,
-    '',
-  )
+  return (process.env.BETTER_AUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 }
 
 // Defensive: make sure the link in transactional email is absolute with a
@@ -127,9 +124,7 @@ export const auth = betterAuth({
           // starter tasks is recoverable; a user without an account is
           // not.
           const id =
-            typeof (user as { id?: unknown }).id === 'string'
-              ? (user as { id: string }).id
-              : null
+            typeof (user as { id?: unknown }).id === 'string' ? (user as { id: string }).id : null
           if (!id) return
           try {
             await bootstrapNewUser(id)
@@ -148,9 +143,7 @@ export const auth = betterAuth({
   // this makes the trust boundary explicit if more origins ever get
   // added later. Localhost stays usable in dev because BETTER_AUTH_URL
   // is http://localhost:3000 there.
-  trustedOrigins: [process.env.BETTER_AUTH_URL].filter(
-    (v): v is string => Boolean(v),
-  ),
+  trustedOrigins: [process.env.BETTER_AUTH_URL].filter((v): v is string => Boolean(v)),
   advanced: {
     defaultCookieAttributes: {
       sameSite: 'lax',

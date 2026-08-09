@@ -13,9 +13,7 @@ export interface FocusSessionEndJobData {
 // Sends a push to all of the user's devices with a deep link that opens
 // the in-app confirmation modal — XP is *not* applied here, the user
 // has to confirm (honesty clause preserved across modes).
-export async function focusSessionEndHandler(
-  jobs: Job<FocusSessionEndJobData>[],
-): Promise<void> {
+export async function focusSessionEndHandler(jobs: Job<FocusSessionEndJobData>[]): Promise<void> {
   for (const job of jobs) {
     await handleOne(job.data)
   }
@@ -23,10 +21,7 @@ export async function focusSessionEndHandler(
 
 async function handleOne(data: FocusSessionEndJobData) {
   const start = await db.query.events.findFirst({
-    where: and(
-      eq(events.id, data.startEventId),
-      eq(events.type, 'focus.started'),
-    ),
+    where: and(eq(events.id, data.startEventId), eq(events.type, 'focus.started')),
   })
   if (!start) return
 
@@ -50,8 +45,7 @@ async function handleOne(data: FocusSessionEndJobData) {
     start.payload && typeof start.payload === 'object'
       ? (start.payload as Record<string, unknown>)
       : {}
-  const durationMin =
-    typeof payload.durationMin === 'number' ? payload.durationMin : null
+  const durationMin = typeof payload.durationMin === 'number' ? payload.durationMin : null
   if (durationMin === null) return
 
   const subs = await db.query.pushSubscriptions.findMany({
@@ -77,9 +71,7 @@ async function handleOne(data: FocusSessionEndJobData) {
       )
       if (!result.ok) {
         if (result.gone) {
-          await db
-            .delete(pushSubscriptions)
-            .where(eq(pushSubscriptions.id, sub.id))
+          await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id))
         } else {
           await db
             .update(pushSubscriptions)

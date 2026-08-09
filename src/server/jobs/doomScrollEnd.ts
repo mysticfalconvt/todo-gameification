@@ -14,9 +14,7 @@ export interface DoomScrollEndJobData {
 // back to work. There's no confirm/cancel flow — the token was spent and
 // the XP granted at start — so this is a pure reminder with no state
 // check beyond finding the user's push subscriptions.
-export async function doomScrollEndHandler(
-  jobs: Job<DoomScrollEndJobData>[],
-): Promise<void> {
+export async function doomScrollEndHandler(jobs: Job<DoomScrollEndJobData>[]): Promise<void> {
   for (const job of jobs) {
     await handleOne(job.data)
   }
@@ -44,9 +42,7 @@ async function handleOne(data: DoomScrollEndJobData) {
       )
       if (!result.ok) {
         if (result.gone) {
-          await db
-            .delete(pushSubscriptions)
-            .where(eq(pushSubscriptions.id, sub.id))
+          await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id))
         } else {
           await db
             .update(pushSubscriptions)

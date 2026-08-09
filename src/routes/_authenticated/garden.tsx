@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import {
-  getCommunityGardenFn,
-  getGardenFn,
-} from '../../server/functions/garden'
+import { getCommunityGardenFn, getGardenFn } from '../../server/functions/garden'
 import { getMemberStatusFn } from '../../server/functions/billing'
 import type { GardenPlant } from '../../server/services/garden'
 import type {
@@ -23,15 +20,7 @@ export const Route = createFileRoute('/_authenticated/garden')({
 // growth stages run seed → grove; late stages repeat emoji at times
 // (emoji palette is limited) but milestone decorations keep the card
 // visually fresh past `lush`.
-type Species =
-  | 'tree'
-  | 'sunflower'
-  | 'bamboo'
-  | 'cactus'
-  | 'tulip'
-  | 'daisy'
-  | 'lotus'
-  | 'generic'
+type Species = 'tree' | 'sunflower' | 'bamboo' | 'cactus' | 'tulip' | 'daisy' | 'lotus' | 'generic'
 
 const BUILTIN_SPECIES: Record<string, Species> = {
   home: 'tree',
@@ -285,10 +274,7 @@ function GardenPage() {
         <TabButton active={tab === 'yours'} onClick={() => setTab('yours')}>
           Yours
         </TabButton>
-        <TabButton
-          active={tab === 'community'}
-          onClick={() => setTab('community')}
-        >
+        <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
           Community
         </TabButton>
       </nav>
@@ -311,15 +297,11 @@ function GardenUpsell() {
           Your garden grows when you upgrade
         </h1>
         <p className="mx-auto mb-6 max-w-md text-[var(--sea-ink-soft)]">
-          Every task you complete waters a plant in its category. Consistency
-          makes them bloom — and members can compare gardens with friends.
+          Every task you complete waters a plant in its category. Consistency makes them bloom — and
+          members can compare gardens with friends.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="btn-primary"
-          >
+          <button type="button" onClick={() => setOpen(true)} className="btn-primary">
             See pricing
           </button>
           <Link
@@ -386,9 +368,7 @@ function YoursPanel() {
         <div className="mb-2 text-6xl" aria-hidden>
           🪴
         </div>
-        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          An empty pot, waiting
-        </h2>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">An empty pot, waiting</h2>
         <p className="text-sm text-[var(--sea-ink-soft)]">
           Complete a task and its category will sprout here.
         </p>
@@ -405,8 +385,8 @@ function YoursPanel() {
       </div>
       <p className="text-center text-xs text-[var(--sea-ink-soft)]">
         {data?.activePlantCount ?? 0} plant
-        {(data?.activePlantCount ?? 0) === 1 ? '' : 's'} ·{' '}
-        {data?.totalWaterings ?? 0} total waterings
+        {(data?.activePlantCount ?? 0) === 1 ? '' : 's'} · {data?.totalWaterings ?? 0} total
+        waterings
       </p>
     </>
   )
@@ -443,9 +423,7 @@ function CommunityPanel() {
             🌱
           </div>
           <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-            {scope === 'friends'
-              ? 'No friends are sharing gardens yet'
-              : 'No public gardens yet'}
+            {scope === 'friends' ? 'No friends are sharing gardens yet' : 'No public gardens yet'}
           </h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {scope === 'friends'
@@ -457,16 +435,13 @@ function CommunityPanel() {
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {entries.map((e) => (
-              <CommunityPlantCard
-                key={`${e.userId}:${e.plant.key}`}
-                entry={e}
-              />
+              <CommunityPlantCard key={`${e.userId}:${e.plant.key}`} entry={e} />
             ))}
           </div>
           <p className="text-center text-xs text-[var(--sea-ink-soft)]">
             {query.data?.userCount ?? 0} gardener
-            {(query.data?.userCount ?? 0) === 1 ? '' : 's'} ·{' '}
-            {query.data?.totalWaterings ?? 0} total waterings
+            {(query.data?.userCount ?? 0) === 1 ? '' : 's'} · {query.data?.totalWaterings ?? 0}{' '}
+            total waterings
           </p>
         </>
       )}
@@ -496,20 +471,13 @@ function CommunityPlantCard({ entry }: { entry: CommunityGardenEntry }) {
       aria-label={`${name} (@${handle}) · ${p.label} · ${MOOD_LABEL[p.mood]}${memberGlyph ? ` · ${memberGlyph.label}` : ''}`}
       title={`${p.label} · ${SPECIES_LABEL[species]} · ${STAGE_LABEL[p.stage]} · ${MOOD_LABEL[p.mood]}`}
     >
-      <span
-        className="pointer-events-none absolute right-1.5 top-1.5 text-sm"
-        aria-hidden
-      >
+      <span className="pointer-events-none absolute right-1.5 top-1.5 text-sm" aria-hidden>
         {MOOD_ICON[p.mood]}
       </span>
       <div className="mb-0.5 flex items-center gap-1 truncate pr-5 text-[11px] font-semibold text-[var(--sea-ink-soft)]">
         <span className="truncate">@{handle}</span>
         {memberGlyph ? (
-          <span
-            aria-hidden
-            title={memberGlyph.label}
-            className="text-[var(--lagoon-deep)]"
-          >
+          <span aria-hidden title={memberGlyph.label} className="text-[var(--lagoon-deep)]">
             {memberGlyph.glyph}
           </span>
         ) : null}
@@ -530,10 +498,7 @@ function CommunityPlantCard({ entry }: { entry: CommunityGardenEntry }) {
         ))}
       </div>
       <div className="mt-1 flex items-baseline justify-between gap-1 text-[11px]">
-        <span
-          className="truncate font-semibold text-[var(--sea-ink)]"
-          style={{ color: p.color }}
-        >
+        <span className="truncate font-semibold text-[var(--sea-ink)]" style={{ color: p.color }}>
           {p.label}
         </span>
         <span className="whitespace-nowrap tabular-nums text-[var(--sea-ink-soft)]">
@@ -591,26 +556,19 @@ function PlantCard({ plant: p }: { plant: GardenPlant }) {
       <dl className="grid grid-cols-3 gap-2 text-center text-xs text-[var(--sea-ink-soft)]">
         <div>
           <dt className="uppercase tracking-wide">Waters</dt>
-          <dd className="text-base font-semibold text-[var(--sea-ink)]">
-            {p.waterings}
-          </dd>
+          <dd className="text-base font-semibold text-[var(--sea-ink)]">{p.waterings}</dd>
         </div>
         <div>
           <dt className="uppercase tracking-wide">Streak</dt>
-          <dd className="text-base font-semibold text-[var(--sea-ink)]">
-            {p.currentStreak}d
-          </dd>
+          <dd className="text-base font-semibold text-[var(--sea-ink)]">{p.currentStreak}d</dd>
         </div>
         <div>
           <dt className="uppercase tracking-wide">Best</dt>
-          <dd className="text-base font-semibold text-[var(--sea-ink)]">
-            {p.longestStreak}d
-          </dd>
+          <dd className="text-base font-semibold text-[var(--sea-ink)]">{p.longestStreak}d</dd>
         </div>
       </dl>
       <p className="mt-3 text-center text-[11px] text-[var(--sea-ink-soft)]">
-        <span className="font-semibold">{MOOD_LABEL[p.mood]}.</span>{' '}
-        {MOOD_HINT[p.mood]}
+        <span className="font-semibold">{MOOD_LABEL[p.mood]}.</span> {MOOD_HINT[p.mood]}
       </p>
     </section>
   )

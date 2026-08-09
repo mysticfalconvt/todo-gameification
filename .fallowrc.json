@@ -1,0 +1,5 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "dynamicallyLoaded": ["src/server/nitro/*.ts", "public/sw.js"],
+  "ignorePatterns": ["src/routeTree.gen.ts", "src/server/db/migrations/**"]
+}

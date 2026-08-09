@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# Pre-push gate. Commit freely; this runs once before anything leaves the
+# machine. Enabled via `core.hooksPath` — see the `prepare` script in
+# package.json, which pnpm runs on install.
+#
+# Bypass with: git push --no-verify
+set -uo pipefail
+
+ZERO=$(git hash-object --stdin </dev/null | tr '[0-9a-f]' '0')
+
+# git feeds us "<local-ref> <local-sha> <remote-ref> <remote-sha>" per ref
+# being pushed. The remote SHA is the most accurate base: it's exactly what
+# the remote has now, so the diff is precisely what this push adds. A branch
+# the remote has never seen comes through as all-zeros; fall through to
+# check.sh's own resolution in that case.
+base=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue          # branch deletion, nothing to check
+  if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO" ]; then
+    base="$remote_sha"
+    break
+  fi
+done
+
+exec "$(dirname "$0")/../scripts/check.sh" "$base"

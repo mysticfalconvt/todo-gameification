@@ -89,11 +89,8 @@ export async function loadJobStats(): Promise<JobStats> {
   }
   const rawRows = Array.isArray(statRows)
     ? (statRows as unknown as StatRow[])
-    : (((statRows as unknown as { rows?: StatRow[] }).rows ??
-        []) as StatRow[])
-  const statByName = new Map<string, StatRow>(
-    rawRows.map((r) => [r.name, r]),
-  )
+    : (((statRows as unknown as { rows?: StatRow[] }).rows ?? []) as StatRow[])
+  const statByName = new Map<string, StatRow>(rawRows.map((r) => [r.name, r]))
 
   const rows: JobQueueRow[] = queues.map((q) => {
     const s = statByName.get(q.name)
@@ -105,9 +102,7 @@ export async function loadJobStats(): Promise<JobStats> {
       totalCount: q.totalCount ?? 0,
       failedLast24h: s ? Number(s.failed_24h) : 0,
       completedLast24h: s ? Number(s.completed_24h) : 0,
-      lastFailureAt: s?.last_failure_at
-        ? new Date(s.last_failure_at).toISOString()
-        : null,
+      lastFailureAt: s?.last_failure_at ? new Date(s.last_failure_at).toISOString() : null,
       lastFailureMessage: s?.last_failure_message ?? null,
     }
   })
@@ -134,14 +129,11 @@ export async function loadJobStats(): Promise<JobStats> {
   }
   const failureArr = Array.isArray(failureRows)
     ? (failureRows as unknown as FailRow[])
-    : (((failureRows as unknown as { rows?: FailRow[] }).rows ??
-        []) as FailRow[])
+    : (((failureRows as unknown as { rows?: FailRow[] }).rows ?? []) as FailRow[])
   const recentFailures: JobFailureRow[] = failureArr.map((f) => ({
     name: f.name,
     startedOn: f.started_on ? new Date(f.started_on).toISOString() : null,
-    completedOn: f.completed_on
-      ? new Date(f.completed_on).toISOString()
-      : null,
+    completedOn: f.completed_on ? new Date(f.completed_on).toISOString() : null,
     retryCount: Number(f.retry_count ?? 0),
     errorMessage: extractError(f.output),
   }))
@@ -158,10 +150,7 @@ function extractError(output: unknown): string {
   if (typeof output === 'string') return output.slice(0, 400)
   if (typeof output === 'object') {
     const o = output as Record<string, unknown>
-    const msg =
-      typeof o['message'] === 'string'
-        ? o['message']
-        : JSON.stringify(o).slice(0, 400)
+    const msg = typeof o.message === 'string' ? o.message : JSON.stringify(o).slice(0, 400)
     return String(msg).slice(0, 400)
   }
   return String(output).slice(0, 400)

@@ -295,9 +295,7 @@ describe('isNewDay', () => {
   })
 
   it('returns false within the same UTC day', () => {
-    expect(
-      isNewDay(at('2026-04-18T01:00:00Z'), at('2026-04-18T22:00:00Z'), UTC),
-    ).toBe(false)
+    expect(isNewDay(at('2026-04-18T01:00:00Z'), at('2026-04-18T22:00:00Z'), UTC)).toBe(false)
   })
 
   it('respects timezone when deciding day boundaries', () => {
@@ -386,9 +384,7 @@ describe('applyEvent', () => {
       instanceId: 'i',
       occurredAt: at('2026-04-18T12:00:00Z'),
     }
-    expect(applyEvent(INITIAL_PROGRESSION, skipped, { timeZone: UTC })).toEqual(
-      INITIAL_PROGRESSION,
-    )
+    expect(applyEvent(INITIAL_PROGRESSION, skipped, { timeZone: UTC })).toEqual(INITIAL_PROGRESSION)
   })
 })
 
@@ -497,11 +493,7 @@ describe('streak badges', () => {
 
   it('earnedBadges lists every tier up to longestStreak', () => {
     expect(earnedBadges(6)).toEqual([])
-    expect(earnedBadges(30).map((b) => b.id)).toEqual([
-      'week',
-      'fortnight',
-      'monthly',
-    ])
+    expect(earnedBadges(30).map((b) => b.id)).toEqual(['week', 'fortnight', 'monthly'])
   })
 })
 

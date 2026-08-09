@@ -21,12 +21,10 @@ function completion(iso: string, slug: string | null) {
 
 describe('garden reducer', () => {
   it('creates a new plant on first completion', () => {
-    const s = applyGardenEvent(
-      INITIAL_GARDEN,
-      completion('2026-01-01T12:00:00Z', 'health'),
-      { timeZone: TZ },
-    )
-    expect(s.plants['health']).toMatchObject({
+    const s = applyGardenEvent(INITIAL_GARDEN, completion('2026-01-01T12:00:00Z', 'health'), {
+      timeZone: TZ,
+    })
+    expect(s.plants.health).toMatchObject({
       waterings: 1,
       currentStreak: 1,
       longestStreak: 1,
@@ -35,14 +33,11 @@ describe('garden reducer', () => {
 
   it('same-day completions do not bump streak but do bump waterings', () => {
     const s = replayGarden(
-      [
-        completion('2026-01-01T09:00:00Z', 'health'),
-        completion('2026-01-01T18:00:00Z', 'health'),
-      ],
+      [completion('2026-01-01T09:00:00Z', 'health'), completion('2026-01-01T18:00:00Z', 'health')],
       { timeZone: TZ },
     )
-    expect(s.plants['health'].waterings).toBe(2)
-    expect(s.plants['health'].currentStreak).toBe(1)
+    expect(s.plants.health.waterings).toBe(2)
+    expect(s.plants.health.currentStreak).toBe(1)
   })
 
   it('consecutive-day completions extend streak', () => {
@@ -54,8 +49,8 @@ describe('garden reducer', () => {
       ],
       { timeZone: TZ },
     )
-    expect(s.plants['health'].currentStreak).toBe(3)
-    expect(s.plants['health'].longestStreak).toBe(3)
+    expect(s.plants.health.currentStreak).toBe(3)
+    expect(s.plants.health.longestStreak).toBe(3)
   })
 
   it('a skipped day resets current streak but not longest', () => {
@@ -68,8 +63,8 @@ describe('garden reducer', () => {
       ],
       { timeZone: TZ },
     )
-    expect(s.plants['health'].currentStreak).toBe(1)
-    expect(s.plants['health'].longestStreak).toBe(2)
+    expect(s.plants.health.currentStreak).toBe(1)
+    expect(s.plants.health.longestStreak).toBe(2)
   })
 
   it('each category maintains its own plant + streak', () => {
@@ -81,16 +76,14 @@ describe('garden reducer', () => {
       ],
       { timeZone: TZ },
     )
-    expect(s.plants['health'].currentStreak).toBe(2)
-    expect(s.plants['work'].currentStreak).toBe(1)
+    expect(s.plants.health.currentStreak).toBe(2)
+    expect(s.plants.work.currentStreak).toBe(1)
   })
 
   it('null category goes to the uncategorized bucket', () => {
-    const s = applyGardenEvent(
-      INITIAL_GARDEN,
-      completion('2026-01-01T12:00:00Z', null),
-      { timeZone: TZ },
-    )
+    const s = applyGardenEvent(INITIAL_GARDEN, completion('2026-01-01T12:00:00Z', null), {
+      timeZone: TZ,
+    })
     expect(s.plants[UNCATEGORIZED_KEY]).toBeTruthy()
     expect(s.plants[UNCATEGORIZED_KEY].categorySlug).toBeNull()
   })
@@ -117,12 +110,7 @@ describe('garden reducer', () => {
     expect(milestoneDecorations(149)).toEqual(['butterfly'])
     expect(milestoneDecorations(150)).toEqual(['butterfly', 'bee'])
     expect(milestoneDecorations(300)).toEqual(['butterfly', 'bee', 'bird'])
-    expect(milestoneDecorations(500)).toEqual([
-      'butterfly',
-      'bee',
-      'bird',
-      'sparkle',
-    ])
+    expect(milestoneDecorations(500)).toEqual(['butterfly', 'bee', 'bird', 'sparkle'])
   })
 
   it('mood tracks recency across seven levels', () => {

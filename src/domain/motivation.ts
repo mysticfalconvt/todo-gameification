@@ -9,20 +9,12 @@
 // style. That keeps the event-sourced progression replay-safe (nothing about
 // a completion's reward depends on a mutable preference).
 
-export const MOTIVATION_STYLES = [
-  'balanced',
-  'xp_hunter',
-  'clean_sweep',
-  'streak_keeper',
-] as const
+export const MOTIVATION_STYLES = ['balanced', 'xp_hunter', 'clean_sweep', 'streak_keeper'] as const
 export type MotivationStyle = (typeof MOTIVATION_STYLES)[number]
 export const DEFAULT_MOTIVATION_STYLE: MotivationStyle = 'balanced'
 
 export function isMotivationStyle(v: unknown): v is MotivationStyle {
-  return (
-    typeof v === 'string' &&
-    (MOTIVATION_STYLES as readonly string[]).includes(v)
-  )
+  return typeof v === 'string' && (MOTIVATION_STYLES as readonly string[]).includes(v)
 }
 
 // Which Today stat tile a style foregrounds. null = no special emphasis.
@@ -64,7 +56,7 @@ export const MOTIVATION_STYLE_OPTIONS: ReadonlyArray<MotivationStyleOption> = [
     hint: 'Motivated by an empty list. Getting to zero is the win.',
     primaryStat: 'remaining',
     coachEmphasis:
-      "This person is motivated by clearing the list — celebrate an empty or nearly-empty day and frame remaining tasks as the gap to zero.",
+      'This person is motivated by clearing the list — celebrate an empty or nearly-empty day and frame remaining tasks as the gap to zero.',
   },
   {
     value: 'streak_keeper',
@@ -77,11 +69,6 @@ export const MOTIVATION_STYLE_OPTIONS: ReadonlyArray<MotivationStyleOption> = [
   },
 ]
 
-export function motivationStyleOption(
-  style: MotivationStyle,
-): MotivationStyleOption {
-  return (
-    MOTIVATION_STYLE_OPTIONS.find((o) => o.value === style) ??
-    MOTIVATION_STYLE_OPTIONS[0]
-  )
+export function motivationStyleOption(style: MotivationStyle): MotivationStyleOption {
+  return MOTIVATION_STYLE_OPTIONS.find((o) => o.value === style) ?? MOTIVATION_STYLE_OPTIONS[0]
 }

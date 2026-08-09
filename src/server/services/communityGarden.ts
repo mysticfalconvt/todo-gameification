@@ -11,12 +11,7 @@
 // see their own garden in the "Yours" tab.
 import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  friendships,
-  memberships,
-  progression,
-  user as userTable,
-} from '../db/schema'
+import { friendships, memberships, progression, user as userTable } from '../db/schema'
 import { getGarden, type GardenPlant } from './garden'
 import { canViewGarden } from './social'
 
@@ -51,21 +46,13 @@ async function friendIdsFor(userId: string): Promise<string[]> {
     .where(
       and(
         eq(friendships.status, 'accepted'),
-        or(
-          eq(friendships.requesterId, userId),
-          eq(friendships.addresseeId, userId),
-        ),
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
       ),
     )
-  return rows.map((r) =>
-    r.requester === userId ? r.addressee : r.requester,
-  )
+  return rows.map((r) => (r.requester === userId ? r.addressee : r.requester))
 }
 
-async function candidateIdsFor(
-  viewerId: string,
-  scope: CommunityGardenScope,
-): Promise<string[]> {
+async function candidateIdsFor(viewerId: string, scope: CommunityGardenScope): Promise<string[]> {
   if (scope === 'friends') {
     // Friends scope is about "other" gardens — viewer sees themselves
     // in the Yours tab, so exclude self here.
@@ -85,12 +72,7 @@ async function candidateIdsFor(
     .select({ id: userTable.id })
     .from(userTable)
     .leftJoin(progression, eq(progression.userId, userTable.id))
-    .where(
-      and(
-        eq(userTable.gardenVisibility, 'public'),
-        isNotNull(progression.lastCompletionAt),
-      ),
-    )
+    .where(and(eq(userTable.gardenVisibility, 'public'), isNotNull(progression.lastCompletionAt)))
     .orderBy(desc(progression.lastCompletionAt))
     .limit(GLOBAL_SCOPE_USER_CAP)
   return rows.map((r) => r.id)
@@ -165,11 +147,7 @@ export async function getCommunityGarden(
     }
   }
 
-  entries.sort(
-    (a, b) =>
-      b.plant.waterings - a.plant.waterings ||
-      a.handle.localeCompare(b.handle),
-  )
+  entries.sort((a, b) => b.plant.waterings - a.plant.waterings || a.handle.localeCompare(b.handle))
 
   return {
     entries,

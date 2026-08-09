@@ -37,10 +37,7 @@ export interface CreateApiTokenResult {
   createdAt: string
 }
 
-export async function createApiToken(
-  userId: string,
-  name: string,
-): Promise<CreateApiTokenResult> {
+export async function createApiToken(userId: string, name: string): Promise<CreateApiTokenResult> {
   const cleanName = name?.trim()
   if (!cleanName) throw new Error('token name required')
   if (cleanName.length > 80) throw new Error('token name too long')
@@ -68,9 +65,7 @@ export async function createApiToken(
   }
 }
 
-export async function listApiTokens(
-  userId: string,
-): Promise<ApiTokenSummary[]> {
+export async function listApiTokens(userId: string): Promise<ApiTokenSummary[]> {
   const rows = await db.query.apiTokens.findMany({
     where: eq(apiTokens.userId, userId),
     orderBy: (t, { desc }) => desc(t.createdAt),
@@ -85,10 +80,7 @@ export async function listApiTokens(
   }))
 }
 
-export async function revokeApiToken(
-  userId: string,
-  tokenId: string,
-): Promise<{ id: string }> {
+export async function revokeApiToken(userId: string, tokenId: string): Promise<{ id: string }> {
   if (!tokenId) throw new Error('tokenId required')
   const result = await db
     .delete(apiTokens)
@@ -110,9 +102,7 @@ export async function revokeApiToken(
  * keeps the final compare explicit and constant-time regardless of
  * future refactors.
  */
-export async function verifyApiToken(
-  plaintext: string,
-): Promise<{ userId: string } | null> {
+export async function verifyApiToken(plaintext: string): Promise<{ userId: string } | null> {
   if (!plaintext?.startsWith(TOKEN_PREFIX)) return null
   const hashedToken = hashToken(plaintext)
   const row = await db.query.apiTokens.findFirst({
@@ -126,8 +116,7 @@ export async function verifyApiToken(
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null
 
   // Fire-and-forget the lastUsedAt bump so we don't add latency to every call.
-  db
-    .update(apiTokens)
+  db.update(apiTokens)
     .set({ lastUsedAt: new Date() })
     .where(eq(apiTokens.id, row.id))
     .catch((e) => console.error('lastUsedAt bump failed', e))

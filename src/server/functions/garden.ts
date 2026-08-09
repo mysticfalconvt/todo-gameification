@@ -1,10 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '../middleware/auth'
 import { getGarden } from '../services/garden'
-import {
-  getCommunityGarden,
-  type CommunityGardenScope,
-} from '../services/communityGarden'
+import { getCommunityGarden, type CommunityGardenScope } from '../services/communityGarden'
 import { requireMember } from '../services/membership'
 
 export const getGardenFn = createServerFn({ method: 'GET' })

@@ -98,12 +98,7 @@ export const getAdminLlmUsageFn = createServerFn({ method: 'POST' })
 export const listAdminLlmCallsFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
   .inputValidator(
-    (data: {
-      kind?: string
-      userId?: string
-      before?: string | null
-      limit?: number
-    }) => ({
+    (data: { kind?: string; userId?: string; before?: string | null; limit?: number }) => ({
       kind: data?.kind?.trim() || undefined,
       userId: data?.userId?.trim() || undefined,
       before: data?.before ?? null,
@@ -148,10 +143,7 @@ export const grantLifetimeFn = createServerFn({ method: 'POST' })
     }
     return {
       userId: data.userId,
-      reason:
-        typeof data.reason === 'string' && data.reason.trim()
-          ? data.reason.trim()
-          : null,
+      reason: typeof data.reason === 'string' && data.reason.trim() ? data.reason.trim() : null,
     }
   })
   .handler(({ data, context }) =>
@@ -170,10 +162,7 @@ export const revokeMembershipFn = createServerFn({ method: 'POST' })
     }
     return {
       userId: data.userId,
-      reason:
-        typeof data.reason === 'string' && data.reason.trim()
-          ? data.reason.trim()
-          : null,
+      reason: typeof data.reason === 'string' && data.reason.trim() ? data.reason.trim() : null,
     }
   })
   .handler(({ data, context }) =>
@@ -186,24 +175,19 @@ export const revokeMembershipFn = createServerFn({ method: 'POST' })
 
 export const grantTokensFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator(
-    (data: { userId: string; amount: number; reason?: string | null }) => {
-      if (typeof data?.userId !== 'string' || !data.userId) {
-        throw new Error('userId required')
-      }
-      if (typeof data?.amount !== 'number' || !Number.isInteger(data.amount)) {
-        throw new Error('amount must be an integer')
-      }
-      return {
-        userId: data.userId,
-        amount: data.amount,
-        reason:
-          typeof data.reason === 'string' && data.reason.trim()
-            ? data.reason.trim()
-            : null,
-      }
-    },
-  )
+  .inputValidator((data: { userId: string; amount: number; reason?: string | null }) => {
+    if (typeof data?.userId !== 'string' || !data.userId) {
+      throw new Error('userId required')
+    }
+    if (typeof data?.amount !== 'number' || !Number.isInteger(data.amount)) {
+      throw new Error('amount must be an integer')
+    }
+    return {
+      userId: data.userId,
+      amount: data.amount,
+      reason: typeof data.reason === 'string' && data.reason.trim() ? data.reason.trim() : null,
+    }
+  })
   .handler(({ data, context }) =>
     grantTokens({
       targetUserId: data.userId,

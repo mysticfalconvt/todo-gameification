@@ -62,13 +62,8 @@ export const MAX_STREAK_FREEZES = 3
 // Milestones whose threshold was passed going from prevStreak to newStreak
 // (prev < days <= new). Streaks only advance by 1 per streak-day so at most
 // one is returned in practice, but this stays correct for any jump.
-export function milestonesCrossed(
-  prevStreak: number,
-  newStreak: number,
-): StreakMilestone[] {
-  return STREAK_MILESTONES.filter(
-    (m) => prevStreak < m.days && m.days <= newStreak,
-  )
+export function milestonesCrossed(prevStreak: number, newStreak: number): StreakMilestone[] {
+  return STREAK_MILESTONES.filter((m) => prevStreak < m.days && m.days <= newStreak)
 }
 
 // The highest milestone a user has ever reached (their current badge), or
@@ -93,16 +88,11 @@ export function punctualityMultiplier(input: {
   timeZone: string
 }): number {
   if (!input.timeOfDay || !input.dueAt) return 1.0
-  const minutesLate =
-    (input.completedAt.getTime() - input.dueAt.getTime()) / 60_000
+  const minutesLate = (input.completedAt.getTime() - input.dueAt.getTime()) / 60_000
   if (minutesLate <= GRACE_MINUTES) return 1.0
 
   const dueDay = formatInTimeZone(input.dueAt, input.timeZone, 'yyyy-MM-dd')
-  const completedDay = formatInTimeZone(
-    input.completedAt,
-    input.timeZone,
-    'yyyy-MM-dd',
-  )
+  const completedDay = formatInTimeZone(input.completedAt, input.timeZone, 'yyyy-MM-dd')
   if (dueDay === completedDay) return 0.8
   return 0.5
 }
@@ -134,8 +124,7 @@ export function computeXp(input: {
   punctuality: number
 }): number {
   const base = input.xpOverride ?? BASE_XP[input.difficulty]
-  const streakMult =
-    1 + Math.min(input.currentStreak, STREAK_CAP) * STREAK_STEP
+  const streakMult = 1 + Math.min(input.currentStreak, STREAK_CAP) * STREAK_STEP
   return Math.round(base * streakMult * input.punctuality)
 }
 
@@ -147,11 +136,7 @@ function localDayKey(date: Date, timeZone: string): string {
   return formatInTimeZone(date, timeZone, 'yyyy-MM-dd')
 }
 
-export function isNewDay(
-  previous: Date | null,
-  current: Date,
-  timeZone: string,
-): boolean {
+export function isNewDay(previous: Date | null, current: Date, timeZone: string): boolean {
   if (!previous) return true
   return localDayKey(previous, timeZone) !== localDayKey(current, timeZone)
 }
@@ -185,11 +170,7 @@ export function applyEvent(
   switch (event.type) {
     case 'task.completed': {
       const gap = state.lastCompletionAt
-        ? daysBetween(
-            state.lastCompletionAt,
-            event.occurredAt,
-            options.timeZone,
-          )
+        ? daysBetween(state.lastCompletionAt, event.occurredAt, options.timeZone)
         : null
 
       // Streak freezes bridge a lapse: missing N days needs N-1 freezes
@@ -217,10 +198,7 @@ export function applyEvent(
       // banked freeze (capped). Additive on top of any kid tokens on the event.
       const crossed = milestonesCrossed(state.currentStreak, currentStreak)
       const milestoneTokens = crossed.reduce((sum, m) => sum + m.tokens, 0)
-      streakFreezes = Math.min(
-        MAX_STREAK_FREEZES,
-        streakFreezes + crossed.length,
-      )
+      streakFreezes = Math.min(MAX_STREAK_FREEZES, streakFreezes + crossed.length)
 
       const punctuality =
         event.dueKind === 'week_target'
@@ -367,8 +345,7 @@ export function computeStepXp(input: {
   if (input.totalSteps <= 0) return STEP_BASE_FALLBACK
   const perStep = Math.floor((input.parentBaseXp * STEP_SHARE) / input.totalSteps)
   const base = Math.max(STEP_BASE_FALLBACK, perStep)
-  const streakMult =
-    1 + Math.min(input.currentStreak, STREAK_CAP) * STREAK_STEP
+  const streakMult = 1 + Math.min(input.currentStreak, STREAK_CAP) * STREAK_STEP
   return Math.round(base * streakMult * input.punctuality)
 }
 
@@ -376,19 +353,10 @@ export function parentBonusBaseXp(parentBaseXp: number): number {
   return Math.max(1, Math.floor(parentBaseXp * PARENT_BONUS))
 }
 
-export function baseXpForDifficulty(
-  difficulty: Difficulty,
-  xpOverride: number | null,
-): number {
+export function baseXpForDifficulty(difficulty: Difficulty, xpOverride: number | null): number {
   return xpOverride ?? BASE_XP[difficulty]
 }
 
-export function replay(
-  events: readonly DomainEvent[],
-  options: ApplyEventOptions,
-): Progression {
-  return events.reduce(
-    (state, event) => applyEvent(state, event, options),
-    INITIAL_PROGRESSION,
-  )
+export function replay(events: readonly DomainEvent[], options: ApplyEventOptions): Progression {
+  return events.reduce((state, event) => applyEvent(state, event, options), INITIAL_PROGRESSION)
 }

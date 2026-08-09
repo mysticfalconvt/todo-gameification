@@ -20,17 +20,8 @@ import {
 } from '../../domain/membership'
 import { db } from '../db/client'
 import { events, memberships, stripeWebhookEvents, user } from '../db/schema'
-import {
-  getAnnualPriceId,
-  getLifetimePriceId,
-  getStripe,
-  getWebhookSecret,
-} from '../stripe/client'
-import {
-  findUserIdByStripeCustomerId,
-  loadProjectionState,
-  upsertProjection,
-} from './membership'
+import { getAnnualPriceId, getLifetimePriceId, getStripe, getWebhookSecret } from '../stripe/client'
+import { findUserIdByStripeCustomerId, loadProjectionState, upsertProjection } from './membership'
 
 export interface CheckoutResult {
   url: string
@@ -66,8 +57,7 @@ async function createCheckout(
   const email = await loadUserEmail(input.userId)
 
   const priceId = kind === 'annual' ? getAnnualPriceId() : getLifetimePriceId()
-  const mode: 'subscription' | 'payment' =
-    kind === 'annual' ? 'subscription' : 'payment'
+  const mode: 'subscription' | 'payment' = kind === 'annual' ? 'subscription' : 'payment'
 
   // Reuse an existing Stripe customer when we have one (annual upgrade
   // after a prior lifetime refund, or rebuying after a lapse) so the
@@ -243,22 +233,13 @@ export async function processWebhookEvent(
 async function dispatch(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case 'checkout.session.completed':
-      return handleCheckoutCompleted(
-        event,
-        event.data.object as Stripe.Checkout.Session,
-      )
+      return handleCheckoutCompleted(event, event.data.object as Stripe.Checkout.Session)
     case 'invoice.paid':
       return handleInvoicePaid(event, event.data.object as Stripe.Invoice)
     case 'customer.subscription.updated':
-      return handleSubscriptionUpdated(
-        event,
-        event.data.object as Stripe.Subscription,
-      )
+      return handleSubscriptionUpdated(event, event.data.object as Stripe.Subscription)
     case 'customer.subscription.deleted':
-      return handleSubscriptionDeleted(
-        event,
-        event.data.object as Stripe.Subscription,
-      )
+      return handleSubscriptionDeleted(event, event.data.object as Stripe.Subscription)
     case 'charge.refunded':
       return handleChargeRefunded(event, event.data.object as Stripe.Charge)
     default:
@@ -272,9 +253,7 @@ async function dispatch(event: Stripe.Event): Promise<void> {
 // In Stripe API version 2025-10-29 (clover) the per-cycle period_end
 // moved from Subscription onto the items entries. For our single-item
 // subscriptions this just means reading the first item.
-function periodEndFromSubscription(
-  sub: Stripe.Subscription,
-): Date | null {
+function periodEndFromSubscription(sub: Stripe.Subscription): Date | null {
   const itemEnd = sub.items?.data?.[0]?.current_period_end
   if (typeof itemEnd === 'number') return new Date(itemEnd * 1000)
   return null
@@ -296,8 +275,7 @@ function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
 // against an invoice (i.e. a subscription cycle), which we don't drop
 // tier for.
 function chargeBelongsToInvoice(charge: Stripe.Charge): boolean {
-  const inv = (charge as unknown as { invoice?: string | { id: string } | null })
-    .invoice
+  const inv = (charge as unknown as { invoice?: string | { id: string } | null }).invoice
   return Boolean(inv)
 }
 
@@ -313,9 +291,7 @@ async function resolveUserIdForEvent(
     const id = await findUserIdByStripeCustomerId(hints.customerId)
     if (id) return id
   }
-  console.warn(
-    `[billing] webhook ${event.type} (${event.id}) had no userId attribution`,
-  )
+  console.warn(`[billing] webhook ${event.type} (${event.id}) had no userId attribution`)
   return null
 }
 
@@ -328,9 +304,7 @@ async function handleCheckoutCompleted(
       ? session.metadata.userId
       : (session.client_reference_id ?? null)
   const customerId =
-    typeof session.customer === 'string'
-      ? session.customer
-      : session.customer?.id ?? null
+    typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null)
 
   const userId = await resolveUserIdForEvent(event, {
     metadataUserId,
@@ -355,9 +329,7 @@ async function handleCheckoutCompleted(
     // Pull the subscription so we have current_period_end up front.
     const stripe = getStripe()
     const subscriptionId =
-      typeof session.subscription === 'string'
-        ? session.subscription
-        : session.subscription?.id
+      typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
     if (!subscriptionId) {
       console.warn('[billing] checkout subscription mode but no subscription id', {
         sessionId: session.id,
@@ -403,18 +375,13 @@ async function handleCheckoutCompleted(
   })
 }
 
-async function handleInvoicePaid(
-  event: Stripe.Event,
-  invoice: Stripe.Invoice,
-): Promise<void> {
+async function handleInvoicePaid(event: Stripe.Event, invoice: Stripe.Invoice): Promise<void> {
   // Only react to recurring-cycle invoices. The activation invoice is
   // already handled via checkout.session.completed.
   if (invoice.billing_reason !== 'subscription_cycle') return
 
   const customerId =
-    typeof invoice.customer === 'string'
-      ? invoice.customer
-      : invoice.customer?.id ?? null
+    typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer?.id ?? null)
   const userId = await resolveUserIdForEvent(event, { customerId })
   if (!userId) return
 
@@ -443,9 +410,7 @@ async function handleSubscriptionUpdated(
   if (!subscription.cancel_at_period_end) return
 
   const customerId =
-    typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer.id
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
   const userId = await resolveUserIdForEvent(event, { customerId })
   if (!userId) return
 
@@ -464,9 +429,7 @@ async function handleSubscriptionDeleted(
   subscription: Stripe.Subscription,
 ): Promise<void> {
   const customerId =
-    typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer.id
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
   const userId = await resolveUserIdForEvent(event, { customerId })
   if (!userId) return
 
@@ -485,19 +448,14 @@ async function handleSubscriptionDeleted(
   })
 }
 
-async function handleChargeRefunded(
-  event: Stripe.Event,
-  charge: Stripe.Charge,
-): Promise<void> {
+async function handleChargeRefunded(event: Stripe.Event, charge: Stripe.Charge): Promise<void> {
   // Only treat lifetime payments as entitlement-affecting refunds. A
   // refunded subscription invoice should NOT drop tier — the cancellation
   // flow handles that via subscription.deleted.
   if (chargeBelongsToInvoice(charge)) return
 
   const customerId =
-    typeof charge.customer === 'string'
-      ? charge.customer
-      : charge.customer?.id ?? null
+    typeof charge.customer === 'string' ? charge.customer : (charge.customer?.id ?? null)
   const userId = await resolveUserIdForEvent(event, { customerId })
   if (!userId) return
 
@@ -511,10 +469,7 @@ async function handleChargeRefunded(
 // Writes the domain event AND upserts the projection in one transaction.
 // Used by every webhook handler. Idempotency comes from the
 // stripe_webhook_events dedup wrapper one level up.
-async function applyAndPersist(
-  userId: string,
-  domainEvent: DomainEvent,
-): Promise<void> {
+async function applyAndPersist(userId: string, domainEvent: DomainEvent): Promise<void> {
   await db.transaction(async (tx) => {
     const current = await tx.query.memberships.findFirst({
       where: eq(memberships.userId, userId),

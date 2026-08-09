@@ -6,12 +6,8 @@ export function baseXp(difficulty: Difficulty, xpOverride: number | null): numbe
   return xpOverride ?? BASE[difficulty]
 }
 
-export function xpLabel(
-  difficulty: Difficulty,
-  xpOverride: number | null,
-): string {
+export function xpLabel(difficulty: Difficulty, xpOverride: number | null): string {
   if (xpOverride != null) return `${xpOverride} XP`
-  const label =
-    difficulty === 'small' ? 'Small' : difficulty === 'large' ? 'Large' : 'Medium'
+  const label = difficulty === 'small' ? 'Small' : difficulty === 'large' ? 'Large' : 'Medium'
   return `${label} • ${BASE[difficulty]} XP`
 }

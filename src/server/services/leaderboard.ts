@@ -47,15 +47,10 @@ async function friendIdsFor(userId: string): Promise<string[]> {
     .where(
       and(
         eq(friendships.status, 'accepted'),
-        or(
-          eq(friendships.requesterId, userId),
-          eq(friendships.addresseeId, userId),
-        ),
+        or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId)),
       ),
     )
-  return rows.map((r) =>
-    r.requester === userId ? r.addressee : r.requester,
-  )
+  return rows.map((r) => (r.requester === userId ? r.addressee : r.requester))
 }
 
 // Resolve the viewer + the users eligible to appear in their leaderboard.
@@ -65,10 +60,7 @@ async function friendIdsFor(userId: string): Promise<string[]> {
 //               to a tighter shared view, so the shareProgression toggle
 //               (which gates the friends/global feeds) doesn't apply
 //               here — household members always see each other.
-async function loadCandidates(
-  viewerId: string,
-  scope: LeaderboardScope,
-): Promise<CandidateUser[]> {
+async function loadCandidates(viewerId: string, scope: LeaderboardScope): Promise<CandidateUser[]> {
   let ids: string[]
   let respectShareProgression = true
   // For the household scope, the per-user "since" date is their household
@@ -127,10 +119,7 @@ async function loadCandidates(
 
   return rows
     .filter(
-      (r) =>
-        !respectShareProgression ||
-        r.id === viewerId ||
-        (r.shareProgression ?? true) === true,
+      (r) => !respectShareProgression || r.id === viewerId || (r.shareProgression ?? true) === true,
     )
     .map((r) => ({
       id: r.id,
@@ -155,9 +144,7 @@ export async function getLeaderboard(
   const candidateIds = candidates.map((c) => c.id)
 
   const since =
-    days === 'all'
-      ? new Date(0)
-      : new Date(Date.now() - (days as number) * 24 * 3_600_000)
+    days === 'all' ? new Date(0) : new Date(Date.now() - (days as number) * 24 * 3_600_000)
 
   const rows = await db
     .select({
@@ -233,21 +220,12 @@ function computeMetric(
     for (const r of rows) {
       if (!r.occurredAt) continue
       const p =
-        r.payload && typeof r.payload === 'object'
-          ? (r.payload as Record<string, unknown>)
-          : {}
-      const xpFinal =
-        typeof p['xpFinal'] === 'number' ? (p['xpFinal'] as number) : null
-      const xpOverride =
-        typeof p['xpOverride'] === 'number'
-          ? (p['xpOverride'] as number)
-          : null
-      const difficulty =
-        typeof p['difficulty'] === 'string' ? p['difficulty'] : null
+        r.payload && typeof r.payload === 'object' ? (r.payload as Record<string, unknown>) : {}
+      const xpFinal = typeof p.xpFinal === 'number' ? (p.xpFinal as number) : null
+      const xpOverride = typeof p.xpOverride === 'number' ? (p.xpOverride as number) : null
+      const difficulty = typeof p.difficulty === 'string' ? p.difficulty : null
       const xp =
-        xpFinal ??
-        xpOverride ??
-        (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
+        xpFinal ?? xpOverride ?? (difficulty === 'small' ? 10 : difficulty === 'large' ? 60 : 25)
       values.set(r.userId, (values.get(r.userId) ?? 0) + xp)
     }
     if (metric === 'xp') return values

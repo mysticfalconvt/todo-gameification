@@ -41,6 +41,5 @@ export function boardIsComplete(board: Board): boolean {
 export function isPeer(rA: number, cA: number, rB: number, cB: number): boolean {
   if (rA === rB && cA === cB) return false
   if (rA === rB || cA === cB) return true
-  return Math.floor(rA / 3) === Math.floor(rB / 3) &&
-    Math.floor(cA / 3) === Math.floor(cB / 3)
+  return Math.floor(rA / 3) === Math.floor(rB / 3) && Math.floor(cA / 3) === Math.floor(cB / 3)
 }

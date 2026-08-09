@@ -15,10 +15,7 @@ import {
   type FocusSessionEndJobData,
   type FocusSessionExpireJobData,
 } from './jobs/focusSessionEnd'
-import {
-  doomScrollEndHandler,
-  type DoomScrollEndJobData,
-} from './jobs/doomScrollEnd'
+import { doomScrollEndHandler, type DoomScrollEndJobData } from './jobs/doomScrollEnd'
 
 const FOCUS_END_QUEUE = 'focus-session-end'
 const FOCUS_EXPIRE_QUEUE = 'focus-session-expire'
@@ -79,10 +76,7 @@ export async function getBoss(): Promise<PgBoss> {
   return booting
 }
 
-export async function scheduleReminder(
-  data: SendReminderJobData,
-  fireAt: Date,
-): Promise<void> {
+export async function scheduleReminder(data: SendReminderJobData, fireAt: Date): Promise<void> {
   const boss = await getBoss()
   await boss.sendAfter(
     'send-reminder',

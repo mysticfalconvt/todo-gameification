@@ -1,9 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { authedRoute, jsonError, jsonOk } from '../../../../server/api/rest'
-import {
-  getMyMembership,
-  listHouseholdStats,
-} from '../../../../server/services/households'
+import { getMyMembership, listHouseholdStats } from '../../../../server/services/households'
 
 // GET /api/v1/household/stats?days=30
 // Per-member daily XP + completion counts in a rolling window, joined
@@ -14,11 +11,7 @@ export const Route = createFileRoute('/api/v1/household/stats')({
       GET: authedRoute(async ({ request, userId }) => {
         const m = await getMyMembership(userId)
         if (!m) {
-          return jsonError(
-            'not_found',
-            'You are not in a household.',
-            404,
-          )
+          return jsonError('not_found', 'You are not in a household.', 404)
         }
         const url = new URL(request.url)
         const raw = url.searchParams.get('days')

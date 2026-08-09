@@ -20,10 +20,7 @@ export type XpTier = keyof typeof XP_WINDOWS
 // Back-compat export — anything that just wants a representative XP value
 // per tier can read from this.
 export const XP_TIERS: Record<XpTier, number> = Object.fromEntries(
-  (Object.keys(XP_WINDOWS) as XpTier[]).map((t) => [
-    t,
-    XP_WINDOWS[t].typical,
-  ]),
+  (Object.keys(XP_WINDOWS) as XpTier[]).map((t) => [t, XP_WINDOWS[t].typical]),
 ) as Record<XpTier, number>
 
 const SYSTEM_PROMPT = `You are an XP scorer for a gamified personal todo app used by people with ADHD. Your job is to assign a specific XP value that reflects the real effort of a task, using a two-step decision:
@@ -135,9 +132,7 @@ function buildUserContent(input: ScoreInput): string {
       .slice(0, 12)
       .map((r) => `- "${r.title}" → ${r.xp} XP`)
       .join('\n')
-    lines.push(
-      `Recent tasks scored for this same user (calibration, not rules):\n${examples}`,
-    )
+    lines.push(`Recent tasks scored for this same user (calibration, not rules):\n${examples}`)
   }
   return lines.join('\n')
 }

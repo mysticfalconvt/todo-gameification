@@ -11,11 +11,7 @@ import {
   enablePushNotifications,
   type PushSupportStatus,
 } from '../../../lib/push'
-import {
-  createApiToken,
-  listApiTokens,
-  revokeApiToken,
-} from '../../../server/functions/api-tokens'
+import { createApiToken, listApiTokens, revokeApiToken } from '../../../server/functions/api-tokens'
 import {
   getGithubIntegration,
   removeGithubIntegration,
@@ -54,28 +50,15 @@ import {
 } from '../../../server/functions/billing'
 import { deleteAccountFn } from '../../../server/functions/account'
 import { resetTasks } from '../../../server/functions/tasks'
-import {
-  MembersOnlyUpsell,
-  formatMoney,
-} from '../../../components/membership/MembersOnlyUpsell'
-import {
-  COACH_ATTITUDE_OPTIONS,
-  type CoachAttitude,
-} from '../../../domain/coach'
-import {
-  MOTIVATION_STYLE_OPTIONS,
-  type MotivationStyle,
-} from '../../../domain/motivation'
+import { MembersOnlyUpsell, formatMoney } from '../../../components/membership/MembersOnlyUpsell'
+import { COACH_ATTITUDE_OPTIONS, type CoachAttitude } from '../../../domain/coach'
+import { MOTIVATION_STYLE_OPTIONS, type MotivationStyle } from '../../../domain/motivation'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
   component: SettingsPage,
 })
 
-function ManagedAccountSettingsLockout({
-  role,
-}: {
-  role: 'kid' | 'kiosk'
-}) {
+function ManagedAccountSettingsLockout({ role }: { role: 'kid' | 'kiosk' }) {
   const router = useRouter()
   const qc = useQueryClient()
   const [signingOut, setSigningOut] = useState(false)
@@ -103,12 +86,10 @@ function ManagedAccountSettingsLockout({
       <section className="island-shell mx-auto max-w-md rounded-2xl p-6 sm:p-8">
         <p className="island-kicker mb-1">Settings</p>
         <h1 className="display-title mb-3 text-3xl font-bold text-[var(--sea-ink)]">
-          {role === 'kiosk' ? 'Kiosk accounts' : 'Kid accounts'}{' '}
-          can&rsquo;t change settings
+          {role === 'kiosk' ? 'Kiosk accounts' : 'Kid accounts'} can&rsquo;t change settings
         </h1>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          Ask a grown-up in your household to update preferences for you
-          from their settings page.
+          Ask a grown-up in your household to update preferences for you from their settings page.
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Link
@@ -149,9 +130,7 @@ function SettingsPage() {
 
   return (
     <main className="page-wrap space-y-8 px-4 py-8">
-      <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">
-        Profile & settings
-      </h1>
+      <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">Profile & settings</h1>
       <ProfileSection user={session?.user} />
       <MembershipSection />
       <PrivacySection />
@@ -170,10 +149,7 @@ function SettingsPage() {
       <DangerZoneSection />
       <p className="pt-4 text-center text-xs text-[var(--sea-ink-soft)]">
         Have an idea for the app?{' '}
-        <Link
-          to="/feedback"
-          className="font-semibold text-[var(--lagoon-deep)] underline"
-        >
+        <Link to="/feedback" className="font-semibold text-[var(--lagoon-deep)] underline">
           Send a feature request →
         </Link>
       </p>
@@ -204,8 +180,7 @@ function CategoriesSection() {
       setNewLabel('')
       setNewDescription('')
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Create failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Create failed'),
   })
 
   const uncategorizedQuery = useQuery({
@@ -232,8 +207,7 @@ function CategoriesSection() {
         toast.message('Nothing to do.')
       }
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Backfill failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Backfill failed'),
   })
 
   const uncategorized = uncategorizedQuery.data ?? 0
@@ -250,19 +224,16 @@ function CategoriesSection() {
         )
       }
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Delete failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Delete failed'),
   })
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-        Categories
-      </h2>
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Categories</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        The AI picks one of these when you create a task. Add new ones or
-        remove ones you don't use. Deleting a category un-sets it on existing
-        tasks; they become "uncategorized" and you can re-analyze to reassign.
+        The AI picks one of these when you create a task. Add new ones or remove ones you don't use.
+        Deleting a category un-sets it on existing tasks; they become "uncategorized" and you can
+        re-analyze to reassign.
       </p>
 
       {categoriesQuery.isLoading ? (
@@ -278,8 +249,8 @@ function CategoriesSection() {
       {uncategorized > 0 ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            {uncategorized} task{uncategorized === 1 ? '' : 's'} still
-            uncategorized. Run the AI to assign categories.
+            {uncategorized} task{uncategorized === 1 ? '' : 's'} still uncategorized. Run the AI to
+            assign categories.
           </p>
           <button
             type="button"
@@ -339,7 +310,10 @@ function CategoriesSection() {
         </div>
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-            Description <span className="normal-case text-[var(--sea-ink-soft)]">(optional — helps the AI)</span>
+            Description{' '}
+            <span className="normal-case text-[var(--sea-ink-soft)]">
+              (optional — helps the AI)
+            </span>
           </span>
           <textarea
             value={newDescription}
@@ -378,8 +352,7 @@ function CategoryRow({
       qc.invalidateQueries({ queryKey: ['tasks'] })
       setEditing(false)
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   if (editing) {
@@ -440,13 +413,9 @@ function CategoryRow({
         style={{ backgroundColor: category.color }}
       />
       <span className="min-w-0 flex-1">
-        <span className="text-sm font-semibold text-[var(--sea-ink)]">
-          {category.label}
-        </span>
+        <span className="text-sm font-semibold text-[var(--sea-ink)]">{category.label}</span>
         {category.description ? (
-          <p className="mt-0.5 text-xs text-[var(--sea-ink-soft)]">
-            {category.description}
-          </p>
+          <p className="mt-0.5 text-xs text-[var(--sea-ink-soft)]">{category.description}</p>
         ) : null}
       </span>
       <button
@@ -459,11 +428,7 @@ function CategoryRow({
       <button
         type="button"
         onClick={() => {
-          if (
-            confirm(
-              `Delete "${category.label}"? Tasks in this category become uncategorized.`,
-            )
-          ) {
+          if (confirm(`Delete "${category.label}"? Tasks in this category become uncategorized.`)) {
             onDelete(category.slug)
           }
         }}
@@ -537,29 +502,24 @@ function MembershipSection() {
   const annual = useMutation({
     mutationFn: () => createAnnualCheckoutFn(),
     onSuccess: ({ url }) => window.location.assign(url),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
   const lifetime = useMutation({
     mutationFn: () => createLifetimeCheckoutFn(),
     onSuccess: ({ url }) => window.location.assign(url),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not start checkout'),
   })
   const portal = useMutation({
     mutationFn: () => createPortalSessionFn(),
     onSuccess: ({ url }) => window.location.assign(url),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Could not open portal'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not open portal'),
   })
 
   const m = memberQuery.data
   if (memberQuery.isLoading || !m) {
     return (
       <section className="island-shell max-w-xl rounded-2xl p-6">
-        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          Membership
-        </h2>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Membership</h2>
         <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
       </section>
     )
@@ -567,32 +527,23 @@ function MembershipSection() {
 
   const a = pricingQuery.data?.annual
   const l = pricingQuery.data?.lifetime
-  const annualLabel = a
-    ? `${formatMoney(a.amount, a.currency)}/${a.interval}`
-    : '…'
+  const annualLabel = a ? `${formatMoney(a.amount, a.currency)}/${a.interval}` : '…'
   const lifetimeLabel = l ? `${formatMoney(l.amount, l.currency)} once` : '…'
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-        Membership
-      </h2>
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Membership</h2>
       {m.inherited ? (
         <div className="space-y-2">
-          <p className="text-base font-semibold text-[var(--sea-ink)]">
-            Full access ✨
-          </p>
+          <p className="text-base font-semibold text-[var(--sea-ink)]">Full access ✨</p>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            You have full access through your household — the Garden, full
-            arcade, AI Coach personalities, and weekly email are all unlocked.
-            No separate subscription needed.
+            You have full access through your household — the Garden, full arcade, AI Coach
+            personalities, and weekly email are all unlocked. No separate subscription needed.
           </p>
         </div>
       ) : m.tier === 'lifetime' ? (
         <div className="space-y-2">
-          <p className="text-base font-semibold text-[var(--sea-ink)]">
-            Lifetime ✨
-          </p>
+          <p className="text-base font-semibold text-[var(--sea-ink)]">Lifetime ✨</p>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {m.source === 'admin'
               ? 'Granted by the team — thank you for testing.'
@@ -601,9 +552,7 @@ function MembershipSection() {
         </div>
       ) : m.tier === 'annual' ? (
         <div className="space-y-3">
-          <p className="text-base font-semibold text-[var(--sea-ink)]">
-            Annual member
-          </p>
+          <p className="text-base font-semibold text-[var(--sea-ink)]">Annual member</p>
           {m.cancelAtPeriodEnd && m.currentPeriodEnd ? (
             <p className="text-sm text-[rgb(180,90,40)]">
               Cancels {new Date(m.currentPeriodEnd).toLocaleDateString()}.
@@ -626,13 +575,13 @@ function MembershipSection() {
         <div className="space-y-3">
           {pending ? (
             <div className="rounded-2xl border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.1)] p-3 text-sm text-[var(--lagoon-deep)]">
-              Finalizing your payment with Stripe… this usually takes a few
-              seconds. The page updates automatically.
+              Finalizing your payment with Stripe… this usually takes a few seconds. The page
+              updates automatically.
             </div>
           ) : null}
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            You're on Free. Upgrade to unlock the full arcade, the AI Coach
-            personalities + detailed mode, and the Garden.
+            You're on Free. Upgrade to unlock the full arcade, the AI Coach personalities + detailed
+            mode, and the Garden.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -678,37 +627,27 @@ function MotivationStyleSection() {
   })
 
   const setPrefs = useMutation({
-    mutationFn: (motivationStyle: MotivationStyle) =>
-      updatePrefs({ data: { motivationStyle } }),
+    mutationFn: (motivationStyle: MotivationStyle) => updatePrefs({ data: { motivationStyle } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] })
       // The coach blurb keys on the style; nudge it to regenerate.
       qc.invalidateQueries({ queryKey: ['coach'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
-  const current = (profileQuery.data?.motivationStyle ??
-    'balanced') as MotivationStyle
-  const selectedHint =
-    MOTIVATION_STYLE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
+  const current = (profileQuery.data?.motivationStyle ?? 'balanced') as MotivationStyle
+  const selectedHint = MOTIVATION_STYLE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-        What motivates you
-      </h2>
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">What motivates you</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Tell the app what you want your list to give you. This shifts what your
-        coach emphasizes and which stat leads on the Today page — it never
-        changes how much XP or how many tokens you earn.
+        Tell the app what you want your list to give you. This shifts what your coach emphasizes and
+        which stat leads on the Today page — it never changes how much XP or how many tokens you
+        earn.
       </p>
-      <div
-        className="flex flex-wrap gap-2"
-        role="radiogroup"
-        aria-label="Motivation style"
-      >
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Motivation style">
         {MOTIVATION_STYLE_OPTIONS.map((o) => {
           const selected = current === o.value
           return (
@@ -731,9 +670,7 @@ function MotivationStyleSection() {
           )
         })}
       </div>
-      {selectedHint && (
-        <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
-      )}
+      {selectedHint && <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>}
     </section>
   )
 }
@@ -751,39 +688,29 @@ function CoachAttitudeSection() {
   const [upsellOpen, setUpsellOpen] = useState(false)
 
   const setPrefs = useMutation({
-    mutationFn: (patch: {
-      coachAttitude?: CoachAttitudeSlug
-      coachDetailed?: boolean
-    }) => updatePrefs({ data: patch }),
+    mutationFn: (patch: { coachAttitude?: CoachAttitudeSlug; coachDetailed?: boolean }) =>
+      updatePrefs({ data: patch }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] })
       // Force the today-page coach blurb to regenerate with the new voice
       // instead of waiting on its 2-hour refetchInterval.
       qc.invalidateQueries({ queryKey: ['coach'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   const current = (profileQuery.data?.coachAttitude ?? 'warm') as CoachAttitudeSlug
   const detailed = profileQuery.data?.coachDetailed ?? false
-  const selectedHint =
-    COACH_ATTITUDE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
+  const selectedHint = COACH_ATTITUDE_OPTIONS.find((o) => o.value === current)?.hint ?? ''
   const isMember = memberQuery.data?.isMember ?? false
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-        Coach attitude
-      </h2>
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Coach attitude</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
         Pick the voice your daily coach uses on the Today page.
       </p>
-      <div
-        className="flex flex-wrap gap-2"
-        role="radiogroup"
-        aria-label="Coach attitude"
-      >
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Coach attitude">
         {COACH_ATTITUDE_OPTIONS.map((o) => {
           const selected = current === o.value
           const locked = !isMember && o.value !== 'warm'
@@ -813,13 +740,10 @@ function CoachAttitudeSection() {
           )
         })}
       </div>
-      {selectedHint && (
-        <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>
-      )}
+      {selectedHint && <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{selectedHint}</p>}
       {!isMember && (
         <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
-          Warm is the free voice. Members get the other four personalities and
-          detailed responses.
+          Warm is the free voice. Members get the other four personalities and detailed responses.
         </p>
       )}
 
@@ -834,9 +758,8 @@ function CoachAttitudeSection() {
             ) : null}
           </p>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-            Off: 1–3 sentences. On: 3–6 sentences with more context — names a
-            task, calls out weekly trends, may suggest a next step. Works with
-            any attitude above.
+            Off: 1–3 sentences. On: 3–6 sentences with more context — names a task, calls out weekly
+            trends, may suggest a next step. Works with any attitude above.
           </p>
         </div>
         <Switch
@@ -915,25 +838,18 @@ function WeeklySummarySection() {
   const optedIn = profileQuery.data?.weeklyEmailOptIn ?? false
 
   const setPref = useMutation({
-    mutationFn: (weeklyEmailOptIn: boolean) =>
-      updatePrefs({ data: { weeklyEmailOptIn } }),
+    mutationFn: (weeklyEmailOptIn: boolean) => updatePrefs({ data: { weeklyEmailOptIn } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">
-        Weekly summary
-      </h2>
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">Weekly summary</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        A Monday-morning recap of your week — completions, streaks, habits,
-        arcade, and how you stack up against friends, with a short AI review.{' '}
-        <Link
-          to="/weekly-summary"
-          className="font-semibold text-[var(--lagoon-deep)] underline"
-        >
+        A Monday-morning recap of your week — completions, streaks, habits, arcade, and how you
+        stack up against friends, with a short AI review.{' '}
+        <Link to="/weekly-summary" className="font-semibold text-[var(--lagoon-deep)] underline">
           Preview your summary →
         </Link>
       </p>
@@ -1014,8 +930,7 @@ function ResetSection() {
   const [pending, setPending] = useState(false)
 
   const expectedConfirm = 'reset my tasks'
-  const canSubmit =
-    confirmText.trim().toLowerCase() === expectedConfirm && !pending
+  const canSubmit = confirmText.trim().toLowerCase() === expectedConfirm && !pending
 
   async function onReset() {
     if (!canSubmit) return
@@ -1040,8 +955,8 @@ function ResetSection() {
     <section className="max-w-xl rounded-2xl border border-[rgba(230,160,60,0.35)] bg-[rgba(230,160,60,0.05)] p-6">
       <h2 className="mb-2 text-lg font-bold text-amber-700">Reset tasks</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Start over with an empty todo list while keeping every completion in
-        your history, XP, streaks, and progression intact.
+        Start over with an empty todo list while keeping every completion in your history, XP,
+        streaks, and progression intact.
       </p>
       {!open ? (
         <button
@@ -1122,8 +1037,7 @@ function DangerZoneSection() {
   const [pending, setPending] = useState(false)
 
   const expectedConfirm = 'delete my account'
-  const canSubmit =
-    confirmText.trim().toLowerCase() === expectedConfirm && !pending
+  const canSubmit = confirmText.trim().toLowerCase() === expectedConfirm && !pending
 
   async function onDelete() {
     if (!canSubmit) return
@@ -1157,8 +1071,8 @@ function DangerZoneSection() {
     <section className="max-w-xl rounded-2xl border border-[rgba(230,90,90,0.3)] bg-[rgba(230,90,90,0.05)] p-6">
       <h2 className="mb-2 text-lg font-bold text-red-700">Danger zone</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Permanently delete your account, your tasks, your history, and any
-        active subscription. This cannot be undone.
+        Permanently delete your account, your tasks, your history, and any active subscription. This
+        cannot be undone.
       </p>
       {!open ? (
         <button
@@ -1172,13 +1086,16 @@ function DangerZoneSection() {
         <div className="space-y-3">
           <p className="text-sm text-[var(--sea-ink)]">
             This will erase everything tied to{' '}
-            <span className="font-semibold">{session?.user?.email ?? 'your account'}</span>:
-            tasks, completions, XP, streaks, garden, focus history, friends,
-            and membership. If you have an active annual subscription it will
-            be canceled in Stripe.
+            <span className="font-semibold">{session?.user?.email ?? 'your account'}</span>: tasks,
+            completions, XP, streaks, garden, focus history, friends, and membership. If you have an
+            active annual subscription it will be canceled in Stripe.
           </p>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Type <code className="rounded bg-[var(--option-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--sea-ink)]">{expectedConfirm}</code> below to confirm.
+            Type{' '}
+            <code className="rounded bg-[var(--option-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--sea-ink)]">
+              {expectedConfirm}
+            </code>{' '}
+            below to confirm.
           </p>
           <input
             type="text"
@@ -1264,13 +1181,10 @@ function NotificationsSection() {
   if (status === 'unsupported') {
     return (
       <section className="island-shell max-w-xl rounded-2xl p-6">
-        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-          Notifications
-        </h2>
+        <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Notifications</h2>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          This browser doesn't support web push. Open the app on a device or
-          browser that does (Chrome / Samsung Internet on Android, or install
-          the PWA).
+          This browser doesn't support web push. Open the app on a device or browser that does
+          (Chrome / Samsung Internet on Android, or install the PWA).
         </p>
       </section>
     )
@@ -1280,12 +1194,10 @@ function NotificationsSection() {
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">
-        Notifications
-      </h2>
+      <h2 className="mb-2 text-lg font-bold text-[var(--sea-ink)]">Notifications</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
         {enabled
-          ? 'Push notifications are on for this device. Reminders will fire at each task\'s due time.'
+          ? "Push notifications are on for this device. Reminders will fire at each task's due time."
           : 'Get a push when a task is due. You can turn it off any time.'}
       </p>
       {error ? (
@@ -1344,8 +1256,7 @@ function QuietHoursSub() {
       setError(null)
       setTimeout(() => setSaved(false), 2000)
     },
-    onError: (err) =>
-      setError(err instanceof Error ? err.message : 'Failed to save.'),
+    onError: (err) => setError(err instanceof Error ? err.message : 'Failed to save.'),
   })
 
   function onSubmit(e: React.FormEvent) {
@@ -1367,17 +1278,12 @@ function QuietHoursSub() {
   const hasWindow = Boolean(current?.quietHoursStart && current?.quietHoursEnd)
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="mt-6 space-y-3 border-t border-[var(--line)] pt-5"
-    >
+    <form onSubmit={onSubmit} className="mt-6 space-y-3 border-t border-[var(--line)] pt-5">
       <div>
-        <h3 className="text-sm font-semibold text-[var(--sea-ink)]">
-          Quiet hours
-        </h3>
+        <h3 className="text-sm font-semibold text-[var(--sea-ink)]">Quiet hours</h3>
         <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-          Nudges for unfinished tasks won’t fire in this window. First-time
-          reminders for tasks you’ve scheduled still go through.
+          Nudges for unfinished tasks won’t fire in this window. First-time reminders for tasks
+          you’ve scheduled still go through.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -1405,9 +1311,7 @@ function QuietHoursSub() {
           {error}
         </p>
       ) : null}
-      {saved ? (
-        <p className="text-sm text-[var(--palm)]">Saved.</p>
-      ) : null}
+      {saved ? <p className="text-sm text-[var(--palm)]">Saved.</p> : null}
       <div className="flex gap-2">
         <button
           type="submit"
@@ -1438,9 +1342,7 @@ function QuietHoursSub() {
 function ProfileSection({
   user,
 }: {
-  user:
-    | { id: string; name: string; email: string; [k: string]: unknown }
-    | undefined
+  user: { id: string; name: string; email: string; [k: string]: unknown } | undefined
 }) {
   const qc = useQueryClient()
   const profileQuery = useQuery({
@@ -1450,9 +1352,7 @@ function ProfileSection({
   const [name, setName] = useState('')
   const [handle, setHandle] = useState('')
   const [bio, setBio] = useState('')
-  const [savedField, setSavedField] = useState<
-    null | 'name' | 'handle' | 'bio'
-  >(null)
+  const [savedField, setSavedField] = useState<null | 'name' | 'handle' | 'bio'>(null)
   const [nameError, setNameError] = useState<string | null>(null)
   const [handleError, setHandleError] = useState<string | null>(null)
   const [bioError, setBioError] = useState<string | null>(null)
@@ -1554,9 +1454,7 @@ function ProfileSection({
             {nameError}
           </p>
         ) : null}
-        {savedField === 'name' ? (
-          <p className="text-sm text-[var(--palm)]">Saved.</p>
-        ) : null}
+        {savedField === 'name' ? <p className="text-sm text-[var(--palm)]">Saved.</p> : null}
         <button
           type="submit"
           disabled={pendingName || !user || name === user?.name}
@@ -1593,9 +1491,7 @@ function ProfileSection({
             {handleError}
           </p>
         ) : null}
-        {savedField === 'handle' ? (
-          <p className="text-sm text-[var(--palm)]">Saved.</p>
-        ) : null}
+        {savedField === 'handle' ? <p className="text-sm text-[var(--palm)]">Saved.</p> : null}
         <button
           type="submit"
           disabled={
@@ -1632,16 +1528,10 @@ function ProfileSection({
             {bioError}
           </p>
         ) : null}
-        {savedField === 'bio' ? (
-          <p className="text-sm text-[var(--palm)]">Saved.</p>
-        ) : null}
+        {savedField === 'bio' ? <p className="text-sm text-[var(--palm)]">Saved.</p> : null}
         <button
           type="submit"
-          disabled={
-            pendingBio ||
-            profileQuery.isLoading ||
-            bio === (profileQuery.data?.bio ?? '')
-          }
+          disabled={pendingBio || profileQuery.isLoading || bio === (profileQuery.data?.bio ?? '')}
           className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
         >
           {pendingBio ? 'Saving…' : 'Save bio'}
@@ -1699,19 +1589,15 @@ function PrivacySection() {
   })
 
   const setVisibility = useMutation({
-    mutationFn: (visibility: string) =>
-      updateProfileVisibility({ data: { visibility } }),
+    mutationFn: (visibility: string) => updateProfileVisibility({ data: { visibility } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   const setGardenVisibility = useMutation({
-    mutationFn: (visibility: string) =>
-      updateGardenVisibility({ data: { visibility } }),
+    mutationFn: (visibility: string) => updateGardenVisibility({ data: { visibility } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   const setPref = useMutation({
@@ -1725,8 +1611,7 @@ function PrivacySection() {
       qc.invalidateQueries({ queryKey: ['profile'] })
       qc.invalidateQueries({ queryKey: ['today'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed'),
   })
 
   const p = profileQuery.data
@@ -1766,9 +1651,7 @@ function PrivacySection() {
                   <span className="block text-sm font-semibold text-[var(--sea-ink)]">
                     {opt.label}
                   </span>
-                  <span className="block text-xs text-[var(--sea-ink-soft)]">
-                    {opt.hint}
-                  </span>
+                  <span className="block text-xs text-[var(--sea-ink-soft)]">{opt.hint}</span>
                 </span>
               </label>
             )
@@ -1781,8 +1664,8 @@ function PrivacySection() {
           Garden visibility
         </legend>
         <p className="mb-2 text-xs text-[var(--sea-ink-soft)]">
-          Separate from profile visibility — share your garden publicly even
-          if the rest of your profile is friends-only.
+          Separate from profile visibility — share your garden publicly even if the rest of your
+          profile is friends-only.
         </p>
         <div className="space-y-2">
           {GARDEN_VISIBILITY_OPTIONS.map((opt) => {
@@ -1808,9 +1691,7 @@ function PrivacySection() {
                   <span className="block text-sm font-semibold text-[var(--sea-ink)]">
                     {opt.label}
                   </span>
-                  <span className="block text-xs text-[var(--sea-ink-soft)]">
-                    {opt.hint}
-                  </span>
+                  <span className="block text-xs text-[var(--sea-ink-soft)]">{opt.hint}</span>
                 </span>
               </label>
             )
@@ -1881,9 +1762,7 @@ function PrefToggle({
         className="mt-1"
       />
       <span className="flex-1">
-        <span className="block text-sm font-semibold text-[var(--sea-ink)]">
-          {label}
-        </span>
+        <span className="block text-sm font-semibold text-[var(--sea-ink)]">{label}</span>
         <span className="block text-xs text-[var(--sea-ink-soft)]">{hint}</span>
       </span>
     </label>
@@ -1920,13 +1799,11 @@ function HouseholdSection() {
       setName('')
       qc.invalidateQueries({ queryKey: ['my-household'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to create.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to create.'),
   })
   const [confirmName, setConfirmName] = useState('')
   const deleteHousehold = useMutation({
-    mutationFn: (householdId: string) =>
-      deleteHouseholdFn({ data: { householdId } }),
+    mutationFn: (householdId: string) => deleteHouseholdFn({ data: { householdId } }),
     onSuccess: () => {
       toast.success('Household deleted.')
       setConfirmName('')
@@ -1934,18 +1811,15 @@ function HouseholdSection() {
       qc.invalidateQueries({ queryKey: ['household-chores'] })
       qc.invalidateQueries({ queryKey: ['today'] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to delete.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete.'),
   })
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">
-        Household
-      </h2>
+      <h2 className="mb-1 text-lg font-bold text-[var(--sea-ink)]">Household</h2>
       <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-        Share chores with family or roommates. XP for a household chore goes
-        to whoever completes it.
+        Share chores with family or roommates. XP for a household chore goes to whoever completes
+        it.
       </p>
 
       {myQuery.isLoading ? (
@@ -1972,9 +1846,8 @@ function HouseholdSection() {
                     Delete household
                   </h3>
                   <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-                    Removes all members and household chores (members&rsquo;
-                    personal tasks are unaffected). To confirm, type the
-                    household name below:{' '}
+                    Removes all members and household chores (members&rsquo; personal tasks are
+                    unaffected). To confirm, type the household name below:{' '}
                     <strong className="text-[var(--sea-ink)]">{hh.name}</strong>
                   </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -1988,10 +1861,7 @@ function HouseholdSection() {
                     />
                     <button
                       type="button"
-                      disabled={
-                        deleteHousehold.isPending ||
-                        confirmName.trim() !== hh.name
-                      }
+                      disabled={deleteHousehold.isPending || confirmName.trim() !== hh.name}
                       onClick={() => deleteHousehold.mutate(hh.id)}
                       className="rounded-full border border-[rgba(230,90,90,0.4)] bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:bg-transparent dark:hover:bg-red-900/20"
                     >
@@ -2034,10 +1904,9 @@ function HouseholdSection() {
             Households are a membership feature.
           </p>
           <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-            Sharing chores with family or roommates needs a Todo XP
-            membership. Only the household admin (that&rsquo;s you)
-            needs to subscribe — kids, members, and kiosk accounts you
-            add to the household join for free.
+            Sharing chores with family or roommates needs a Todo XP membership. Only the household
+            admin (that&rsquo;s you) needs to subscribe — kids, members, and kiosk accounts you add
+            to the household join for free.
           </p>
           <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">
             Scroll up to <strong>Membership</strong> to upgrade.
@@ -2094,9 +1963,7 @@ function PasswordSection() {
 
   return (
     <section className="island-shell max-w-xl rounded-2xl p-6">
-      <h2 className="mb-3 text-lg font-bold text-[var(--sea-ink)]">
-        Change password
-      </h2>
+      <h2 className="mb-3 text-lg font-bold text-[var(--sea-ink)]">Change password</h2>
       <form onSubmit={onSubmit} className="space-y-3">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
@@ -2144,9 +2011,7 @@ function PasswordSection() {
             {error}
           </p>
         ) : null}
-        {saved ? (
-          <p className="text-sm text-[var(--palm)]">Password updated.</p>
-        ) : null}
+        {saved ? <p className="text-sm text-[var(--palm)]">Password updated.</p> : null}
         <button
           type="submit"
           disabled={pending}
@@ -2192,27 +2057,21 @@ function GithubSection() {
       qc.invalidateQueries({ queryKey: ['github-integration'] })
       toast.success('GitHub connected.')
     },
-    onError: (err) =>
-      setFormError(err instanceof Error ? err.message : 'Connect failed.'),
+    onError: (err) => setFormError(err instanceof Error ? err.message : 'Connect failed.'),
   })
 
   const updateInterval = useMutation({
     mutationFn: (minutes: number) =>
       updateGithubPollInterval({ data: { pollIntervalMinutes: minutes } }),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['github-integration'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed.'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['github-integration'] }),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed.'),
   })
 
   const updateSyncOptions = useMutation({
-    mutationFn: (opts: {
-      trackReviewRequested: boolean
-      trackAssigned: boolean
-    }) => updateGithubSyncOptions({ data: opts }),
+    mutationFn: (opts: { trackReviewRequested: boolean; trackAssigned: boolean }) =>
+      updateGithubSyncOptions({ data: opts }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['github-integration'] }),
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Update failed.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Update failed.'),
   })
 
   const disconnect = useMutation({
@@ -2221,8 +2080,7 @@ function GithubSection() {
       qc.invalidateQueries({ queryKey: ['github-integration'] })
       toast.message('GitHub disconnected.')
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Disconnect failed.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Disconnect failed.'),
   })
 
   const syncNow = useMutation({
@@ -2240,8 +2098,7 @@ function GithubSection() {
       if (res.completed > 0) parts.push(`${res.completed} auto-completed`)
       toast.success(parts.length > 0 ? `Synced: ${parts.join(', ')}.` : 'Up to date.')
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Sync failed.'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Sync failed.'),
   })
 
   const status = statusQuery.data
@@ -2262,9 +2119,7 @@ function GithubSection() {
     <details className="island-shell max-w-xl rounded-2xl [&[open]>summary_[data-chevron]]:rotate-90">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-[var(--sea-ink)]">
-            GitHub reviews
-          </h2>
+          <h2 className="text-lg font-bold text-[var(--sea-ink)]">GitHub reviews</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             {connected
               ? `Connected as @${status?.externalId ?? '…'}. PRs you're asked to review or are assigned to become tasks automatically — choose which below.`
@@ -2284,9 +2139,7 @@ function GithubSection() {
         {connected ? (
           <div className="space-y-4">
             {(() => {
-              const expiresAt = status?.tokenExpiresAt
-                ? new Date(status.tokenExpiresAt)
-                : null
+              const expiresAt = status?.tokenExpiresAt ? new Date(status.tokenExpiresAt) : null
               const err = status?.lastPollError ?? null
               const authErr = err?.startsWith('AUTH: ') ?? false
               const expired = expiresAt ? expiresAt.getTime() <= Date.now() : false
@@ -2296,9 +2149,8 @@ function GithubSection() {
               if (authErr || expired) {
                 return (
                   <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-                    <strong>Token invalid.</strong> GitHub rejected the current
-                    token — polling is paused until you reconnect. Paste a
-                    fresh token below.
+                    <strong>Token invalid.</strong> GitHub rejected the current token — polling is
+                    paused until you reconnect. Paste a fresh token below.
                   </div>
                 )
               }
@@ -2306,9 +2158,8 @@ function GithubSection() {
                 return (
                   <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">
                     <strong>Token expires soon.</strong> In{' '}
-                    {Math.max(1, Math.ceil(msUntil! / (24 * 60 * 60 * 1000)))}{' '}
-                    day(s). Generate a new one and paste it here to avoid a
-                    gap.
+                    {Math.max(1, Math.ceil(msUntil! / (24 * 60 * 60 * 1000)))} day(s). Generate a
+                    new one and paste it here to avoid a gap.
                   </div>
                 )
               }
@@ -2319,9 +2170,7 @@ function GithubSection() {
               <dd className="text-[var(--sea-ink)]">@{status?.externalId}</dd>
               <dt className="font-semibold">Last poll</dt>
               <dd className="text-[var(--sea-ink)]">
-                {status?.lastPolledAt
-                  ? timeAgo(status.lastPolledAt)
-                  : 'not yet'}
+                {status?.lastPolledAt ? timeAgo(status.lastPolledAt) : 'not yet'}
               </dd>
               <dt className="font-semibold">Token expires</dt>
               <dd className="text-[var(--sea-ink)]">
@@ -2426,10 +2275,7 @@ function GithubSection() {
               </button>
             </div>
 
-            <form
-              onSubmit={onConnect}
-              className="space-y-2 border-t border-[var(--line)] pt-4"
-            >
+            <form onSubmit={onConnect} className="space-y-2 border-t border-[var(--line)] pt-4">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
                   Replace token
@@ -2528,41 +2374,35 @@ function GithubSection() {
                 >
                   github.com/settings/tokens/new
                 </a>{' '}
-                (Settings → Developer settings → Personal access tokens →
-                Tokens (classic)).
+                (Settings → Developer settings → Personal access tokens → Tokens (classic)).
               </li>
               <li>
-                Note: <code>todo-gameification</code> (or anything you'll
-                recognize later).
+                Note: <code>todo-gameification</code> (or anything you'll recognize later).
               </li>
               <li>
-                Expiration: pick whatever you're comfortable re-generating
-                — 90 days is a good default.
+                Expiration: pick whatever you're comfortable re-generating — 90 days is a good
+                default.
               </li>
               <li>
-                <span className="font-semibold text-[var(--sea-ink)]">
-                  Select scopes
-                </span>{' '}
-                — check:
+                <span className="font-semibold text-[var(--sea-ink)]">Select scopes</span> — check:
                 <ul className="mt-1 list-disc space-y-0.5 pl-5">
                   <li>
                     <code>repo</code> — required for private-repo and org PRs
                   </li>
                   <li>
-                    <code>read:org</code> — optional, only needed if your
-                    org uses team-based review requests
+                    <code>read:org</code> — optional, only needed if your org uses team-based review
+                    requests
                   </li>
                 </ul>
               </li>
               <li>
-                Click <strong>Generate token</strong> and copy the{' '}
-                <code>ghp_…</code> value immediately — GitHub only shows
-                it once.
+                Click <strong>Generate token</strong> and copy the <code>ghp_…</code> value
+                immediately — GitHub only shows it once.
               </li>
               <li>
-                If your org requires SSO, click <strong>Configure SSO</strong>{' '}
-                next to the token on the tokens page and authorize it for
-                that org — otherwise API calls return empty results.
+                If your org requires SSO, click <strong>Configure SSO</strong> next to the token on
+                the tokens page and authorize it for that org — otherwise API calls return empty
+                results.
               </li>
               <li>Paste it above and hit Connect.</li>
             </ol>
@@ -2605,14 +2445,11 @@ function TokensSection() {
   })
 
   const revoke = useMutation({
-    mutationFn: (tokenId: string) =>
-      revokeApiToken({ data: { tokenId } }),
+    mutationFn: (tokenId: string) => revokeApiToken({ data: { tokenId } }),
     onMutate: async (tokenId) => {
       await qc.cancelQueries({ queryKey: ['api-tokens'] })
       const prev = qc.getQueryData<TokenRow[]>(['api-tokens'])
-      qc.setQueryData<TokenRow[]>(['api-tokens'], (old) =>
-        old?.filter((t) => t.id !== tokenId),
-      )
+      qc.setQueryData<TokenRow[]>(['api-tokens'], (old) => old?.filter((t) => t.id !== tokenId))
       return { prev }
     },
     onError: (_err, _id, ctx) => {
@@ -2684,118 +2521,100 @@ function TokensSection() {
           />
         </nav>
 
-      <div className="island-shell rounded-2xl p-5">
-        <h3 className="mb-3 text-sm font-semibold text-[var(--sea-ink)]">
-          Create token
-        </h3>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Name
-            </span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Home Assistant"
-              maxLength={80}
-              className="field-input"
-            />
-          </label>
-          {error ? (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
-          >
-            {create.isPending ? 'Creating…' : 'Create token'}
-          </button>
-        </form>
-
-        {created ? (
-          <div className="mt-4 rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] p-4 text-sm">
-            <p className="mb-2 font-semibold text-[var(--sea-ink)]">
-              Copy this token now. You won't see it again.
-            </p>
-            <div className="mb-3 flex items-center gap-2">
-              <code className="flex-1 break-all rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-2 font-mono text-xs text-[var(--sea-ink)]">
-                {created.plaintext}
-              </code>
-              <button
-                type="button"
-                onClick={onCopy}
-                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink)]"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+        <div className="island-shell rounded-2xl p-5">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--sea-ink)]">Create token</h3>
+          <form onSubmit={onSubmit} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+                Name
+              </span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Home Assistant"
+                maxLength={80}
+                className="field-input"
+              />
+            </label>
+            {error ? (
+              <p className="text-sm text-red-600" role="alert">
+                {error}
+              </p>
+            ) : null}
             <button
-              type="button"
-              onClick={() => setCreated(null)}
-              className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+              type="submit"
+              disabled={create.isPending}
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] disabled:opacity-60"
             >
-              I've saved it
+              {create.isPending ? 'Creating…' : 'Create token'}
             </button>
-          </div>
-        ) : null}
-      </div>
+          </form>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-[var(--sea-ink)]">
-          Your tokens
-        </h3>
-        {tokensQuery.isLoading ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
-        ) : tokens.length === 0 ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">
-            No tokens yet.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {tokens.map((t) => (
-              <li
-                key={t.id}
-                className="island-shell flex items-center gap-3 rounded-xl p-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--sea-ink)]">
-                    {t.name}
-                  </p>
-                  <p className="text-xs text-[var(--sea-ink-soft)]">
-                    <code className="font-mono">{t.tokenPrefix}…</code>
-                    {' • created '}
-                    {new Date(t.createdAt).toLocaleDateString()}
-                    {' • '}
-                    {t.lastUsedAt
-                      ? `last used ${timeAgo(t.lastUsedAt)}`
-                      : 'never used'}
-                  </p>
-                </div>
+          {created ? (
+            <div className="mt-4 rounded-xl border border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)] p-4 text-sm">
+              <p className="mb-2 font-semibold text-[var(--sea-ink)]">
+                Copy this token now. You won't see it again.
+              </p>
+              <div className="mb-3 flex items-center gap-2">
+                <code className="flex-1 break-all rounded-md border border-[var(--line)] bg-[var(--surface-strong)] p-2 font-mono text-xs text-[var(--sea-ink)]">
+                  {created.plaintext}
+                </code>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Revoke "${t.name}"? This can't be undone.`,
-                      )
-                    ) {
-                      revoke.mutate(t.id)
-                    }
-                  }}
-                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
+                  onClick={onCopy}
+                  className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink)]"
                 >
-                  Revoke
+                  {copied ? 'Copied!' : 'Copy'}
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreated(null)}
+                className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]"
+              >
+                I've saved it
+              </button>
+            </div>
+          ) : null}
+        </div>
 
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-[var(--sea-ink)]">Your tokens</h3>
+          {tokensQuery.isLoading ? (
+            <p className="text-sm text-[var(--sea-ink-soft)]">Loading…</p>
+          ) : tokens.length === 0 ? (
+            <p className="text-sm text-[var(--sea-ink-soft)]">No tokens yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {tokens.map((t) => (
+                <li key={t.id} className="island-shell flex items-center gap-3 rounded-xl p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-[var(--sea-ink)]">{t.name}</p>
+                    <p className="text-xs text-[var(--sea-ink-soft)]">
+                      <code className="font-mono">{t.tokenPrefix}…</code>
+                      {' • created '}
+                      {new Date(t.createdAt).toLocaleDateString()}
+                      {' • '}
+                      {t.lastUsedAt ? `last used ${timeAgo(t.lastUsedAt)}` : 'never used'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Revoke "${t.name}"? This can't be undone.`)) {
+                        revoke.mutate(t.id)
+                      }
+                    }}
+                    className="rounded-full border border-[var(--line)] bg-[var(--option-bg)] px-3 py-1 text-xs font-semibold text-[var(--sea-ink-soft)] transition hover:text-red-600"
+                  >
+                    Revoke
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </details>
   )

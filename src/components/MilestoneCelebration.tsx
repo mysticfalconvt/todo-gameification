@@ -18,14 +18,7 @@ export interface CelebrationEvent {
   glyph: string
 }
 
-const CONFETTI_COLORS = [
-  '#4fb8b2',
-  '#f4b942',
-  '#ef6f6c',
-  '#8ac6d1',
-  '#f7f4d3',
-  '#328f97',
-]
+const CONFETTI_COLORS = ['#4fb8b2', '#f4b942', '#ef6f6c', '#8ac6d1', '#f7f4d3', '#328f97']
 const PIECE_COUNT = 36
 const DISMISS_MS = 2600
 
@@ -93,12 +86,8 @@ export function MilestoneCelebration({
         <div className="text-4xl" aria-hidden>
           {event.glyph}
         </div>
-        <p className="mt-2 text-lg font-bold text-[var(--sea-ink)]">
-          {event.title}
-        </p>
-        <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-          {event.subtitle}
-        </p>
+        <p className="mt-2 text-lg font-bold text-[var(--sea-ink)]">{event.title}</p>
+        <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">{event.subtitle}</p>
       </div>
     </div>
   )

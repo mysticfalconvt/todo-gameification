@@ -60,9 +60,7 @@ export const sendFriendRequestFn = createServerFn({ method: 'POST' })
     }
     return { handle: data.handle.trim() }
   })
-  .handler(async ({ data, context }) =>
-    sendFriendRequest(context.userId, data.handle),
-  )
+  .handler(async ({ data, context }) => sendFriendRequest(context.userId, data.handle))
 
 export const acceptFriendRequestFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])

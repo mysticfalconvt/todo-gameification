@@ -1,9 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  authedRoute,
-  jsonOk,
-  readJson,
-} from '../../../../server/api/rest'
+import { authedRoute, jsonOk, readJson } from '../../../../server/api/rest'
 import * as service from '../../../../server/services/tasks'
 
 interface PatchBody {
@@ -27,11 +23,7 @@ export const Route = createFileRoute('/api/v1/tasks/$taskId')({
         const current = await service.getTask(userId, params.taskId)
 
         if ('snoozeUntil' in body) {
-          await service.snoozeTask(
-            userId,
-            params.taskId,
-            body.snoozeUntil ?? null,
-          )
+          await service.snoozeTask(userId, params.taskId, body.snoozeUntil ?? null)
         }
 
         const needsUpdate =
@@ -46,10 +38,8 @@ export const Route = createFileRoute('/api/v1/tasks/$taskId')({
             title: body.title ?? current.title,
             notes: body.notes ?? current.notes,
             difficulty: body.difficulty ?? current.difficulty,
-            recurrence:
-              body.recurrence !== undefined ? body.recurrence : current.recurrence,
-            timeOfDay:
-              body.timeOfDay !== undefined ? body.timeOfDay : current.timeOfDay,
+            recurrence: body.recurrence !== undefined ? body.recurrence : current.recurrence,
+            timeOfDay: body.timeOfDay !== undefined ? body.timeOfDay : current.timeOfDay,
           })
         }
 

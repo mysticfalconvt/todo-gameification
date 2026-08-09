@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  households,
-  householdMembers,
-  progression,
-  tasks,
-} from '../db/schema'
+import { events, households, householdMembers, progression, tasks } from '../db/schema'
 import { withTestUser, withTestUsers } from '../../test/helpers'
 import {
   assignKidXp,
@@ -279,10 +273,7 @@ describe('household someday visibility', () => {
 // households.created_by_user_id is ON DELETE RESTRICT.
 async function withHousehold(
   roles: Array<'admin' | 'member' | 'kid'>,
-  fn: (
-    users: { id: string; handle: string }[],
-    householdId: string,
-  ) => Promise<void>,
+  fn: (users: { id: string; handle: string }[], householdId: string) => Promise<void>,
 ): Promise<void> {
   await withTestUsers(roles.length, async (users) => {
     const [hh] = await db
@@ -317,37 +308,35 @@ describe('assignKidXp', () => {
       const rows = await db
         .select()
         .from(events)
-        .where(
-          and(eq(events.userId, kid.id), eq(events.type, 'task.completed')),
-        )
+        .where(and(eq(events.userId, kid.id), eq(events.type, 'task.completed')))
       expect(rows).toHaveLength(1)
     })
   })
 
   it('rejects assignment by a kid', async () => {
     await withHousehold(['admin', 'kid'], async ([, kid]) => {
-      await expect(
-        assignKidXp(kid.id, { kidUserId: kid.id, xp: 10 }),
-      ).rejects.toThrow(/admins and members/)
+      await expect(assignKidXp(kid.id, { kidUserId: kid.id, xp: 10 })).rejects.toThrow(
+        /admins and members/,
+      )
     })
   })
 
   it('rejects assigning to a non-kid member', async () => {
     await withHousehold(['admin', 'member'], async ([admin, member]) => {
-      await expect(
-        assignKidXp(admin.id, { kidUserId: member.id, xp: 10 }),
-      ).rejects.toThrow(/only be assigned to kids/i)
+      await expect(assignKidXp(admin.id, { kidUserId: member.id, xp: 10 })).rejects.toThrow(
+        /only be assigned to kids/i,
+      )
     })
   })
 
   it('rejects out-of-range XP', async () => {
     await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
-      await expect(
-        assignKidXp(admin.id, { kidUserId: kid.id, xp: 0 }),
-      ).rejects.toThrow(/between 1 and 1000/)
-      await expect(
-        assignKidXp(admin.id, { kidUserId: kid.id, xp: 5000 }),
-      ).rejects.toThrow(/between 1 and 1000/)
+      await expect(assignKidXp(admin.id, { kidUserId: kid.id, xp: 0 })).rejects.toThrow(
+        /between 1 and 1000/,
+      )
+      await expect(assignKidXp(admin.id, { kidUserId: kid.id, xp: 5000 })).rejects.toThrow(
+        /between 1 and 1000/,
+      )
     })
   })
 })
@@ -358,9 +347,7 @@ describe('setKidCompletionXp', () => {
     const [evt] = await db
       .select()
       .from(events)
-      .where(
-        and(eq(events.userId, kidId), eq(events.type, 'task.completed')),
-      )
+      .where(and(eq(events.userId, kidId), eq(events.type, 'task.completed')))
     return evt
   }
 
@@ -381,9 +368,9 @@ describe('setKidCompletionXp', () => {
   it('rejects edits from a kid', async () => {
     await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
       const evt = await seedKidCompletion(admin.id, kid.id)
-      await expect(
-        setKidCompletionXp(kid.id, { eventId: evt.id, xp: 50 }),
-      ).rejects.toThrow(/admins and members/)
+      await expect(setKidCompletionXp(kid.id, { eventId: evt.id, xp: 50 })).rejects.toThrow(
+        /admins and members/,
+      )
     })
   })
 
@@ -391,9 +378,9 @@ describe('setKidCompletionXp', () => {
     await withHousehold(['admin', 'kid'], async ([admin, kid]) => {
       const evt = await seedKidCompletion(admin.id, kid.id)
       await withHousehold(['admin', 'kid'], async ([outsider]) => {
-        await expect(
-          setKidCompletionXp(outsider.id, { eventId: evt.id, xp: 50 }),
-        ).rejects.toThrow(/not in your household/)
+        await expect(setKidCompletionXp(outsider.id, { eventId: evt.id, xp: 50 })).rejects.toThrow(
+          /not in your household/,
+        )
       })
     })
   })
@@ -442,9 +429,9 @@ describe('setHouseholdChoreXp', () => {
   it('rejects edits from a kid', async () => {
     await withHousehold(['admin', 'kid'], async ([admin, kid], householdId) => {
       const taskId = await seedChore(admin.id, householdId)
-      await expect(
-        setHouseholdChoreXp(kid.id, { taskId, xp: 40 }),
-      ).rejects.toThrow(/permission|do not have/i)
+      await expect(setHouseholdChoreXp(kid.id, { taskId, xp: 40 })).rejects.toThrow(
+        /permission|do not have/i,
+      )
     })
   })
 })
