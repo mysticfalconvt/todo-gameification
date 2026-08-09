@@ -37,23 +37,14 @@
       "recommended": true,
       "a11y": {
         "noAutofocus": "warn",
-        "noLabelWithoutControl": "warn",
-        "noNoninteractiveElementToInteractiveRole": "warn",
-        "noStaticElementInteractions": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useAriaPropsSupportedByRole": "warn",
         "useKeyWithClickEvents": "warn",
         "useSemanticElements": "warn"
       },
       "correctness": {
         "useExhaustiveDependencies": "warn"
       },
-      "security": {
-        "noDangerouslySetInnerHtml": "warn"
-      },
       "suspicious": {
-        "noArrayIndexKey": "warn",
-        "noShorthandPropertyOverrides": "warn"
+        "noArrayIndexKey": "warn"
       }
     }
   },

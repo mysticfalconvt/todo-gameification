@@ -238,6 +238,7 @@ function HouseholdPage() {
             {TAB_LABEL[t]}
             {t === 'review' && pendingCount > 0 ? (
               <span
+                role="status"
                 aria-label={`${pendingCount} pending`}
                 className={`ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none ${
                   tab === 'review'

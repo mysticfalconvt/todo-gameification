@@ -258,6 +258,7 @@ export function Two048({ onFinish, onExit }: GameProps) {
                 tileClass(value),
                 tileFontSize(value),
               ].join(' ')}
+              role="img"
               aria-label={value === 0 ? 'Empty cell' : `Tile ${value}`}
             >
               {value === 0 ? '' : value}

@@ -130,6 +130,7 @@ function LoginPage() {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: the control arrives as {children}, so the association is real but invisible to static analysis.
     <label className="block">
       <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
         {label}

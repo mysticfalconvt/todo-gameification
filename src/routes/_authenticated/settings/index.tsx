@@ -854,6 +854,7 @@ function WeeklySummarySection() {
         </Link>
       </p>
 
+      {/* biome-ignore lint/a11y/noLabelWithoutControl: wraps <Switch/>, which renders the input — the association holds, it just crosses a component boundary. */}
       <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3">
         <span className="flex-1">
           <span className="block text-sm font-semibold text-[var(--sea-ink)]">

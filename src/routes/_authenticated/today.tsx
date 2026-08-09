@@ -650,6 +650,7 @@ function StepsBadge({ completed, total }: { completed: number; total: number }) 
           ? 'border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]'
           : 'border-[var(--line)] bg-[var(--option-bg)] text-[var(--sea-ink-soft)]'
       }`}
+      role="img"
       aria-label={`${completed} of ${total} steps done`}
     >
       {completed}/{total}
@@ -937,6 +938,7 @@ function ActivityStrip({ days }: { days: string[] }) {
                   ? 'bg-[var(--lagoon-deep)]'
                   : 'bg-[var(--option-bg)] border border-[var(--line)]'
               } ${c.isToday ? 'ring-2 ring-[var(--lagoon)]' : ''}`}
+              role="img"
               aria-label={`${c.key}: ${c.done ? 'completed' : 'no completions'}`}
             />
             <span className="text-[10px] text-[var(--sea-ink-soft)]">{c.label}</span>

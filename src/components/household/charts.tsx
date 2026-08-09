@@ -147,6 +147,9 @@ export function HouseholdXpMultiLine({
         <p className="text-xs text-[var(--sea-ink-soft)]">{n}-day window</p>
       </header>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full" preserveAspectRatio="none">
+        <title>
+          {label}: per-member daily totals over a {n}-day window
+        </title>
         {/* Baseline / grid is implicit via the polylines themselves —
             keep it visually quiet so multiple series can overlap. */}
         {members.map((m) => (

@@ -75,8 +75,18 @@ export async function cleanupTestUser(userId: string): Promise<void> {
     db.delete(progression).where(eq(progression.userId, userId)),
     db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId)),
   ])
-  // user FK cascade handles: session, account, tasks (→ task_instances via
-  // taskId cascade), user_categories, api_tokens, friendships, user_prefs.
+  // Delete this user's tasks (and their instances, via the task_id cascade)
+  // BEFORE the user row. Deleting the user in one shot makes Postgres run two
+  // referential actions against task_instances for the same statement:
+  //   tasks.user_id                      ON DELETE CASCADE  (deletes instances)
+  //   task_instances.completed_by_user_id ON DELETE SET NULL (updates them)
+  // The SET NULL update re-validates task_id, which the cascade may have
+  // already orphaned — surfacing as a task_instances_task_id_tasks_id_fk
+  // violation on `delete from "user"`. Draining tasks first removes the
+  // overlap so only the SET NULL path is left, pointing at tasks that survive.
+  await db.delete(tasks).where(eq(tasks.userId, userId))
+  // user FK cascade handles the rest: session, account, user_categories,
+  // api_tokens, friendships, user_prefs.
   await db.delete(user).where(eq(user.id, userId))
 }
 
@@ -105,7 +115,10 @@ export async function withTestUsers<T>(
   try {
     return await fn(users)
   } finally {
-    await Promise.all(users.map((u) => cleanupTestUser(u.id)))
+    // Sequential, not Promise.all: in a household test one user owns the task
+    // and another completed the instance, so concurrent deletes race on the
+    // same task_instances rows (see cleanupTestUser).
+    for (const u of users) await cleanupTestUser(u.id)
   }
 }
 

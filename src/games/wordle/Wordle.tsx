@@ -231,6 +231,7 @@ export function Wordle({ onFinish, onExit }: GameProps) {
                 return (
                   <div
                     key={i}
+                    role="img"
                     aria-label={ch ? `Letter ${ch}` : 'Empty slot'}
                     className={[
                       'flex h-12 w-12 items-center justify-center rounded-md border text-xl font-bold uppercase transition sm:h-14 sm:w-14 sm:text-2xl',

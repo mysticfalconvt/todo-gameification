@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { startWordSearchGame } from '../../server/functions/word-search'
 import type { GameProps } from '../types'
 import { popularThemes, moreThemes, type WordSearchTheme } from './themes'
@@ -274,6 +274,7 @@ function SetupScreen(props: SetupProps) {
   const popular = popularThemes()
   const more = moreThemes()
   const isCustom = props.themeChoice?.kind === 'custom'
+  const customThemeId = useId()
 
   return (
     <div className="flex flex-col gap-6 py-2">
@@ -337,8 +338,11 @@ function SetupScreen(props: SetupProps) {
         ) : null}
 
         <div className="mt-3 flex flex-col gap-1">
-          <label className="text-xs text-[var(--sea-ink-soft)]">Or write your own:</label>
+          <label htmlFor={customThemeId} className="text-xs text-[var(--sea-ink-soft)]">
+            Or write your own:
+          </label>
           <input
+            id={customThemeId}
             type="text"
             inputMode="text"
             maxLength={40}

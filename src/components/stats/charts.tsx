@@ -31,6 +31,9 @@ export function XpLineSection({
         </p>
       </header>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
+        <title>
+          {label}: {total} total, averaging {avg} per day
+        </title>
         <polygon points={area} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <polyline
           points={points}
@@ -101,6 +104,9 @@ export function TimingDistributionSection({
         </p>
       </header>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
+        <title>
+          Timing curve: {data.totalScheduled} scheduled, {withinPct}% completed within 30 minutes
+        </title>
         <path d={areaPath} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <path
           d={linePath}

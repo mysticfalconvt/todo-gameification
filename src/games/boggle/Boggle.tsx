@@ -219,6 +219,7 @@ export function Boggle({ onFinish, onExit }: GameProps) {
             'font-mono font-semibold tabular-nums',
             timeLeft <= 10 ? 'text-red-600' : 'text-[var(--sea-ink)]',
           )}
+          role="timer"
           aria-label={`${timeLeft} seconds left`}
         >
           ⏱ {formatClock(timeLeft)}

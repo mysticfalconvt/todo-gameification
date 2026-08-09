@@ -266,6 +266,7 @@ function XpSection({ data }: { data: Array<{ date: string; xp: number }> }) {
         <p className="text-xs text-[var(--sea-ink-soft)]">total {total}</p>
       </header>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full" preserveAspectRatio="none">
+        <title>XP over the last 30 days: {total} total</title>
         <polygon points={area} fill="var(--lagoon-deep)" fillOpacity="0.15" />
         <polyline
           points={points}

@@ -125,12 +125,14 @@ export function MembersOnlyUpsell({
       aria-modal="true"
       aria-label="Upgrade to members"
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center"
-      onClick={onClose}
+      // Close only on a click that landed on the backdrop itself. The panel
+      // used to stop propagation instead, which made a purely presentational
+      // div look like an interactive element to screen readers.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <div
-        className="island-shell w-full max-w-md rounded-2xl p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="island-shell w-full max-w-md rounded-2xl p-6">
         <p className="island-kicker mb-1">Members</p>
         <h2 className="display-title mb-1 text-xl font-bold text-[var(--sea-ink)]">
           {resolvedHeadline}

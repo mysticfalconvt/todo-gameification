@@ -123,7 +123,6 @@ body {
   margin: 0;
   color: var(--sea-ink);
   font-family: var(--font-sans);
-  background-color: var(--bg-base);
   background:
     radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
     radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
@@ -134,6 +133,9 @@ body {
       var(--foam) 44%,
       var(--bg-base) 100%
     );
+  /* After the shorthand, not before — `background:` resets background-color to
+     transparent, so declaring it first silently dropped this fallback. */
+  background-color: var(--bg-base);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

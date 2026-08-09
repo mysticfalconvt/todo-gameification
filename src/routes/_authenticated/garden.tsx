@@ -266,7 +266,7 @@ function GardenPage() {
         </p>
       </header>
 
-      <nav
+      <div
         role="tablist"
         aria-label="Garden view"
         className="island-shell inline-flex gap-1 rounded-full p-1"
@@ -277,7 +277,7 @@ function GardenPage() {
         <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
           Community
         </TabButton>
-      </nav>
+      </div>
 
       {tab === 'yours' ? <YoursPanel /> : <CommunityPanel />}
     </main>

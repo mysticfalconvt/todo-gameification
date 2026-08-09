@@ -25,6 +25,7 @@ export function MemberBadge({ tier, size = 'inline', className }: Props) {
   const title = tier === 'lifetime' ? 'Lifetime member' : 'Member'
   return (
     <span
+      role="img"
       title={title}
       aria-label={title}
       className={[

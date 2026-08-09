@@ -111,6 +111,41 @@ so there was never any coercion to lose.
   be explicitly registered, and `vite.config.ts` doesn't). Left in place — it's
   dev-only, so the upside is small and the failure mode is silent.
 
+### Accessibility pass
+
+Cleared six rule categories, 185 → 162 warnings.
+
+- **SVG charts (4)** — the XP line, timing curve, household per-member chart and
+  profile XP chart had no accessible name. Each now carries a `<title>` built
+  from the data it's already displaying, so a screen reader gets
+  "Timing curve: 214 scheduled, 68% completed within 30 minutes" rather than
+  nothing.
+- **`aria-label` on generic elements (10)** — `aria-label` is ignored on a bare
+  `<span>`/`<div>`, so every one of these labels was dead weight. Given the role
+  that actually carries a name: `role="timer"` on Boggle's countdown,
+  `role="status"` on the four live count badges (friend requests, household
+  invites, mobile tab badge, review tab), `role="img"` on the labelled graphical
+  tiles (2048 cells, Wordle letters, steps badge, 7-day heatmap, member badge).
+- **`<nav role="tablist">` → `<div role="tablist">`** in `garden.tsx` — a `nav`
+  landmark can't also be a tablist widget.
+- **Modal backdrop** (`MembersOnlyUpsell`) — the panel called
+  `stopPropagation` on click, which made a presentational div look interactive.
+  Replaced with an `e.target === e.currentTarget` check on the backdrop, which
+  deletes the inner handler entirely.
+- **`WordSearch` custom-theme input** — a genuine bug, not a lint nit: the
+  `<label>` was a *sibling* of the `<input>` with no `htmlFor`, so clicking it
+  did nothing and screen readers never associated the two. Wired up with
+  `useId()`.
+- **`styles.css`** — `background-color` was declared *before* the `background:`
+  shorthand, which resets it, silently dropping the fallback. Moved after. No
+  visual change: the final gradient layer is opaque and covers the element.
+
+Three `noLabelWithoutControl` reports were genuine false positives — the label
+wraps its control through a component boundary (`{children}`, `<Switch/>`) that
+static analysis can't follow. Suppressed inline with reasons rather than
+contorted to satisfy the rule. Same for the theme-boot `dangerouslySetInnerHTML`
+in `__root.tsx`, which injects a build-time constant and must run before paint.
+
 ## What's deliberately left
 
 These rules are set to `warn` in `biome.json`: visible, non-blocking, and
@@ -124,11 +159,14 @@ were already ratcheted to `error` this way.
 | `correctness/useExhaustiveDependencies` | 38 | Highest-value group left. Also the most dangerous to bulk-fix — a wrong dep array causes infinite render loops. Needs per-hook review. |
 | `a11y/useSemanticElements` | 32 | `<div role="button">` → `<button>`; real markup changes. |
 | `suspicious/noArrayIndexKey` | 19 | Index keys break React reconciliation on reorder; needs a stable id per list. |
-| `a11y/useKeyWithClickEvents` | 10 | Click handlers on non-interactive elements need keyboard equivalents. |
-| `a11y/useAriaPropsSupportedByRole` | 10 | |
-| `a11y/noSvgWithoutTitle`, `noLabelWithoutControl`, `noAutofocus` | 4 each | `noAutofocus` in particular is often a deliberate UX call — suppress inline rather than blanket-fix. |
-| `security/noDangerouslySetInnerHtml` | 1 | Needs a look at what's being injected. |
-| `suspicious/noShorthandPropertyOverrides` | 1 | `styles.css:127` — a `background:` shorthand right after `background-color:` resets it. Minor, but real. |
+| `a11y/useKeyWithClickEvents` | 9 | Click handlers on non-interactive elements need keyboard equivalents. |
+| `a11y/noAutofocus` | 4 | Usually a deliberate UX call — suppress inline per site rather than blanket-fix. |
+
+Already ratcheted to `error` and now enforced: `noUnreachable`,
+`noAssignInExpressions`, `noImplicitAnyLet`, `noShorthandPropertyOverrides`,
+`noDangerouslySetInnerHtml`, `noSvgWithoutTitle`, `noLabelWithoutControl`,
+`noStaticElementInteractions`, `noNoninteractiveElementToInteractiveRole`,
+`useAriaPropsSupportedByRole`.
 
 ### fallow's remaining findings
 
@@ -156,10 +194,35 @@ pnpm fallow -- dead-code --trace <file>:<export>
 pnpm fallow -- dead-code --type-aware --symbol-impact <file>:<export>
 ```
 
-## Pre-existing test failures
+## The test-teardown FK bug (fixed)
 
-4 tests in `src/server/services/tasks.test.ts` (`assignKidXp`,
-`setKidCompletionXp`) fail on a foreign-key violation during **teardown** —
-`delete from "user"` is blocked by surviving `task_instances` rows. Confirmed
-pre-existing by stashing all tooling changes and re-running: identical 4
-failures. Unrelated to formatting or lint, but worth fixing separately.
+4 household tests in `src/server/services/tasks.test.ts` (`assignKidXp`,
+`setKidCompletionXp`) failed on `task_instances_task_id_tasks_id_fk` during
+**teardown**, not during the assertions. Worth writing down, because the cause
+is non-obvious and the same shape could bite any future cascade delete.
+
+`task_instances` is reachable from a single `delete from "user"` by **two**
+different referential actions:
+
+```
+tasks.user_id                       ON DELETE CASCADE   → deletes task_instances
+task_instances.completed_by_user_id ON DELETE SET NULL  → updates task_instances
+```
+
+Postgres runs both. The SET NULL fires an `UPDATE` on a `task_instances` row,
+and that update re-validates the row's `task_id` — against a `tasks` parent the
+cascade may have already removed. Hence a FK violation reported as
+*"insert or update on table task_instances"* while running a `DELETE` on `user`.
+
+Two changes in `src/test/helpers.ts`:
+
+- `cleanupTestUser` now deletes the user's `tasks` (cascading their instances)
+  *before* the `user` row, so only the SET NULL path is left and it points at
+  tasks that still exist.
+- `withTestUsers` cleans up **sequentially** instead of `Promise.all`. In a
+  household test one user owns the task and another completed the instance, so
+  concurrent deletes raced on the same `task_instances` rows.
+
+Suite is now 144/144. Note there is no production user-deletion path today, so
+this was test-only in practice — but the FK shape is still there if one is ever
+added.

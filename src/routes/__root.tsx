@@ -106,6 +106,7 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: THEME_BOOT_SCRIPT is a build-time constant, never user input. It must run inline before paint to set the theme without a flash. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
@@ -286,6 +287,7 @@ function FriendsNavLink() {
       <span>Friends</span>
       {count > 0 ? (
         <span
+          role="status"
           aria-label={`${count} pending friend ${count === 1 ? 'request' : 'requests'}`}
           className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
         >
@@ -324,6 +326,7 @@ function HouseholdNavLink() {
       <span>Household</span>
       {count > 0 ? (
         <span
+          role="status"
           aria-label={`${count} pending household ${count === 1 ? 'invite' : 'invites'}`}
           className="ml-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
         >
@@ -454,6 +457,7 @@ function TabLink({
       <span className="truncate">{label}</span>
       {badge && badge > 0 ? (
         <span
+          role="status"
           aria-label={`${badge} pending`}
           className="absolute right-3 top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[var(--btn-primary-bg)] px-1 text-[10px] font-bold leading-none text-[var(--btn-primary-fg)]"
         >
