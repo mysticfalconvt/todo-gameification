@@ -102,6 +102,7 @@ export function TaskDetailsDialog({ instance, onClose, catBySlug }: Props) {
   const task = taskQuery.data
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onClose}

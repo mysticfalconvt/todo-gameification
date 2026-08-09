@@ -303,6 +303,7 @@ function FocusPage() {
           {DURATIONS.map((d) => {
             const reward = focusRewardsFor(mode)[d]
             return (
+              // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
               <button
                 key={d}
                 type="button"
@@ -361,6 +362,7 @@ function ModePicker({ mode, onChange }: { mode: FocusMode; onChange: (m: FocusMo
         Mode
       </div>
       <div role="radiogroup" aria-label="Focus mode" className="grid grid-cols-2 gap-2">
+        {/* biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md. */}
         <button
           type="button"
           role="radio"
@@ -378,6 +380,7 @@ function ModePicker({ mode, onChange }: { mode: FocusMode; onChange: (m: FocusMo
             Keep the app open. Backgrounding pauses. +1 token bonus on longer tiers.
           </div>
         </button>
+        {/* biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md. */}
         <button
           type="button"
           role="radio"

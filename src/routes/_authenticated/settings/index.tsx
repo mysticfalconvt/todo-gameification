@@ -651,6 +651,7 @@ function MotivationStyleSection() {
         {MOTIVATION_STYLE_OPTIONS.map((o) => {
           const selected = current === o.value
           return (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={o.value}
               type="button"
@@ -715,6 +716,7 @@ function CoachAttitudeSection() {
           const selected = current === o.value
           const locked = !isMember && o.value !== 'warm'
           return (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={o.value}
               type="button"

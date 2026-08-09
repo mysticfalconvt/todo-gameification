@@ -710,6 +710,7 @@ function ParentCompleteConfirm({
   }, [pending])
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onCancel}

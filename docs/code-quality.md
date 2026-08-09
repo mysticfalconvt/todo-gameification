@@ -234,6 +234,59 @@ Suppression placement gotcha: a `biome-ignore` applies to the **next line only**
 so on a multi-line JSX element it has to sit directly above the `key=` line, not
 above the opening tag. Comments placed above the tag silently do nothing.
 
+### Interactive markup (`useSemanticElements`, `useKeyWithClickEvents`)
+
+41 findings, 105 → 64 warnings. Almost all were the rules being opinionated
+rather than catching bugs — the value was in separating those from the two that
+weren't.
+
+**`useKeyWithClickEvents` (9) — all false positives.** Every one is a backdrop
+click-to-dismiss handler on a modal. Eight are native `<dialog>` elements, which
+close on Escape via the browser and already wire `onClose`; the ninth
+(`MembersOnlyUpsell`, a `role="dialog"` div) has its own Escape listener. There
+is no keyboard-only affordance missing, so adding an `onKeyDown` to a container
+would be noise. Suppressed with that reason.
+
+**`useSemanticElements` (32) — one real fix, 31 documented suppressions.**
+
+The real one: `WeekdayPicker` used `<div role="group">`, which has an exact
+native equivalent. Now a `<fieldset>` with its default border/padding/margin
+reset so the row lays out identically.
+
+The other 31 are all one pattern — `<button role="radio" aria-checked>` pills
+inside a `role="radiogroup"`, used across 12 files with 30 group wrappers. Biome
+wants `<input type="radio">`. We're keeping the buttons, deliberately:
+
+- The pattern is **valid ARIA**, not a bug.
+- Native radios can't carry this pill styling without rewriting every control as
+  a label-wrapped `sr-only` input, and that breaks the `disabled:` Tailwind
+  variants four of them rely on.
+- 31 UI controls is a lot of visual regression risk for a rule that is
+  expressing a preference.
+
+**Known gap, deliberately accepted:** a fully conformant ARIA radiogroup also
+needs roving tabindex and arrow-key navigation between options. These groups
+have neither — every pill is individually tabbable and arrows do nothing. Screen
+readers still announce role and checked state correctly. If this is ever worth
+closing, the fix is one shared `SegmentedControl` component rather than 31
+edits, and it would keep the current markup and styling.
+
+The rule stays at `error` rather than being switched off, so a genuinely wrong
+role (like the `<div role="group">` above) still gets caught.
+
+#### Suppression comment syntax
+
+Two gotchas, both of which produced silent no-ops or parse errors on the first
+attempt:
+
+- The comment must sit on the line **immediately above the element** biome
+  points at — above `<button`, not above the `role="radio"` attribute line.
+- The syntax depends on position. Directly inside a `(` (e.g.
+  `{items.map((x) => (`) it's an expression position and needs `//`. In JSX
+  children position it needs `{/* … */}`. Using the wrong one either fails to
+  parse or silently suppresses nothing. This file's split is 29 `//` to 2
+  `{/* */}`.
+
 ## What's deliberately left
 
 These rules are set to `warn` in `biome.json`: visible, non-blocking, and
@@ -244,15 +297,14 @@ were already ratcheted to `error` this way.
 | Rule | Count | Why not now |
 |---|---|---|
 | `style/noNonNullAssertion` | 60 | Style preference; each `!` needs a real decision about the null case. |
-| `a11y/useSemanticElements` | 32 | `<div role="button">` → `<button>`; real markup changes. |
-| `a11y/useKeyWithClickEvents` | 9 | Click handlers on non-interactive elements need keyboard equivalents. |
 | `a11y/noAutofocus` | 4 | Usually a deliberate UX call — suppress inline per site rather than blanket-fix. |
 
 Already ratcheted to `error` and now enforced: `noUnreachable`,
 `noAssignInExpressions`, `noImplicitAnyLet`, `noShorthandPropertyOverrides`,
 `noDangerouslySetInnerHtml`, `noSvgWithoutTitle`, `noLabelWithoutControl`,
 `noStaticElementInteractions`, `noNoninteractiveElementToInteractiveRole`,
-`useAriaPropsSupportedByRole`, `useExhaustiveDependencies`, `noArrayIndexKey`.
+`useAriaPropsSupportedByRole`, `useExhaustiveDependencies`, `noArrayIndexKey`, `useSemanticElements`,
+`useKeyWithClickEvents`.
 
 ### fallow's remaining findings
 

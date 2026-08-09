@@ -36,9 +36,7 @@
     "rules": {
       "recommended": true,
       "a11y": {
-        "noAutofocus": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useSemanticElements": "warn"
+        "noAutofocus": "warn"
       }
     }
   },

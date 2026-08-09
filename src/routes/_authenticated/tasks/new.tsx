@@ -769,6 +769,7 @@ function NewTaskPage() {
                         aria-label="Rotation"
                       >
                         {(['fixed', 'round_robin'] as const).map((r) => (
+                          // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
                           <button
                             key={r}
                             type="button"
@@ -1098,6 +1099,7 @@ function WeekTargetPicker({
         {(['this', 'next'] as const).map((k) => {
           const selected = weekKind === k
           return (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={k}
               type="button"
@@ -1120,6 +1122,7 @@ function WeekTargetPicker({
           const isPast = weekKind === 'this' && weekTargetOffset(todayDow, dow, 'this') < 0
           const selected = targetDow === dow
           return (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={label}
               type="button"

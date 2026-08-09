@@ -665,6 +665,7 @@ function ChoresTab({
               ['kanban', 'User'],
             ] as const
           ).map(([value, label]) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={value}
               type="button"
@@ -897,6 +898,7 @@ function FilterChip({
   dotColor?: string
 }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
     <button
       type="button"
       role="radio"
@@ -1496,6 +1498,7 @@ function CreditPickerDialog({
   const options: HouseholdMemberRow[] = pending ? members.filter((m) => m.role !== 'kiosk') : []
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onCancel}
@@ -1650,6 +1653,7 @@ function AssignPointsDialog({
   const valid = Boolean(kidUserId) && Number.isFinite(xp) && xp >= 1 && xp <= 1000
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onClose}
@@ -1929,6 +1933,7 @@ function StatsTab({ householdId }: { householdId: string }) {
           aria-label="Window"
         >
           {ranges.map((r) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={r}
               type="button"
@@ -1951,6 +1956,7 @@ function StatsTab({ householdId }: { householdId: string }) {
           aria-label="Metric"
         >
           {(['xp', 'count'] as const).map((m) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={m}
               type="button"
@@ -2047,6 +2053,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
           aria-label="Window"
         >
           {ranges.map((r) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={String(r)}
               type="button"
@@ -2071,6 +2078,7 @@ function LeaderboardTab({ householdId }: { householdId: string }) {
         aria-label="Metric"
       >
         {(['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
+          // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
           <button
             key={m}
             type="button"
@@ -2195,6 +2203,7 @@ function ActivityTab({
           aria-label="Window"
         >
           {ranges.map((r) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={r}
               type="button"
@@ -2223,6 +2232,7 @@ function ActivityTab({
               ['membership', 'Joined / left'],
             ] as const
           ).map(([value, label]) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={value}
               type="button"
@@ -2897,6 +2907,7 @@ function AddManagedMemberCard() {
             aria-label="Role"
           >
             {(['kid', 'kiosk'] as const).map((r) => (
+              // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
               <button
                 key={r}
                 type="button"
@@ -3034,6 +3045,7 @@ function CredentialsDialog({
   }, [creds])
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onClose}
@@ -3153,6 +3165,7 @@ function PasswordRevealDialog({
   }, [])
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onClose}
@@ -3293,6 +3306,7 @@ function ManagedMemberSettingsDialog({
   const hasWindow = start !== '' && end !== ''
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <dialog
       ref={dialogRef}
       onClose={onClose}
@@ -3378,6 +3392,7 @@ function ManagedMemberSettingsDialog({
                 {COACH_ATTITUDE_OPTIONS.map((o) => {
                   const selected = attitude === o.value
                   return (
+                    // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
                     <button
                       key={o.value}
                       type="button"

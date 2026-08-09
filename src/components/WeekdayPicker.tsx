@@ -20,7 +20,9 @@ export function WeekdayPicker({
     onChange([...next].sort((a, b) => a - b))
   }
   return (
-    <div className="flex flex-wrap gap-1" role="group" aria-label="Weekdays">
+    // <fieldset> is the native equivalent of role="group". Its default border,
+    // padding and margin are reset so the row lays out exactly as the div did.
+    <fieldset className="m-0 flex flex-wrap gap-1 border-0 p-0" aria-label="Weekdays">
       {DAY_LABELS.map((label, idx) => {
         const on = selected.has(idx)
         return (
@@ -41,7 +43,7 @@ export function WeekdayPicker({
           </button>
         )
       })}
-    </div>
+    </fieldset>
   )
 }
 

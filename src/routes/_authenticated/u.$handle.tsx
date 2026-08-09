@@ -205,6 +205,7 @@ function CategorySection({ userId }: { userId: string }) {
           aria-label="Scope"
         >
           {(['active', 'completed'] as CategoryScope[]).map((s) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={s}
               type="button"

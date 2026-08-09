@@ -53,6 +53,7 @@ export function ThemePicker() {
       {options.map((o) => {
         const selected = theme === o.value
         return (
+          // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
           <button
             key={o.value}
             type="button"

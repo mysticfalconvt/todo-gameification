@@ -120,6 +120,7 @@ export function MembersOnlyUpsell({
   const pending = annual.isPending || lifetime.isPending
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
     <div
       role="dialog"
       aria-modal="true"

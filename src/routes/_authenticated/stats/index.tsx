@@ -46,6 +46,7 @@ function StatsPage() {
           aria-label="Window"
         >
           {ranges.map((r) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={String(r)}
               type="button"

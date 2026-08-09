@@ -383,6 +383,7 @@ function CategoriesTab() {
           aria-label="Scope"
         >
           {(['active', 'completed'] as CategoryScope[]).map((s) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={s}
               type="button"
@@ -491,6 +492,7 @@ function LeaderboardTab() {
           aria-label="Window"
         >
           {ranges.map((r) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={String(r)}
               type="button"
@@ -516,6 +518,7 @@ function LeaderboardTab() {
           aria-label="Scope"
         >
           {(['friends', 'global'] as LeaderboardScope[]).map((s) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={s}
               type="button"
@@ -539,6 +542,7 @@ function LeaderboardTab() {
           aria-label="Metric"
         >
           {(['xp', 'avg-xp-day', 'streak', 'showed-up'] as LeaderboardMetric[]).map((m) => (
+            // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
             <button
               key={m}
               type="button"
@@ -684,6 +688,7 @@ function FriendsActivity() {
         aria-label="Window"
       >
         {ranges.map((d) => (
+          // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
           <button
             key={d}
             type="button"
@@ -778,6 +783,7 @@ function ReceivedCheers() {
         aria-label="Window"
       >
         {ranges.map((d) => (
+          // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
           <button
             key={d}
             type="button"

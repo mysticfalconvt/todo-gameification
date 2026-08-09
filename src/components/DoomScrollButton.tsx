@@ -55,6 +55,7 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
         💀
       </button>
 
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; a native <dialog> already closes on Escape, so no keyboard affordance is missing. */}
       <dialog
         ref={dialogRef}
         onClose={() => setOpen(false)}
@@ -76,6 +77,7 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
 
           <div role="radiogroup" aria-label="Break duration" className="grid grid-cols-4 gap-2">
             {DOOMSCROLL_DURATIONS.map((d) => (
+              // biome-ignore lint/a11y/useSemanticElements: deliberate ARIA radiogroup of styled pills; a native <input type="radio"> cannot carry this styling without rewriting each control as a label-wrapped hidden input (and breaks the disabled: variants). See docs/code-quality.md.
               <button
                 key={d}
                 type="button"
