@@ -287,24 +287,44 @@ attempt:
   parse or silently suppresses nothing. This file's split is 29 `//` to 2
   `{/* */}`.
 
+### `noAutofocus` (4)
+
+Split 3–1, and the split is the point.
+
+**Three are conditionally-rendered inline edit fields** — the task-step rename in
+`TaskDetailsDialog`, and the two kid-XP number inputs in the household page.
+Each only renders once the user clicks "edit", so focus landing there *is* the
+result of their action, not an unrequested jump. The rule is aimed at focus
+moving on load; that isn't what these do.
+
+**One is a genuine page-load autofocus** — the Title field on `/tasks/new`. Kept
+deliberately: that route exists solely to type a title, so focus starting there
+is predictable rather than disorienting. It's the one worth revisiting if a
+screen-reader or magnifier user ever reports it, and its suppression comment
+says so.
+
+With this category done, `biome.json`'s linter block is back to a bare
+`"recommended": true` — **no rule is downgraded any more**. The 60 remaining
+`noNonNullAssertion` warnings are Biome's own default severity for that rule,
+not a local override.
+
 ## What's deliberately left
 
-These rules are set to `warn` in `biome.json`: visible, non-blocking, and
-intended as a ratchet — fix a category, then flip it to `error` so it can't
-come back. `noUnreachable`, `noAssignInExpressions`, and `noImplicitAnyLet`
-were already ratcheted to `error` this way.
+Every category taken on so far has been ratcheted: fix it, then remove its
+`warn` override from `biome.json` so it can't come back. That list is now empty
+— what's below sits at Biome's own default severity.
 
 | Rule | Count | Why not now |
 |---|---|---|
 | `style/noNonNullAssertion` | 60 | Style preference; each `!` needs a real decision about the null case. |
-| `a11y/noAutofocus` | 4 | Usually a deliberate UX call — suppress inline per site rather than blanket-fix. |
 
 Already ratcheted to `error` and now enforced: `noUnreachable`,
 `noAssignInExpressions`, `noImplicitAnyLet`, `noShorthandPropertyOverrides`,
 `noDangerouslySetInnerHtml`, `noSvgWithoutTitle`, `noLabelWithoutControl`,
 `noStaticElementInteractions`, `noNoninteractiveElementToInteractiveRole`,
 `useAriaPropsSupportedByRole`, `useExhaustiveDependencies`, `noArrayIndexKey`, `useSemanticElements`,
-`useKeyWithClickEvents`.
+`useKeyWithClickEvents`, `noAutofocus`. The linter block carries no severity
+overrides at all now.
 
 ### fallow's remaining findings
 

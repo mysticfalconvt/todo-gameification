@@ -422,6 +422,7 @@ function NewTaskPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="field-input"
+            // biome-ignore lint/a11y/noAutofocus: deliberate — /tasks/new exists solely to type a title, so focus starts there. Revisit if it proves disorienting for screen-reader or magnifier users.
             autoFocus
           />
         </label>

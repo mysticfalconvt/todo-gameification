@@ -533,6 +533,7 @@ function ChoresTab({
                   type="number"
                   min={1}
                   max={1000}
+                  // biome-ignore lint/a11y/noAutofocus: this input only renders after the user clicks edit, so moving focus into it is the expected result of their action, not an unrequested focus jump on load.
                   autoFocus
                   value={xpDraft}
                   onChange={(e) => setXpDraft(e.target.value)}
@@ -2298,6 +2299,7 @@ function ActivityTab({
                           type="number"
                           min={0}
                           max={1000}
+                          // biome-ignore lint/a11y/noAutofocus: this input only renders after the user clicks edit, so moving focus into it is the expected result of their action, not an unrequested focus jump on load.
                           autoFocus
                           value={draft}
                           onChange={(e) => setDraft(e.target.value)}

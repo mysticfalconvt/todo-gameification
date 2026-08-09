@@ -391,6 +391,7 @@ function TaskStepsSection({ taskId, instanceId }: { taskId: string; instanceId: 
                         setEditingId(null)
                       }
                     }}
+                    // biome-ignore lint/a11y/noAutofocus: this input only renders after the user clicks edit, so moving focus into it is the expected result of their action, not an unrequested focus jump on load.
                     autoFocus
                     className="field-input min-w-0 flex-1 px-2 py-1 text-sm"
                   />
