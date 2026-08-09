@@ -77,11 +77,7 @@ import { listCategories } from './categories'
 // ---------------------------------------------------------------------------
 
 export type TaskVisibility = 'private' | 'friends' | 'public'
-export const TASK_VISIBILITY_VALUES: readonly TaskVisibility[] = [
-  'private',
-  'friends',
-  'public',
-] as const
+const TASK_VISIBILITY_VALUES: readonly TaskVisibility[] = ['private', 'friends', 'public'] as const
 
 export interface CreateTaskInput {
   title: string

@@ -38,15 +38,3 @@ export function getLifetimePriceId(): string {
   if (!v) throw new Error('STRIPE_PRICE_LIFETIME is not set.')
   return v
 }
-
-// Truthy when all four billing env vars are present; the pricing UI uses
-// this to decide whether to render checkout buttons or fall back to a
-// "billing not configured" hint.
-export function isBillingConfigured(): boolean {
-  return Boolean(
-    process.env.STRIPE_SECRET_KEY &&
-      process.env.STRIPE_WEBHOOK_SECRET &&
-      process.env.STRIPE_PRICE_ANNUAL &&
-      process.env.STRIPE_PRICE_LIFETIME,
-  )
-}

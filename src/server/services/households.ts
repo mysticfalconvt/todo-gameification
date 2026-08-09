@@ -32,7 +32,7 @@ export type ManageableRole = 'admin' | 'member' | 'kid'
 // Default palette for new household members. Cycled by join order so
 // the first member gets the first color, second the second, etc. Once
 // assigned, a color sticks until the user picks a new one.
-export const HOUSEHOLD_COLOR_PALETTE = [
+const HOUSEHOLD_COLOR_PALETTE = [
   '#4fb8b2',
   '#f59e0b',
   '#a855f7',
@@ -359,7 +359,7 @@ export async function updateManagedMemberCoachAttitude(
 // kid, ensure an accepted friendship exists. Kiosk accounts are
 // excluded — a kiosk is a shared device, not a person. Best-effort:
 // called after membership changes; safe to call repeatedly.
-export async function syncHouseholdKidFriendships(householdId: string): Promise<void> {
+async function syncHouseholdKidFriendships(householdId: string): Promise<void> {
   const members = await db
     .select({ userId: householdMembers.userId, role: householdMembers.role })
     .from(householdMembers)

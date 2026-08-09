@@ -1,5 +1,42 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
   "dynamicallyLoaded": ["src/server/nitro/*.ts", "public/sw.js"],
-  "ignorePatterns": ["src/routeTree.gen.ts", "src/server/db/migrations/**"]
+  "ignorePatterns": ["src/routeTree.gen.ts", "src/server/db/migrations/**"],
+  "ignoreExports": [
+    {
+      "file": "src/domain/events.ts",
+      "exports": ["DomainEventType"],
+      "reason": "Derived union over DomainEvent['type']. Documents the event vocabulary the whole event-sourced model is built on; kept exported as domain surface."
+    },
+    {
+      "file": "src/server/auth.ts",
+      "exports": ["Session"],
+      "reason": "Better Auth's inferred session shape. Conventional public type for an auth module — handlers reach for it as soon as one needs to type a session."
+    },
+    {
+      "file": "src/server/api/rest.ts",
+      "exports": ["RestHandler"],
+      "reason": "The signature every /api/v1/* route implements. It documents the contract even while each route happens to be structurally typed."
+    },
+    {
+      "file": "src/lib/useFocusSession.ts",
+      "exports": ["FocusSessionState"],
+      "reason": "Public shape of the hook's return value; callers destructure it rather than naming it."
+    },
+    {
+      "file": "src/server/services/social.ts",
+      "exports": ["FriendshipStatus"],
+      "reason": "Domain union mirroring the friendships.status column."
+    },
+    {
+      "file": "src/server/services/membership.ts",
+      "exports": ["rebuildMembership"],
+      "reason": "Idempotent projection rebuild mirroring rebuildProgression (which admin.ts does use). Deliberate repair/backfill surface for the event-sourced membership state — see the event-log note in CLAUDE.md."
+    },
+    {
+      "file": "src/test/helpers.ts",
+      "exports": ["sweepOrphanTestUsers"],
+      "reason": "Manual rescue utility for when an aborted run leaves orphan testuser_ rows behind. Called by hand, never from a test."
+    }
+  ]
 }

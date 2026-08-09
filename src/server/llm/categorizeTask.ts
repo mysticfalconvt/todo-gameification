@@ -29,8 +29,6 @@ export interface CategorizeResult {
   reasoning: string
 }
 
-export { isLlmConfigured }
-
 export async function categorizeTask(input: CategorizeInput): Promise<CategorizeResult | null> {
   if (!isLlmConfigured()) return null
   if (input.categories.length === 0) return null

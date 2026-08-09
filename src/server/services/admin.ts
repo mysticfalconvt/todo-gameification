@@ -114,7 +114,7 @@ export interface AdminSummary {
 // Aggregates focus/game activity from the event log. Pass userId to scope to
 // one user; omit for platform-wide totals. Minutes sums durationMin from each
 // completed focus.completed event payload.
-export async function loadFocusGameStats(userId?: string): Promise<FocusGameStats> {
+async function loadFocusGameStats(userId?: string): Promise<FocusGameStats> {
   const scope = userId ? eq(events.userId, userId) : undefined
 
   const whereFor = (type: string) =>

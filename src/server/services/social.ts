@@ -3,21 +3,14 @@
 // activity services that also need the privacy gate.
 import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import {
-  events,
-  friendships,
-  householdMembers,
-  progression,
-  user as userTable,
-  userPrefs,
-} from '../db/schema'
+import { events, friendships, householdMembers, progression, user as userTable } from '../db/schema'
 import { INITIAL_PROGRESSION, applyEvent } from '../../domain/gamification'
 import { sendPushToUser } from '../push/broadcast'
 import { normalizeHandle } from './handles'
 
 // Flat XP both sides get when a friendship becomes accepted. One-time per
 // pair (see awardFriendshipXp dedupe).
-export const FRIEND_ADDED_XP = 25
+const FRIEND_ADDED_XP = 25
 
 // Best-effort friend-activity pushes. Swallow errors so the mutation
 // always succeeds even when VAPID is unconfigured or the recipient has
@@ -146,7 +139,7 @@ export interface PendingRow {
 // Rate limit for outgoing friend requests (anti-spam).
 const MAX_REQUESTS_PER_DAY = 30
 
-export async function resolveUserByHandle(
+async function resolveUserByHandle(
   handle: string,
 ): Promise<{ id: string; handle: string; name: string } | null> {
   const normalized = normalizeHandle(handle)
@@ -542,20 +535,4 @@ export async function canViewGarden(viewerId: string, targetId: string): Promise
   if (target.gardenVisibility === 'private') return false
   const f = await findFriendshipEitherDirection(viewerId, targetId)
   return f?.status === 'accepted'
-}
-
-// Load another user's effective sharing prefs (with defaults when no row).
-export async function loadPrefs(userId: string): Promise<{
-  shareProgression: boolean
-  shareActivity: boolean
-  shareTaskTitles: boolean
-}> {
-  const row = await db.query.userPrefs.findFirst({
-    where: eq(userPrefs.userId, userId),
-  })
-  return {
-    shareProgression: row?.shareProgression ?? true,
-    shareActivity: row?.shareActivity ?? true,
-    shareTaskTitles: row?.shareTaskTitles ?? false,
-  }
 }

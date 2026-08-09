@@ -53,7 +53,7 @@ const VARIANT_COPY = {
   },
 } as const
 
-export type UpsellVariant = keyof typeof VARIANT_COPY
+type UpsellVariant = keyof typeof VARIANT_COPY
 
 interface UpsellProps {
   open: boolean

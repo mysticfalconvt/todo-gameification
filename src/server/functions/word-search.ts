@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { authMiddleware } from '../middleware/auth'
 import * as service from '../services/word-search'
 
-export interface StartWordSearchInput {
+interface StartWordSearchInput {
   size: 'small' | 'large'
   // null = "Surprise me". Custom themes go through normalizeCustomTheme on
   // the server; presets pass through unchanged.

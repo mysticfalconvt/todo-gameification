@@ -292,7 +292,7 @@ export const KID_TOKENS_EVERY_N_COMPLETIONS = 2
 // runs for this many seconds regardless of the user-chosen duration.
 // Lets you exercise the whole pocket-mode push flow in seconds rather
 // than minutes. Set to 0 before shipping.
-export const FOCUS_TEST_OVERRIDE_SECONDS = 0
+const FOCUS_TEST_OVERRIDE_SECONDS = 0
 
 export function focusDurationMs(durationMin: FocusDurationMin): number {
   return FOCUS_TEST_OVERRIDE_SECONDS > 0 ? FOCUS_TEST_OVERRIDE_SECONDS * 1000 : durationMin * 60_000
@@ -313,7 +313,7 @@ export function doomScrollDurationMs(durationMin: DoomScrollDurationMin): number
 }
 
 // Validation: do we recognize this duration tier at all?
-export const FOCUS_DURATIONS = [5, 10, 15, 25, 50] as const
+const FOCUS_DURATIONS = [5, 10, 15, 25, 50] as const
 export type FocusDurationMin = (typeof FOCUS_DURATIONS)[number]
 export function isFocusDuration(n: number): n is FocusDurationMin {
   return (FOCUS_DURATIONS as readonly number[]).includes(n)

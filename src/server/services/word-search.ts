@@ -12,14 +12,14 @@ import { buildGrid, type Placement } from '../../games/word-search/grid'
 
 export type SizeBucket = 'small' | 'large'
 
-export interface SizeConfig {
+interface SizeConfig {
   grid: number
   wordCount: number
   minLen: number
   maxLen: number
 }
 
-export const SIZE_CONFIG: Record<SizeBucket, SizeConfig> = {
+const SIZE_CONFIG: Record<SizeBucket, SizeConfig> = {
   small: { grid: 8, wordCount: 8, minLen: 3, maxLen: 7 },
   large: { grid: 12, wordCount: 14, minLen: 4, maxLen: 10 },
 }
@@ -27,14 +27,14 @@ export const SIZE_CONFIG: Record<SizeBucket, SizeConfig> = {
 const THEME_REGEX = /^[A-Za-z0-9 \-']+$/
 const MAX_THEME_LEN = 40
 
-export interface NormalizedTheme {
+interface NormalizedTheme {
   display: string
   key: string
 }
 
 // Validates a user-supplied custom theme. Returns null when the input is
 // outside the allowed shape — caller should reject the request.
-export function normalizeCustomTheme(raw: string): NormalizedTheme | null {
+function normalizeCustomTheme(raw: string): NormalizedTheme | null {
   const trimmed = raw.trim()
   if (trimmed.length === 0 || trimmed.length > MAX_THEME_LEN) return null
   if (!THEME_REGEX.test(trimmed)) return null

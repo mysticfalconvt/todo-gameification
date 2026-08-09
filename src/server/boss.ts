@@ -1,10 +1,5 @@
 import { PgBoss } from 'pg-boss'
-import {
-  ESCALATION_INTERVAL_MS,
-  MAX_REMINDER_ATTEMPTS,
-  sendReminderHandler,
-  type SendReminderJobData,
-} from './jobs/sendReminder'
+import { sendReminderHandler, type SendReminderJobData } from './jobs/sendReminder'
 import { cleanupStaleSubsHandler } from './jobs/cleanupStaleSubs'
 import { checkPlantRiskHandler } from './jobs/checkPlantRisk'
 import { githubPollHandler } from './jobs/githubPoll'
@@ -149,5 +144,3 @@ export async function cancelFocusSessionEndJob(jobId: string): Promise<void> {
   const boss = await getBoss()
   await boss.cancel(FOCUS_END_QUEUE, jobId)
 }
-
-export { ESCALATION_INTERVAL_MS, MAX_REMINDER_ATTEMPTS }

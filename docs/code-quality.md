@@ -107,7 +107,7 @@ so there was never any coercion to lose.
 
 - **Removed `lucide-react`** from `dependencies` — zero imports anywhere in the
   tree, confirmed by grep. It was shipping in the production bundle.
-- `@tanstack/devtools-vite` is also unreferenced (it's a Vite plugin that must
+- `@tanstack/devtools-vite` is also unreferenced (a Vite plugin that must
   be explicitly registered, and `vite.config.ts` doesn't). Left in place — it's
   dev-only, so the upside is small and the failure mode is silent.
 
@@ -308,6 +308,60 @@ With this category done, `biome.json`'s linter block is back to a bare
 `noNonNullAssertion` warnings are Biome's own default severity for that rule,
 not a local override.
 
+### fallow: unused exports
+
+All 42 unused exports, 11 unused type exports and the 1 unused file are gone.
+`fallow dead-code` now reports zero in those three categories.
+
+The refactor looked far bigger than it was, because of one fact worth
+internalising: **most of these symbols were still used inside their own file.**
+fallow reports an unused *export* — no other module imports it — which is not
+the same as dead code. Measuring that first split the work cleanly:
+
+| Outcome | Count | What it means |
+|---|---|---|
+| Dropped `export`, kept the code | 46 | Used locally; the export was just surface nobody consumed. |
+| Deleted outright | 8 | Not referenced anywhere, including its own file. |
+| Kept, with `ignoreExports` | 7 | Deliberate API surface (see below). |
+
+Because `tsconfig` sets `noUnusedLocals`, `tsc` is a perfect oracle here: drop
+an `export` and, if the symbol really is dead, the build fails immediately. Three
+of my first-pass guesses were wrong (`Session`, `canPlay`, `rebuildMembership` —
+the "extra reference" my heuristic counted was in a comment) and `tsc` caught
+all three straight away.
+
+**Deleted (8).** `queuedLength` (offline-queue), `XP_TIERS` (self-described
+"back-compat export" whose consumers are gone), `loadPrefs` (social),
+`listHouseholdMembersFn`, `isBillingConfigured` (its comment claims the pricing
+UI uses it; nothing does), plus:
+
+- **`canPlay` — a whole dead feature.** The server-function endpoint was
+  unreferenced, and `services/games.ts#canPlay` existed *only* to serve it, so
+  removing the endpoint orphaned the service function too. Both went.
+- **`src/lib/asArray.ts`** — the file fallow flagged from day one. Its comment
+  describes a real hazard (React Query rehydrating a corrupted non-array from
+  localStorage), but the codebase hand-rolls
+  `Array.isArray(x) ? x : []` in **27 places** and never once imported the
+  helper. Deleted as redundant. If you'd rather have the abstraction, the
+  inverse move is to restore it and adopt it at those 27 sites.
+
+**Convenience re-exports (4 symbols, 3 lines).** `boss.ts`, `categorizeTask.ts`
+and `garden.ts` each imported a constant purely to re-export it for consumers
+that never materialised — `garden.ts` even documented the intent
+("re-exported so the UI can read key constants"). Removing the re-export left
+the imports orphaned, which `tsc` flagged and which are now gone too.
+
+**Kept deliberately (7), in `.fallowrc.json` with a `reason` on each.** Five are
+descriptive types that document a contract even when nothing imports them
+(`DomainEventType`, `Session`, `RestHandler`, `FocusSessionState`,
+`FriendshipStatus`), plus `rebuildMembership` — an idempotent projection rebuild
+mirroring the `rebuildProgression` that `admin.ts` does use, and exactly the kind
+of repair surface the event-log design calls for — and `sweepOrphanTestUsers`,
+a by-hand rescue for orphaned `testuser_` rows.
+
+Prefer `ignoreExports` with a `reason` over deleting when a symbol is genuine
+API surface. It keeps the report at zero so new dead code actually stands out.
+
 ## What's deliberately left
 
 Every category taken on so far has been ratcheted: fix it, then remove its
@@ -328,22 +382,13 @@ overrides at all now.
 
 ### fallow's remaining findings
 
-Not applied, because `tsconfig.json` sets `noUnusedLocals: true`. `fallow fix`
-only strips the `export` keyword, which turns each of the 42 unused exports into
-a *compile error* — so the real work is deleting ~42 symbols across ~25 files.
-That's a refactor deserving its own review, not a mechanical pass.
+Dead code is clear. What's left is a different shape of problem:
 
-Worth knowing before you start:
-
-- **42 unused exports / 11 unused type exports.** Several read as intentional
-  domain surface (`STREAK_MILESTONES`, `FOCUS_DURATIONS`, `XP_TIERS`). For those,
-  prefer adding an `ignoreExports` entry to `.fallowrc.json` over deleting —
-  `fallow fix --dry-run` proposes 18 such rules already.
-- **`src/lib/asArray.ts` is dead** — nothing imports it. But its own comment
-  explains it's a guard for React Query rehydrating a corrupted non-array from
-  localStorage. It's a helper that should be *used*, not deleted; decide which.
-- **11 circular dependencies**, the heaviest through `services/tasks.ts`
-  (27 dependents) and `server/boss.ts`. `pnpm fallow` ranks these by ROI.
+- **11 circular dependencies**, heaviest through `services/tasks.ts` (27
+  dependents) and `server/boss.ts`. `pnpm fallow` ranks them by ROI.
+- **11 duplicate export pairs** and ~55 clone groups.
+- `@tanstack/devtools-vite` is an unused devDependency; `@tailwindcss/vite` is
+  in `dependencies` but only used at build time.
 
 Before deleting anything fallow flags, confirm it:
 

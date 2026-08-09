@@ -10,7 +10,7 @@ import type { DomainEvent } from '../../domain/events'
 import { sendPushToUser } from '../push/broadcast'
 import { getUserTimeZone } from './tasks'
 
-export const CHEER_XP = 2
+const CHEER_XP = 2
 const CHEER_DAILY_CAP = 20
 
 export interface ActivityRow {

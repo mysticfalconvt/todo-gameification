@@ -43,7 +43,7 @@ export interface TestUser {
 // Inserts a minimal user row bypassing Better Auth's sign-up flow. Good
 // enough for service-level contract tests that only care about the
 // downstream app tables.
-export async function createTestUser(overrides: Partial<TestUser> = {}): Promise<TestUser> {
+async function createTestUser(overrides: Partial<TestUser> = {}): Promise<TestUser> {
   assertNotProd()
   const suffix = randomSuffix()
   const tu: TestUser = {
@@ -68,7 +68,7 @@ export async function createTestUser(overrides: Partial<TestUser> = {}): Promise
 // apiTokens/friendships/userPrefs; the rest (events/progression/push_subs
 // and friendships referencing this user via FK of either side) are
 // wiped explicitly.
-export async function cleanupTestUser(userId: string): Promise<void> {
+async function cleanupTestUser(userId: string): Promise<void> {
   assertNotProd()
   await Promise.all([
     db.delete(events).where(eq(events.userId, userId)),

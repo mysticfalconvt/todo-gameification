@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 
 export const QUERY_PERSIST_KEY = 'todo-xp-query-cache-v1'
 
-export function makeQueryClient(): QueryClient {
+function makeQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {

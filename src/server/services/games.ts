@@ -27,18 +27,6 @@ export function listGames(): GameMeta[] {
   }))
 }
 
-// Balance check used before rendering a game. Doesn't touch the DB — the token
-// is only spent when the play is finalized via `finishGame`, so closing the
-// tab mid-play is a free refund.
-export async function canPlay(userId: string, gameId: string): Promise<boolean> {
-  const game = findGame(gameId)
-  if (!game) return false
-  const row = await db.query.progression.findFirst({
-    where: eq(progression.userId, userId),
-  })
-  return (row?.tokens ?? 0) >= game.tokenCost
-}
-
 export interface FinishGameInput {
   userId: string
   gameId: string

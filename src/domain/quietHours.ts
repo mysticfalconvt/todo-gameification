@@ -25,7 +25,7 @@ export function normalizeQuietHours(
   return s && e ? { start: s, end: e } : { start: null, end: null }
 }
 
-export function toMinutes(hhmm: string): number | null {
+function toMinutes(hhmm: string): number | null {
   const m = /^(\d{2}):(\d{2})$/.exec(hhmm)
   if (!m) return null
   const h = Number(m[1])

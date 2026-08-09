@@ -6,7 +6,7 @@ import { callLlmChat, isLlmConfigured } from './client'
 // "medium" tasks can score 22 and 35 instead of both locking to the same
 // midpoint. Windows are contiguous (no overlap), so the tier remains the
 // source of truth for bucketing.
-export const XP_WINDOWS = {
+const XP_WINDOWS = {
   tiny: { min: 3, max: 7, typical: 5 },
   small: { min: 8, max: 19, typical: 13 },
   medium: { min: 20, max: 39, typical: 28 },
@@ -16,12 +16,6 @@ export const XP_WINDOWS = {
 } as const
 
 export type XpTier = keyof typeof XP_WINDOWS
-
-// Back-compat export — anything that just wants a representative XP value
-// per tier can read from this.
-export const XP_TIERS: Record<XpTier, number> = Object.fromEntries(
-  (Object.keys(XP_WINDOWS) as XpTier[]).map((t) => [t, XP_WINDOWS[t].typical]),
-) as Record<XpTier, number>
 
 const SYSTEM_PROMPT = `You are an XP scorer for a gamified personal todo app used by people with ADHD. Your job is to assign a specific XP value that reflects the real effort of a task, using a two-step decision:
 

@@ -8,8 +8,8 @@ import type { Job } from 'pg-boss'
 
 // How many times total we'll push for a single instance. 1 = initial push
 // only, 3 = initial + 2 escalations (at T, T+2h, T+4h).
-export const MAX_REMINDER_ATTEMPTS = 3
-export const ESCALATION_INTERVAL_MS = 2 * 60 * 60 * 1000
+const MAX_REMINDER_ATTEMPTS = 3
+const ESCALATION_INTERVAL_MS = 2 * 60 * 60 * 1000
 
 export interface SendReminderJobData {
   taskInstanceId: string

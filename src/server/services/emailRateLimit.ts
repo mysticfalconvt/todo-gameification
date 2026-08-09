@@ -12,8 +12,8 @@ export type EmailKind = 'verification' | 'password_reset'
 
 // Up to N sends per address within WINDOW_MS. Generous enough for
 // legitimate users (forwarding, retries) but cheap to spam past.
-export const MAX_SENDS_PER_WINDOW = 3
-export const WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const MAX_SENDS_PER_WINDOW = 3
+const WINDOW_MS = 60 * 60 * 1000 // 1 hour
 
 function normalize(email: string): string {
   return email.trim().toLowerCase()

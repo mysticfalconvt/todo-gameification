@@ -6,11 +6,11 @@ import { and, eq, gte, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { llmCallLog } from '../db/schema'
 
-export type LlmCallKind = 'score' | 'categorize' | 'coach'
+type LlmCallKind = 'score' | 'categorize' | 'coach'
 
 export type LlmMetricsWindow = '1m' | '30m' | '1h' | '24h'
 
-export const LLM_WINDOW_MS: Record<LlmMetricsWindow, number> = {
+const LLM_WINDOW_MS: Record<LlmMetricsWindow, number> = {
   '1m': 60_000,
   '30m': 30 * 60_000,
   '1h': 60 * 60_000,

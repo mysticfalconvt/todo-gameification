@@ -73,7 +73,7 @@ export interface GithubIntegrationStatus {
   tokenExpiresAt: string | null
 }
 
-export interface GithubReviewPr {
+interface GithubReviewPr {
   prId: number
   repoFullName: string
   number: number
@@ -96,7 +96,7 @@ interface SearchIssuesResponse {
   }>
 }
 
-export class GithubAuthError extends Error {
+class GithubAuthError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'GithubAuthError'
@@ -150,17 +150,17 @@ function repoFromRepositoryUrl(repositoryUrl: string): string {
   return idx >= 0 ? repositoryUrl.slice(idx + marker.length) : repositoryUrl
 }
 
-export interface FetchGithubUserResult {
+interface FetchGithubUserResult {
   login: string
   tokenExpiresAt: Date | null
 }
 
-export async function fetchGithubUser(token: string): Promise<FetchGithubUserResult> {
+async function fetchGithubUser(token: string): Promise<FetchGithubUserResult> {
   const { data, tokenExpiresAt } = await githubFetch<GithubUser>(token, '/user')
   return { login: data.login, tokenExpiresAt }
 }
 
-export interface FetchReviewRequestedResult {
+interface FetchReviewRequestedResult {
   // Deduped union of both flows — one entry per PR.
   prs: GithubReviewPr[]
   // PR ids that matched `assignee:@me` in this fetch.
@@ -191,7 +191,7 @@ async function searchPrs(
   return { prs, tokenExpiresAt }
 }
 
-export async function fetchReviewRequestedPrs(
+async function fetchReviewRequestedPrs(
   token: string,
   options: { reviewRequested: boolean; assigned: boolean } = {
     reviewRequested: true,

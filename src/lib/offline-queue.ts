@@ -53,10 +53,6 @@ export function onQueueChange(listener: (len: number) => void): () => void {
   }
 }
 
-export async function queuedLength(): Promise<number> {
-  return (await readQueue()).length
-}
-
 function makeId(): string {
   // A plain sortable ID is enough; we don't need crypto-strength uniqueness.
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`

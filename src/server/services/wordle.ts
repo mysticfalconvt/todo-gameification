@@ -11,11 +11,11 @@ const WORD_LENGTH = 5
 const LOW_UNSEEN_THRESHOLD = 10
 const ADMIN_TASK_EXTERNAL_REF = 'wordle-words-low'
 
-export function normalizeWord(word: string): string {
+function normalizeWord(word: string): string {
   return word.trim().toUpperCase()
 }
 
-export function isValidWord(word: string): boolean {
+function isValidWord(word: string): boolean {
   const w = normalizeWord(word)
   return w.length === WORD_LENGTH && /^[A-Z]+$/.test(w)
 }
@@ -104,7 +104,7 @@ export async function pickWordForUser(userId: string): Promise<string | null> {
   return any[0]?.word ?? null
 }
 
-export async function countUnseen(userId: string): Promise<number> {
+async function countUnseen(userId: string): Promise<number> {
   const rows = await db.execute<{ n: number }>(sql`
     SELECT COUNT(*)::int AS n FROM wordle_words w
     WHERE NOT EXISTS (
@@ -118,7 +118,7 @@ export async function countUnseen(userId: string): Promise<number> {
   return Number(rows[0]?.n ?? 0)
 }
 
-export async function countTotal(): Promise<number> {
+async function countTotal(): Promise<number> {
   const rows = await db.execute<{ n: number }>(sql`SELECT COUNT(*)::int AS n FROM wordle_words`)
   return Number(rows[0]?.n ?? 0)
 }

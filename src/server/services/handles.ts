@@ -3,7 +3,7 @@ import { db } from '../db/client'
 import { user } from '../db/schema'
 
 // Lowercase alphanumeric + underscore. 3–20 chars.
-export const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/
+const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/
 
 export function normalizeHandle(raw: string): string {
   return raw

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-export const THEME_KEY = 'todo-xp-theme'
-export type Theme = 'light' | 'dark' | 'system'
+const THEME_KEY = 'todo-xp-theme'
+type Theme = 'light' | 'dark' | 'system'
 
 function applyTheme(theme: Theme) {
   if (typeof document === 'undefined') return

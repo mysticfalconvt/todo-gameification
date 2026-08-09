@@ -46,7 +46,7 @@ export interface StreakMilestone {
   label: string
 }
 
-export const STREAK_MILESTONES: readonly StreakMilestone[] = [
+const STREAK_MILESTONES: readonly StreakMilestone[] = [
   { days: 7, tokens: 3, id: 'week', label: 'Week One' },
   { days: 14, tokens: 5, id: 'fortnight', label: 'Fortnight' },
   { days: 30, tokens: 15, id: 'monthly', label: 'Monthly' },

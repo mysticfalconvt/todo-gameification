@@ -10,7 +10,7 @@ import {
 
 type Blurb = { analysis: string; generatedAt: string } | null
 
-export type WeeklySummaryResponse =
+type WeeklySummaryResponse =
   | { gated: true }
   | {
       gated: false

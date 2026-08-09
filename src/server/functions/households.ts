@@ -27,11 +27,6 @@ export const getMyHouseholdFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(({ context }) => service.getMyHousehold(context.userId))
 
-export const listHouseholdMembersFn = createServerFn({ method: 'GET' })
-  .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string }) => data)
-  .handler(({ data, context }) => service.listHouseholdMembers(context.userId, data.householdId))
-
 export const inviteMemberFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .inputValidator((data: { inviteeUserId: string; proposedRole: 'member' | 'kid' }) => {

@@ -8,7 +8,6 @@ import { events, tasks } from '../db/schema'
 import {
   type Decoration,
   type GardenState,
-  UNCATEGORIZED_KEY,
   growthStage,
   milestoneDecorations,
   mood,
@@ -127,7 +126,3 @@ export async function getGarden(userId: string): Promise<GardenView> {
     activePlantCount: plants.filter((p) => p.waterings > 0).length,
   }
 }
-
-// Intentionally unused in the bulk return but re-exported so the UI
-// can read key constants without importing the domain module twice.
-export { UNCATEGORIZED_KEY }
