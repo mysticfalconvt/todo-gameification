@@ -1242,11 +1242,18 @@ function QuietHoursSub() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Read the two fields out rather than depending on profileQuery.data itself:
+  // the query object gets a new identity on every refetch, so depending on it
+  // would clobber whatever the user was mid-way through typing.
+  const loadedQuietHours = Boolean(profileQuery.data)
+  const quietHoursStart = profileQuery.data?.quietHoursStart
+  const quietHoursEnd = profileQuery.data?.quietHoursEnd
+
   useEffect(() => {
-    if (!profileQuery.data) return
-    setStart(profileQuery.data.quietHoursStart ?? '')
-    setEnd(profileQuery.data.quietHoursEnd ?? '')
-  }, [profileQuery.data?.quietHoursStart, profileQuery.data?.quietHoursEnd])
+    if (!loadedQuietHours) return
+    setStart(quietHoursStart ?? '')
+    setEnd(quietHoursEnd ?? '')
+  }, [loadedQuietHours, quietHoursStart, quietHoursEnd])
 
   const save = useMutation({
     mutationFn: (input: { start: string | null; end: string | null }) =>
@@ -1363,7 +1370,7 @@ function ProfileSection({
 
   useEffect(() => {
     if (user?.name) setName(user.name)
-  }, [user?.id, user?.name])
+  }, [user?.name])
   useEffect(() => {
     if (profileQuery.data?.handle) setHandle(profileQuery.data.handle)
   }, [profileQuery.data?.handle])

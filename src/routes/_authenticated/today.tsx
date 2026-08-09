@@ -293,8 +293,9 @@ function TodayPage() {
       snooze.mutate({ instanceId: search.snooze, hours: 1 })
       navigate({ to: '/today', replace: true, search: {} })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.complete, search.snooze])
+    // mutate and navigate are stable identities, so naming them can't re-fire
+    // the action; the effect is still driven purely by the search params.
+  }, [search.complete, search.snooze, complete.mutate, snooze.mutate, navigate])
 
   const rawInstances = Array.isArray(todayQuery.data) ? todayQuery.data : []
   const somedayInstances = Array.isArray(somedayQuery.data) ? somedayQuery.data : []

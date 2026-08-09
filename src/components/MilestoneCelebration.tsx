@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // A one-off, full-screen celebration overlay. Fires a confetti burst and a
 // centered card for a streak milestone or a level-up, then auto-dismisses.
@@ -38,16 +38,26 @@ export function MilestoneCelebration({
 }) {
   const [visible, setVisible] = useState(false)
 
+  // Callers pass an inline `onDone={() => ...}`, so it's a new function every
+  // render. Depending on it directly would clear and restart the dismiss timer
+  // on every parent render — the overlay would never time out while anything
+  // above it was re-rendering. Hold the latest one in a ref instead.
+  const onDoneRef = useRef(onDone)
+  useEffect(() => {
+    onDoneRef.current = onDone
+  })
+
+  // Re-runs whenever a new celebration is handed in: callers set a fresh event
+  // object per fire, so its identity is stable between fires.
   useEffect(() => {
     if (!event) return
     setVisible(true)
     const t = setTimeout(() => {
       setVisible(false)
-      onDone()
+      onDoneRef.current()
     }, DISMISS_MS)
     return () => clearTimeout(t)
-    // Re-run whenever a new celebration is handed in.
-  }, [event?.key])
+  }, [event])
 
   if (!event || !visible) return null
 

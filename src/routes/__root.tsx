@@ -477,15 +477,20 @@ function SessionNav() {
     staleTime: 5 * 60_000,
   })
 
+  // Hoisted out of the effect so the dep list can name the values it actually
+  // reads. Keying on the user id alone meant a session refetch that changed the
+  // stored timezone wouldn't re-sync until the next sign-in.
+  const userId = data?.user?.id
+  const storedTz = (data?.user as { timezone?: string } | undefined)?.timezone
+
   useEffect(() => {
-    if (!data?.user) return
+    if (!userId) return
     const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    const storedTz = (data.user as { timezone?: string }).timezone
     if (storedTz && storedTz === browserTz) return
     updateTimezone({ data: { timezone: browserTz } }).catch(() => {
       // Non-critical; user can retry or set in settings later.
     })
-  }, [data?.user?.id])
+  }, [userId, storedTz])
 
   if (isPending) {
     return <span className="text-[var(--sea-ink-soft)]">…</span>

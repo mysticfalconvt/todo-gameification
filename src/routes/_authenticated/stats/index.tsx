@@ -19,14 +19,14 @@ function StatsPage() {
     queryKey: ['stats', days],
     queryFn: () => getStats({ data: { days } }),
   })
-  const ranges = ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r))
+  const ranges = useMemo(() => ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r)), [allows])
   // Collapse to the nearest allowed range when the selected one vanishes
   // (e.g., default 30 but user only has 10 days of history).
   useEffect(() => {
     if (!ranges.includes(days) && ranges.length > 0) {
       setDays(ranges[0])
     }
-  }, [ranges.join(','), days])
+  }, [ranges, days])
 
   const stats = query.data
 

@@ -232,7 +232,7 @@ function FocusPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start')
     }
-  }, [duration, mode, qc, search.taskInstanceId])
+  }, [duration, mode, search.taskInstanceId])
 
   if (phase === 'confirming') {
     return (

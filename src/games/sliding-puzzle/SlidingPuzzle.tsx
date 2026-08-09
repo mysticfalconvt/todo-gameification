@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { GameProps } from '../types'
 
 const SIZE = 3
@@ -61,17 +61,22 @@ export function SlidingPuzzle({ onFinish, onExit }: GameProps) {
     }
   }, [solved, moves, onFinish])
 
-  function tryMove(idx: number) {
-    if (solved) return
-    if (!neighbors(blankIdx).includes(idx)) return
-    setTiles((prev) => {
-      const next = prev.slice()
-      next[blankIdx] = next[idx]
-      next[idx] = 0
-      return next
-    })
-    setMoves((m) => m + 1)
-  }
+  // Memoized so the keydown listener below can depend on it by identity
+  // instead of being torn down and re-attached on every render.
+  const tryMove = useCallback(
+    (idx: number) => {
+      if (solved) return
+      if (!neighbors(blankIdx).includes(idx)) return
+      setTiles((prev) => {
+        const next = prev.slice()
+        next[blankIdx] = next[idx]
+        next[idx] = 0
+        return next
+      })
+      setMoves((m) => m + 1)
+    },
+    [solved, blankIdx],
+  )
 
   // Keyboard: arrow keys move the tile that's adjacent to the blank in the
   // opposite direction (e.g. ArrowUp slides the tile *below* the blank up).
@@ -91,8 +96,7 @@ export function SlidingPuzzle({ onFinish, onExit }: GameProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blankIdx, solved])
+  }, [blankIdx, tryMove])
 
   return (
     <div className="flex flex-col items-center gap-4">

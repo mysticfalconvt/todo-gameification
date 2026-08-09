@@ -125,12 +125,15 @@ export function useFocusSession(
     setStatus('cancelled')
   }, [releaseWakeLock, stopInterval])
 
-  // Auto-start once on mount when restoring an active session.
+  // Auto-start once on mount when restoring an active session. Mount-only is
+  // the point: re-running on autoStart/status/start would restart a session
+  // the user had since paused or cancelled, so the empty dep list is load-
+  // bearing rather than an oversight.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally mount-only; see above.
   useEffect(() => {
     if (autoStart && status === 'idle') {
       start()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Visibility / focus listeners — pause on hide, resume on show.

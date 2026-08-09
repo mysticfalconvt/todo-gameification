@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getTaskStats } from '../../../server/functions/tasks'
@@ -19,12 +19,12 @@ function TaskStatsPage() {
     queryKey: ['taskStats', taskId, days],
     queryFn: () => getTaskStats({ data: { taskId, days } }),
   })
-  const ranges = ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r))
+  const ranges = useMemo(() => ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r)), [allows])
   useEffect(() => {
     if (!ranges.includes(days) && ranges.length > 0) {
       setDays(ranges[0])
     }
-  }, [ranges.join(','), days])
+  }, [ranges, days])
 
   const stats = query.data
 

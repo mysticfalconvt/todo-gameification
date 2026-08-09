@@ -146,6 +146,54 @@ static analysis can't follow. Suppressed inline with reasons rather than
 contorted to satisfy the rule. Same for the theme-boot `dangerouslySetInnerHTML`
 in `__root.tsx`, which injects a build-time constant and must run before paint.
 
+### React hook dependencies
+
+All 38 `useExhaustiveDependencies` cleared, 162 → 124 warnings. This group hid
+real bugs, and two of the "obvious" fixes would have introduced worse ones — so
+the reasoning matters more than the diff.
+
+**The `ranges.join(',')` idiom (20 of 38).** Five hooks across the stats pages
+and `friends.tsx` all did:
+
+```ts
+const ranges = ([7, 30, 90, 'all'] as Range[]).filter((r) => allows(r))
+useEffect(() => { … }, [ranges.join(','), days])
+```
+
+The `join(',')` was a hand-rolled stable key, working around `ranges` being a
+new array every render. The root cause was one level down: `useAvailableWindows`
+returned `allows` as a fresh closure each render, so nothing derived from it
+could ever be memoized. Fixing it there — `allows` is now a `useCallback` keyed
+on the two scalars it reads — let all five callers become a plain
+`useMemo(…, [allows])` plus an honest `[ranges, days]` dep list.
+
+**Cases where adding the flagged dependency would have been the bug:**
+
+- `MilestoneCelebration` — callers pass `onDone={() => setCelebration(null)}`,
+  a new function every render. Adding it as a dep would clear and restart the
+  auto-dismiss timer on every parent render, so the overlay would never time out
+  while anything above it re-rendered. Held in a ref instead; the effect now
+  keys on `event`, whose identity *is* stable between fires.
+- `settings/index.tsx` quiet hours — the effect seeds form state from
+  `profileQuery.data`. Depending on that object would re-seed on every refetch,
+  clobbering whatever the user was typing. Hoisted the two fields plus a
+  `loaded` boolean and depended on those.
+- `useFocusSession` auto-start — mount-only is load-bearing: re-running on
+  `autoStart`/`status`/`start` would restart a session the user had since paused
+  or cancelled. Kept `[]` and documented why with a `biome-ignore`.
+
+**Genuine improvements found along the way:**
+
+- `__root.tsx` timezone sync keyed only on `data?.user?.id`, so a session
+  refetch that changed the stored timezone wouldn't re-sync until next sign-in.
+  Now depends on the timezone value itself.
+- `SlidingPuzzle` re-attached its `keydown` listener on every render because
+  `tryMove` was a bare function. Wrapped in `useCallback`.
+- `focus.tsx` listed `qc`, which the callback never used.
+
+Two dead `eslint-disable-next-line react-hooks/exhaustive-deps` comments were
+removed — the project has no ESLint, so they had been silently doing nothing.
+
 ## What's deliberately left
 
 These rules are set to `warn` in `biome.json`: visible, non-blocking, and
@@ -156,7 +204,6 @@ were already ratcheted to `error` this way.
 | Rule | Count | Why not now |
 |---|---|---|
 | `style/noNonNullAssertion` | 60 | Style preference; each `!` needs a real decision about the null case. |
-| `correctness/useExhaustiveDependencies` | 38 | Highest-value group left. Also the most dangerous to bulk-fix — a wrong dep array causes infinite render loops. Needs per-hook review. |
 | `a11y/useSemanticElements` | 32 | `<div role="button">` → `<button>`; real markup changes. |
 | `suspicious/noArrayIndexKey` | 19 | Index keys break React reconciliation on reorder; needs a stable id per list. |
 | `a11y/useKeyWithClickEvents` | 9 | Click handlers on non-interactive elements need keyboard equivalents. |
@@ -166,7 +213,7 @@ Already ratcheted to `error` and now enforced: `noUnreachable`,
 `noAssignInExpressions`, `noImplicitAnyLet`, `noShorthandPropertyOverrides`,
 `noDangerouslySetInnerHtml`, `noSvgWithoutTitle`, `noLabelWithoutControl`,
 `noStaticElementInteractions`, `noNoninteractiveElementToInteractiveRole`,
-`useAriaPropsSupportedByRole`.
+`useAriaPropsSupportedByRole`, `useExhaustiveDependencies`.
 
 ### fallow's remaining findings
 

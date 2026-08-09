@@ -40,9 +40,6 @@
         "useKeyWithClickEvents": "warn",
         "useSemanticElements": "warn"
       },
-      "correctness": {
-        "useExhaustiveDependencies": "warn"
-      },
       "suspicious": {
         "noArrayIndexKey": "warn"
       }
