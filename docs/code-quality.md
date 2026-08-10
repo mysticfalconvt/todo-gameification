@@ -21,7 +21,15 @@ fixed when they were adopted, and what's deliberately left.
 
 Nothing runs on commit — commit in-progress work freely. `.githooks/pre-push`
 runs `scripts/check.sh` once, before anything leaves the machine. The hook is
-enabled by `core.hooksPath`, set by the `prepare` script on `pnpm install`.
+enabled by `core.hooksPath`, set by `scripts/install-hooks.mjs` from the
+`prepare` script on `pnpm install`.
+
+**That script must never fail.** pnpm runs `prepare` on *every* install,
+including in the Coolify/Nixpacks build container — which copies the source
+without a `.git` directory. The original one-liner `git config core.hooksPath
+.githooks` exits 128 there, and a failing `prepare` fails the whole install,
+which broke the deploy. `install-hooks.mjs` probes for a work tree first and
+exits 0 either way.
 
 Bypass with `git push --no-verify`.
 

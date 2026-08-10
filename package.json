@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
     "test": "vitest run",
-    "prepare": "git config core.hooksPath .githooks",
+    "prepare": "node scripts/install-hooks.mjs",
     "check": "./scripts/check.sh",
     "format": "biome format --write .",
     "lint": "biome check .",
