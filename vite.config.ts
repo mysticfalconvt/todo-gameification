@@ -23,6 +23,10 @@ export default defineConfig({
     // 'hidden' generates maps but omits the //# sourceMappingURL comment, so
     // the deployed JS doesn't advertise them. The plugin uploads them, then
     // deletes them from the output so nothing ships publicly.
+    //
+    // This only covers the CLIENT build — nitro's server build is configured
+    // separately below. Getting one without the other is what left every
+    // uploaded artifact as "no sourcemap found".
     sourcemap: uploadSourcemaps ? 'hidden' : false,
   },
   // Register the startup plugin that boots pg-boss on process start so the
@@ -30,6 +34,17 @@ export default defineConfig({
   // always live — not lazily booted by the first job-scheduling request.
   // See src/server/nitro/bootJobs.ts.
   nitro: {
+    // Server-side source maps. The key is `sourcemap` (lowercase m) — nitro
+    // silently ignores `sourceMap`, which is an easy hour to lose. Without
+    // this the server bundles ship with no maps at all, so @sentry/node stack
+    // traces in Bugsink stay minified.
+    //
+    // `true` rather than 'hidden' because nitro types this as boolean (the
+    // beta's types lag its runtime, which does accept 'hidden'). The
+    // difference is only whether a //# sourceMappingURL comment is emitted,
+    // and these .mjs files are never served to a browser — nothing to leak.
+    // The maps are deleted after upload either way.
+    sourcemap: uploadSourcemaps,
     plugins: [
       // Sentry/Bugsink first so error tracking is live before jobs boot.
       './src/server/nitro/sentry.ts',
@@ -52,6 +67,12 @@ export default defineConfig({
             authToken: sentryAuthToken,
             telemetry: false,
             sourcemaps: {
+              // Be explicit about what to scan. Left to auto-detect, the
+              // plugin only saw the server pass it runs in and uploaded 212
+              // server bundles with zero maps, while the 54 client maps —
+              // the ones that symbolicate browser stack traces — were never
+              // uploaded at all.
+              assets: ['./.output/public/**/*.js', './.output/server/**/*.mjs'],
               filesToDeleteAfterUpload: ['./.output/**/*.map'],
             },
           }),
