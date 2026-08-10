@@ -67,12 +67,26 @@ export default defineConfig({
             authToken: sentryAuthToken,
             telemetry: false,
             sourcemaps: {
-              // Be explicit about what to scan. Left to auto-detect, the
-              // plugin only saw the server pass it runs in and uploaded 212
-              // server bundles with zero maps, while the 54 client maps —
-              // the ones that symbolicate browser stack traces — were never
-              // uploaded at all.
-              assets: ['./.output/public/**/*.js', './.output/server/**/*.mjs'],
+              // Include the .map files, not just the bundles.
+              //
+              // This plugin runs in the server pass, so for the client tree it
+              // discovers files from disk with no rollup metadata. The server
+              // build emits `//# sourceMappingURL` comments (sourcemap: true)
+              // so its maps get pulled in by reference — but the client uses
+              // 'hidden', which omits that comment deliberately. With only
+              // `*.js` in this list the client maps were never in the scanned
+              // set, and all 54 came back "no sourcemap found".
+              //
+              // Naming the maps explicitly lets them pair on the debug ID the
+              // plugin injects into both halves, which is how Bugsink matches
+              // frames anyway — no sourceMappingURL comment required, so the
+              // deployed JS still doesn't advertise them.
+              assets: [
+                './.output/public/**/*.js',
+                './.output/public/**/*.js.map',
+                './.output/server/**/*.mjs',
+                './.output/server/**/*.mjs.map',
+              ],
               filesToDeleteAfterUpload: ['./.output/**/*.map'],
             },
           }),
