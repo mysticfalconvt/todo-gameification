@@ -20,14 +20,19 @@ export default defineConfig({
     port: 3000,
   },
   build: {
-    // 'hidden' generates maps but omits the //# sourceMappingURL comment, so
-    // the deployed JS doesn't advertise them. The plugin uploads them, then
-    // deletes them from the output so nothing ships publicly.
+    // Client source maps. `true`, not 'hidden', and that matters:
     //
-    // This only covers the CLIENT build — nitro's server build is configured
-    // separately below. Getting one without the other is what left every
-    // uploaded artifact as "no sourcemap found".
-    sourcemap: uploadSourcemaps ? 'hidden' : false,
+    // sentryVitePlugin runs in the *server* pass, so for the client tree it
+    // discovers files from disk with no rollup metadata — the only way it can
+    // find a bundle's map is the //# sourceMappingURL comment. 'hidden' omits
+    // that comment by design, which left all 54 client bundles uploaded as
+    // "no sourcemap found" across two deploys. Listing the .map files in
+    // `sourcemaps.assets` did not help (verified: identical 486/216/54).
+    //
+    // Cost of `true`: the deployed JS carries a sourceMappingURL comment
+    // pointing at a .map that filesToDeleteAfterUpload removes — a 404 in
+    // devtools, not a source leak. Nothing is published.
+    sourcemap: uploadSourcemaps,
   },
   // Register the startup plugin that boots pg-boss on process start so the
   // cron schedulers (weekly summary, plant risk, github poll, cleanup) are
@@ -67,26 +72,15 @@ export default defineConfig({
             authToken: sentryAuthToken,
             telemetry: false,
             sourcemaps: {
-              // Include the .map files, not just the bundles.
+              // Both output trees. Without this the plugin auto-detected only
+              // the server pass it runs in, and the client bundles were never
+              // uploaded at all.
               //
-              // This plugin runs in the server pass, so for the client tree it
-              // discovers files from disk with no rollup metadata. The server
-              // build emits `//# sourceMappingURL` comments (sourcemap: true)
-              // so its maps get pulled in by reference — but the client uses
-              // 'hidden', which omits that comment deliberately. With only
-              // `*.js` in this list the client maps were never in the scanned
-              // set, and all 54 came back "no sourcemap found".
-              //
-              // Naming the maps explicitly lets them pair on the debug ID the
-              // plugin injects into both halves, which is how Bugsink matches
-              // frames anyway — no sourceMappingURL comment required, so the
-              // deployed JS still doesn't advertise them.
-              assets: [
-                './.output/public/**/*.js',
-                './.output/public/**/*.js.map',
-                './.output/server/**/*.mjs',
-                './.output/server/**/*.mjs.map',
-              ],
+              // Bundles only — listing *.map here does nothing. `assets`
+              // selects which bundles to upload; maps are always discovered by
+              // reference from the sourceMappingURL comment, which is why both
+              // builds now emit one.
+              assets: ['./.output/public/**/*.js', './.output/server/**/*.mjs'],
               filesToDeleteAfterUpload: ['./.output/**/*.map'],
             },
           }),
