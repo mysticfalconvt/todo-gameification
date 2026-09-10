@@ -9,7 +9,10 @@ import { isAdminEmail } from '../services/admin'
 // them apart if it ever needs to.
 export const adminMiddleware = createMiddleware({ type: 'function' }).server(async ({ next }) => {
   const request = getRequest()
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await auth.api.getSession({
+    headers: request.headers,
+    query: { disableRefresh: true },
+  })
   if (!session) {
     throw new Response('Unauthorized', { status: 401 })
   }
