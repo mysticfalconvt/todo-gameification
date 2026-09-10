@@ -1372,6 +1372,7 @@ function WeekRowItem({
     !isCompleted &&
     !isSkipped &&
     canCompleteChore(row.assignedToUserId, row.assigneeGroup)
+  const instanceId = row.instanceId
 
   return (
     <li
@@ -1430,15 +1431,16 @@ function WeekRowItem({
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              if (!instanceId) return
               onClick({
-                instanceId: row.instanceId!,
+                instanceId,
                 title: row.title,
                 assignedToUserId: row.assignedToUserId,
                 assignedToHandle: row.assignedToHandle,
                 assignedToName: row.assignedToName,
               })
-            }
+            }}
             disabled={completePending}
             className="rounded-md bg-[var(--btn-primary-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--btn-primary-fg)] disabled:opacity-50"
           >
@@ -3114,25 +3116,47 @@ function ResetPasswordButton({
   targetUserId: string
   targetName: string
 }) {
-  const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
+      >
+        Reset pw
+      </button>
+      {open ? (
+        <ResetPasswordDialog
+          targetUserId={targetUserId}
+          targetName={targetName}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  )
+}
+
+// Password matching, mutation state, and modal lifecycle form one cohesive flow.
+// fallow-ignore-next-line complexity
+function ResetPasswordDialog({
+  targetUserId,
+  targetName,
+  onClose,
+}: {
+  targetUserId: string
+  targetName: string
+  onClose: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
-  const [validationError, setValidationError] = useState<string | null>(null)
-
-  function close() {
-    setOpen(false)
-    setPassword('')
-    setConfirmation('')
-    setValidationError(null)
-  }
 
   useEffect(() => {
     const el = dialogRef.current
-    if (!el) return
-    if (open && !el.open) el.showModal()
-    else if (!open && el.open) el.close()
-  }, [open])
+    if (el && !el.open) el.showModal()
+  }, [])
 
   const reset = useMutation({
     mutationFn: (newPassword: string) =>
@@ -3141,111 +3165,88 @@ function ResetPasswordButton({
       }),
     onSuccess: () => {
       toast.success(`Password reset for ${targetName}.`)
-      close()
+      onClose()
     },
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Reset failed.'),
   })
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          reset.reset()
-          setOpen(true)
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      className="m-auto w-11/12 max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          reset.mutate(password)
         }}
-        className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)] disabled:opacity-50"
+        className="flex flex-col gap-4 p-5"
       >
-        Reset pw
-      </button>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: native dialog closes on Escape. */}
-      <dialog
-        ref={dialogRef}
-        onClose={close}
-        onCancel={(e) => {
-          if (reset.isPending) e.preventDefault()
-        }}
-        onClick={(e) => {
-          if (e.target === dialogRef.current && !reset.isPending) close()
-        }}
-        className="m-auto w-[min(420px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (password !== confirmation) {
-              setValidationError('Passwords do not match.')
-              return
+        <div>
+          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
+            Reset password for {targetName}
+          </h3>
+          <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+            This signs the account out on every device. Share the new password directly with the
+            family member.
+          </p>
+        </div>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            New password
+          </span>
+          <input
+            type="password"
+            required
+            minLength={8}
+            maxLength={128}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="field-input"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+            Confirm password
+          </span>
+          <input
+            type="password"
+            required
+            minLength={8}
+            maxLength={128}
+            autoComplete="new-password"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            className="field-input"
+          />
+        </label>
+        <p className="text-xs text-[var(--sea-ink-soft)]">Enter the same password twice.</p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={reset.isPending}
+            className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={
+              reset.isPending ||
+              password.length < 8 ||
+              confirmation.length < 8 ||
+              password !== confirmation
             }
-            setValidationError(null)
-            reset.mutate(password)
-          }}
-          className="flex flex-col gap-4 p-5"
-        >
-          <div>
-            <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
-              Reset password for {targetName}
-            </h3>
-            <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              This signs the account out on every device. Share the new password directly with the
-              family member.
-            </p>
-          </div>
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              New password
-            </span>
-            <input
-              type="password"
-              required
-              minLength={8}
-              maxLength={128}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="field-input"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
-              Confirm password
-            </span>
-            <input
-              type="password"
-              required
-              minLength={8}
-              maxLength={128}
-              autoComplete="new-password"
-              value={confirmation}
-              onChange={(e) => setConfirmation(e.target.value)}
-              className="field-input"
-            />
-          </label>
-          {validationError ? (
-            <p className="text-sm text-red-600" role="alert">
-              {validationError}
-            </p>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={close}
-              disabled={reset.isPending}
-              className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={reset.isPending || password.length < 8 || confirmation.length < 8}
-              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
-            >
-              {reset.isPending ? 'Resetting…' : 'Reset password'}
-            </button>
-          </div>
-        </form>
-      </dialog>
-    </>
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+          >
+            {reset.isPending ? 'Resetting…' : 'Reset password'}
+          </button>
+        </div>
+      </form>
+    </dialog>
   )
 }
 
@@ -3350,7 +3351,7 @@ function ManagedMemberSettingsDialog({
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose()
       }}
-      className="m-auto w-[min(460px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+      className="m-auto w-11/12 max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
     >
       <div className="flex flex-col gap-5 p-5">
         <div>
