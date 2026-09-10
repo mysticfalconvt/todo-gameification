@@ -165,7 +165,15 @@ export const createManagedMemberFn = createServerFn({ method: 'POST' })
 
 export const resetManagedMemberPasswordFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; newPassword: string }) => data)
+  .inputValidator((data: unknown) => {
+    if (!data || typeof data !== 'object') throw new Error('Invalid password reset request.')
+    const { targetUserId, newPassword } = data as Record<string, unknown>
+    if (typeof targetUserId !== 'string' || !targetUserId) {
+      throw new Error('Target user is required.')
+    }
+    if (typeof newPassword !== 'string') throw new Error('Password is required.')
+    return { targetUserId, newPassword }
+  })
   .handler(async ({ data, context }) => {
     await service.resetManagedMemberPassword(context.userId, data.targetUserId, data.newPassword)
     return { ok: true }

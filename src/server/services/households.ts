@@ -931,14 +931,15 @@ export async function resetManagedMemberPassword(
   if (newPassword.length < 8) {
     throw new Error('Password must be at least 8 characters.')
   }
-  // better-auth's adapter exposes a `ctx.internalAdapter.updatePassword`
-  // utility, but the cleanest surface is the public setUserPassword
-  // server action via the internal context. We just rewrite the
-  // credential account directly using better-auth's password hasher
-  // for parity with signUpEmail.
+  if (newPassword.length > 128) {
+    throw new Error('Password must be at most 128 characters.')
+  }
+  // Hash through Better Auth so this credential matches normal sign-up,
+  // then revoke the managed account's sessions on every device.
   const ctx = await auth.$context
   const hashed = await ctx.password.hash(newPassword)
   await ctx.internalAdapter.updatePassword(targetUserId, hashed)
+  await ctx.internalAdapter.deleteSessions(targetUserId)
 }
 
 export interface HouseholdMemberStats {

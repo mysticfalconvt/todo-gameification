@@ -3114,103 +3114,138 @@ function ResetPasswordButton({
   targetUserId: string
   targetName: string
 }) {
-  const [revealed, setRevealed] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [validationError, setValidationError] = useState<string | null>(null)
+
+  function close() {
+    setOpen(false)
+    setPassword('')
+    setConfirmation('')
+    setValidationError(null)
+  }
+
+  useEffect(() => {
+    const el = dialogRef.current
+    if (!el) return
+    if (open && !el.open) el.showModal()
+    else if (!open && el.open) el.close()
+  }, [open])
+
   const reset = useMutation({
     mutationFn: (newPassword: string) =>
       resetManagedMemberPasswordFn({
         data: { targetUserId, newPassword },
       }),
-    onSuccess: (_, newPassword) => {
-      setRevealed(newPassword)
+    onSuccess: () => {
+      toast.success(`Password reset for ${targetName}.`)
+      close()
     },
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : 'Reset failed.'),
   })
+
   return (
     <>
       <button
         type="button"
         onClick={() => {
-          if (!confirm(`Reset password for ${targetName}? You'll get a new one to hand over.`))
-            return
-          reset.mutate(generateTempPassword())
+          reset.reset()
+          setOpen(true)
         }}
-        disabled={reset.isPending}
         className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)] disabled:opacity-50"
       >
-        {reset.isPending ? 'Resetting…' : 'Reset pw'}
+        Reset pw
       </button>
-      {revealed && (
-        <PasswordRevealDialog
-          name={targetName}
-          password={revealed}
-          onClose={() => setRevealed(null)}
-        />
-      )}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: native dialog closes on Escape. */}
+      <dialog
+        ref={dialogRef}
+        onClose={close}
+        onCancel={(e) => {
+          if (reset.isPending) e.preventDefault()
+        }}
+        onClick={(e) => {
+          if (e.target === dialogRef.current && !reset.isPending) close()
+        }}
+        className="m-auto w-[min(420px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (password !== confirmation) {
+              setValidationError('Passwords do not match.')
+              return
+            }
+            setValidationError(null)
+            reset.mutate(password)
+          }}
+          className="flex flex-col gap-4 p-5"
+        >
+          <div>
+            <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
+              Reset password for {targetName}
+            </h3>
+            <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+              This signs the account out on every device. Share the new password directly with the
+              family member.
+            </p>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              New password
+            </span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="field-input"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--kicker)]">
+              Confirm password
+            </span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              className="field-input"
+            />
+          </label>
+          {validationError ? (
+            <p className="text-sm text-red-600" role="alert">
+              {validationError}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={close}
+              disabled={reset.isPending}
+              className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={reset.isPending || password.length < 8 || confirmation.length < 8}
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)] disabled:opacity-50"
+            >
+              {reset.isPending ? 'Resetting…' : 'Reset password'}
+            </button>
+          </div>
+        </form>
+      </dialog>
     </>
-  )
-}
-
-function PasswordRevealDialog({
-  name,
-  password,
-  onClose,
-}: {
-  name: string
-  password: string
-  onClose: () => void
-}) {
-  const dialogRef = useRef<HTMLDialogElement | null>(null)
-  useEffect(() => {
-    const el = dialogRef.current
-    if (!el) return
-    if (!el.open) el.showModal()
-  }, [])
-
-  return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss; the modal already closes on Escape (native <dialog>, or an explicit key handler), so no keyboard affordance is missing.
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      onClick={(e) => {
-        if (e.target === dialogRef.current) onClose()
-      }}
-      className="m-auto w-[min(420px,calc(100%-1.5rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--sea-ink)] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
-    >
-      <div className="flex flex-col gap-4 p-5">
-        <div>
-          <h3 className="display-title text-lg font-bold text-[var(--sea-ink)]">
-            New password for {name}
-          </h3>
-          <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-            Hand this over — it won&rsquo;t be shown again.
-          </p>
-        </div>
-        <p className="rounded-xl border border-[var(--line)] bg-[var(--option-bg)] p-3 text-center font-mono text-lg">
-          {password}
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (navigator.clipboard) {
-                navigator.clipboard.writeText(password)
-                toast.success('Copied.')
-              }
-            }}
-            className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink-soft)]"
-          >
-            Copy
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-1.5 text-xs font-semibold text-[var(--lagoon-deep)]"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </dialog>
   )
 }
 
