@@ -10,7 +10,14 @@
 import { db } from '../db/client'
 import { llmCallLog } from '../db/schema'
 
-export type LlmCallKind = 'score' | 'categorize' | 'coach' | 'word_search' | 'weekly'
+export type LlmCallKind =
+  | 'score'
+  | 'categorize'
+  | 'coach'
+  | 'word_search'
+  | 'weekly'
+  | 'voice_task'
+  | 'transcribe'
 
 export function isLlmConfigured(): boolean {
   return Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL)
@@ -40,6 +47,47 @@ interface ChatResponseBody {
     total_tokens?: number
   }
   model?: string
+}
+
+export interface LlmLogEntry {
+  kind: LlmCallKind
+  userId?: string | null
+  model: string
+  startedAt: Date
+  durationMs: number
+  success: boolean
+  errorMessage: string | null
+  promptTokens?: number | null
+  completionTokens?: number | null
+  totalTokens?: number | null
+  /** Chat messages, or a stand-in describing a non-chat call (e.g. audio). */
+  messages: Array<{ role: string; content: string }>
+  response: string | null
+}
+
+/**
+ * Fire-and-forget write to `llm_call_log`, powering the /admin/llm dashboard.
+ * Shared by the chat client and the transcription client so every model call,
+ * whatever its shape, shows up in one place.
+ */
+export function logLlmCall(entry: LlmLogEntry): void {
+  void db
+    .insert(llmCallLog)
+    .values({
+      userId: entry.userId ?? null,
+      kind: entry.kind,
+      model: entry.model,
+      startedAt: entry.startedAt,
+      durationMs: entry.durationMs,
+      success: entry.success,
+      errorMessage: entry.errorMessage,
+      promptTokens: entry.promptTokens ?? null,
+      completionTokens: entry.completionTokens ?? null,
+      totalTokens: entry.totalTokens ?? null,
+      messages: entry.messages,
+      response: entry.response,
+    })
+    .catch((e) => console.error('[llm] log insert failed:', e))
 }
 
 export async function callLlmChat(options: LlmChatOptions): Promise<string | null> {
@@ -91,24 +139,20 @@ export async function callLlmChat(options: LlmChatOptions): Promise<string | nul
     }
   } finally {
     clearTimeout(timer)
-    const durationMs = Math.max(0, Math.round(performance.now() - t0))
-    void db
-      .insert(llmCallLog)
-      .values({
-        userId: options.track.userId ?? null,
-        kind: options.track.kind,
-        model: body?.model ?? model,
-        startedAt,
-        durationMs,
-        success: content !== null && errorMessage === null,
-        errorMessage,
-        promptTokens: body?.usage?.prompt_tokens ?? null,
-        completionTokens: body?.usage?.completion_tokens ?? null,
-        totalTokens: body?.usage?.total_tokens ?? null,
-        messages: options.messages,
-        response: content,
-      })
-      .catch((e) => console.error('[llm] log insert failed:', e))
+    logLlmCall({
+      kind: options.track.kind,
+      userId: options.track.userId,
+      model: body?.model ?? model,
+      startedAt,
+      durationMs: Math.max(0, Math.round(performance.now() - t0)),
+      success: content !== null && errorMessage === null,
+      errorMessage,
+      promptTokens: body?.usage?.prompt_tokens,
+      completionTokens: body?.usage?.completion_tokens,
+      totalTokens: body?.usage?.total_tokens,
+      messages: options.messages,
+      response: content,
+    })
   }
 
   return content

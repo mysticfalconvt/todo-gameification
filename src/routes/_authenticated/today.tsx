@@ -21,6 +21,7 @@ import { currentPushStatus, enablePushNotifications, type PushSupportStatus } fr
 import { xpLabel } from '../../lib/xp-label'
 import { SortSelect } from '../../components/SortSelect'
 import { DoomScrollButton } from '../../components/DoomScrollButton'
+import { VoiceCaptureButton } from '../../components/voice/VoiceCaptureButton'
 import { MilestoneCelebration, type CelebrationEvent } from '../../components/MilestoneCelebration'
 import type { CompletionCelebration } from '../../server/services/tasks'
 import { badgeForStreak } from '../../domain/gamification'
@@ -331,18 +332,34 @@ function TodayPage() {
           }
         >
           {!isKid && (
-            <Link
-              to="/tasks/new"
-              className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:w-32 sm:flex-none"
-            >
-              + New
-            </Link>
+            // `contents` on mobile dissolves this wrapper so "+ New", the
+            // mic, Focus and DoomScroll all share the parent row directly —
+            // grouping them there would make the mic eat into "+ New"'s
+            // slot and wrap its label onto two lines. From sm: up it becomes
+            // a real group so the mic sits inline to the right of "+ New".
+            <div className="contents sm:flex sm:w-32 sm:flex-none sm:items-center sm:gap-2">
+              <Link
+                to="/tasks/new"
+                className="flex-1 whitespace-nowrap rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+              >
+                + New
+              </Link>
+              <VoiceCaptureButton />
+            </div>
           )}
           <Link
             to="/focus"
-            className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:w-32 sm:flex-none"
+            // nowrap matters now that the mic is a fourth item in this row:
+            // a wrapped two-line pill makes the whole row tall and stretches
+            // its siblings.
+            className="flex-1 whitespace-nowrap rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-center text-sm font-semibold text-[var(--lagoon-deep)] no-underline sm:w-32 sm:flex-none"
           >
-            🎯 Focus
+            {/* The emoji is the wrap point and costs width in a row that now
+                carries four actions; text-only on mobile. */}
+            <span aria-hidden className="hidden sm:inline">
+              🎯{' '}
+            </span>
+            Focus
           </Link>
           {!isKid && <DoomScrollButton tokens={progression?.tokens ?? 0} />}
         </div>

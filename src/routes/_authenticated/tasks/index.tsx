@@ -18,6 +18,7 @@ import { CategoryHistogram } from '../../../components/CategoryHistogram'
 import { formatWeeklyLabel } from '../../../components/WeekdayPicker'
 import { TASKS_SORTS, compareBy, useStoredSort } from '../../../lib/sort'
 import { TaskDetailsDialog, type TaskDetailsInstance } from '../../../components/TaskDetailsDialog'
+import { VoiceCaptureButton } from '../../../components/voice/VoiceCaptureButton'
 
 export const Route = createFileRoute('/_authenticated/tasks/')({
   component: AllTasksPage,
@@ -206,12 +207,15 @@ function AllTasksPage() {
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="display-title text-4xl font-bold text-[var(--sea-ink)]">All tasks</h1>
         {!isKid && (
-          <Link
-            to="/tasks/new"
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
-          >
-            + New task
-          </Link>
+          <div className="flex items-center gap-2">
+            <VoiceCaptureButton />
+            <Link
+              to="/tasks/new"
+              className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-4 py-2 text-sm font-semibold text-[var(--lagoon-deep)] no-underline"
+            >
+              + New task
+            </Link>
+          </div>
         )}
       </div>
 

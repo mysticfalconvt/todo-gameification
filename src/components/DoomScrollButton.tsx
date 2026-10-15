@@ -50,7 +50,9 @@ export function DoomScrollButton({ tokens }: { tokens: number }) {
         onClick={() => setOpen(true)}
         aria-label="Doom scroll break timer"
         title="Doom scroll break timer"
-        className="shrink-0 self-end rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-3 py-2 text-center text-base leading-none font-semibold text-[var(--lagoon-deep)] no-underline"
+        // Sized to match the mic button beside it: px-3/py-2 + leading-none left
+        // this noticeably shorter than its row-mates.
+        className="inline-flex h-9 w-9 shrink-0 self-end items-center justify-center rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] text-center text-base leading-none font-semibold text-[var(--lagoon-deep)] no-underline sm:h-10 sm:w-10"
       >
         💀
       </button>
