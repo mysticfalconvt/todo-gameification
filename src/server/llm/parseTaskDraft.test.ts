@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { resolveVoiceWhen } from '../../domain/voiceWhen'
 import {
+  narrowAssignee,
   narrowRecurrence,
   narrowWhen,
   type RawRecurrence,
@@ -35,6 +36,7 @@ const raw = (over: Record<string, unknown> = {}) =>
       week: 1,
       dayOfWeek: 0,
     },
+    assignee: { kind: 'default', group: 'adults', person: '' },
     ...over,
   })
 
@@ -199,6 +201,7 @@ describe('reconcileWithTranscript', () => {
     notes: null,
     when: { kind: 'none' },
     recurrence: null,
+    assignee: { kind: 'default' },
     ...over,
   })
 
@@ -259,6 +262,38 @@ describe('reconcileWithTranscript', () => {
       'move the laundry over in two hours',
     )
     expect(d.when).toEqual({ kind: 'in_duration', amount: 2, unit: 'hours' })
+  })
+
+  it('fills a missing day part from the transcript', () => {
+    // "tonight" kept getting dropped as the prompt grew; the transcript is
+    // the authority for a closed vocabulary like this.
+    const d = reconcileWithTranscript(
+      draft({ when: { kind: 'day_offset', offset: 0, part: null, time: null } }),
+      'put the bins out tonight',
+    )
+    expect(d.when).toEqual({ kind: 'day_offset', offset: 0, part: 'evening', time: null })
+  })
+
+  it('never overrides a part or time the model did find', () => {
+    const withPart = reconcileWithTranscript(
+      draft({ when: { kind: 'day_offset', offset: 0, part: 'morning', time: null } }),
+      'tidy up tonight',
+    )
+    expect(withPart.when).toMatchObject({ part: 'morning' })
+
+    const withTime = reconcileWithTranscript(
+      draft({ when: { kind: 'day_offset', offset: 0, part: null, time: '21:15' } }),
+      'tidy up tonight',
+    )
+    expect(withTime.when).toMatchObject({ part: null, time: '21:15' })
+  })
+
+  it('leaves the part alone when the transcript names several', () => {
+    const d = reconcileWithTranscript(
+      draft({ when: { kind: 'day_offset', offset: 1, part: null, time: null } }),
+      'swap the morning and evening shifts tomorrow',
+    )
+    expect(d.when).toMatchObject({ part: null })
   })
 
   it('does not invent a weekday when the model chose a different shape', () => {
@@ -386,5 +421,40 @@ describe('narrowRecurrence', () => {
     expect(narrowRecurrence(r({ type: 'monthly_day', dayOfMonth: 0 }))).toBeNull()
     expect(narrowRecurrence(r({ type: 'monthly_weekday', week: 5, dayOfWeek: 1 }))).toBeNull()
     expect(narrowRecurrence(r({ type: 'interval', amount: 0 }))).toBeNull()
+  })
+})
+
+describe('narrowAssignee', () => {
+  const a = (over = {}) =>
+    ({ kind: 'default', group: 'adults', person: '', ...over }) as Parameters<
+      typeof narrowAssignee
+    >[0]
+
+  it('defaults when nobody is named', () => {
+    expect(narrowAssignee(a())).toEqual({ kind: 'default' })
+    expect(narrowAssignee(undefined)).toEqual({ kind: 'default' })
+  })
+
+  it('maps me and the two groups', () => {
+    expect(narrowAssignee(a({ kind: 'me' }))).toEqual({ kind: 'me' })
+    expect(narrowAssignee(a({ kind: 'group', group: 'kids' }))).toEqual({
+      kind: 'group',
+      group: 'kids',
+    })
+  })
+
+  it('trims a spoken name', () => {
+    expect(narrowAssignee(a({ kind: 'person', person: '  Sarah ' }))).toEqual({
+      kind: 'person',
+      name: 'Sarah',
+    })
+  })
+
+  it('falls back to default on an unusable payload', () => {
+    // A person with no name, or a group outside the enum, must not become
+    // a half-formed assignment.
+    expect(narrowAssignee(a({ kind: 'person', person: '   ' }))).toEqual({ kind: 'default' })
+    expect(narrowAssignee(a({ kind: 'group', group: 'nobody' }))).toEqual({ kind: 'default' })
+    expect(narrowAssignee(a({ kind: 'bogus' }))).toEqual({ kind: 'default' })
   })
 })

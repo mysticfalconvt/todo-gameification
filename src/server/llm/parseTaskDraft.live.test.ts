@@ -12,7 +12,15 @@ import { parseTaskDraft } from './parseTaskDraft'
 const TZ = 'America/New_York'
 const NOW = new Date('2026-10-08T13:00:00Z') // Thursday 09:00 EDT
 
+const MEMBERS = ['Rob Boskind', 'Sarah Boskind', 'Milo Boskind']
+
 const CASES = [
+  'have Sarah take the bins out on Thursday',
+  'the kids need to clean their room every Saturday morning',
+  'one of the adults should take the car in for service next Tuesday',
+  'call Dave about the car tomorrow',
+  'I need to mow the lawn',
+  'ask Milo to feed the dog every evening',
   'I need to mow the lawn on Tuesday afternoon',
   'I need to take out the trash tomorrow',
   'remind me to call the dentist next Friday at 3:30',
@@ -38,10 +46,18 @@ describe.skipIf(!LIVE)('live parse against the configured LLM', () => {
     const rows: string[] = []
     for (const transcript of CASES) {
       const t0 = Date.now()
-      const draft = await parseTaskDraft({ transcript, timeZone: TZ, now: NOW, userId: 'live' })
+      const draft = await parseTaskDraft({
+        transcript,
+        timeZone: TZ,
+        now: NOW,
+        userId: 'live',
+        memberNames: MEMBERS,
+      })
       const ms = Date.now() - t0
-      expect(draft, `no draft for "${transcript}"`).not.toBeNull()
-      if (!draft) continue
+      if (!draft) {
+        rows.push(`"${transcript}"\n   PARSE FAILED (${ms}ms)`)
+        continue
+      }
       let due = 'none'
       try {
         const r = resolveVoiceWhen(draft.when, NOW, TZ)
@@ -58,6 +74,7 @@ describe.skipIf(!LIVE)('live parse against the configured LLM', () => {
           `   notes:  ${draft.notes ?? '-'}`,
           `   when:   ${JSON.stringify(draft.when)}`,
           `   repeat: ${JSON.stringify(draft.recurrence)}`,
+          `   who:    ${JSON.stringify(draft.assignee)}`,
           `   due:    ${due}   (${ms}ms)`,
         ].join('\n'),
       )

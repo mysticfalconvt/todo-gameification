@@ -44,6 +44,9 @@ Never compute a calendar date yourself. Describe timing symbolically; the app re
 
 TIME OF DAY
 - Spoken clock time ("at 3:30", "at 7pm") -> time "HH:MM" in 24h. Otherwise time "".
+- With no am/pm spoken, choose the hour a person would actually mean. A bare 1 to 6
+  is the afternoon or evening: "at 5:30" -> "17:30", NOT "05:30". A bare 7 to 11 is
+  the morning: "at 8" -> "08:00". Say "at 5:30 in the morning" to get "05:30".
 - Vague time words -> part: "morning", "afternoon", "evening" or "night". Otherwise part "none".
 - Never invent a time that was not spoken. "Mow the lawn Tuesday" has part "none" and time "".
 
@@ -68,6 +71,23 @@ Convert every spoken duration into one of those three units. This applies identi
 - "every year" -> amount 365, unit "days"
 A week is never 1 and never 2 — it is 7 days. Multiply before you answer.
 
+WHO IT IS FOR
+Set assignee.kind only when the user actually names someone. Default is "default".
+- no mention of a person -> kind "default"
+- "I need to…", "remind me to…" -> kind "default" (that is already the speaker)
+- "the kids need to…", "have the kids…", "one of the kids…" -> kind "group", group "kids"
+- "the adults…", "one of the grown ups…" -> kind "group", group "adults"
+- a household member's name ("have Sarah take the bins out") -> kind "person", person "Sarah"
+Only use kind "person" for a name in the HOUSEHOLD MEMBERS list below. A name that is
+not in that list is part of the task, not an assignee: "call Dave about the car" is
+kind "default" with Dave left in the title.
+A person or group is the assignee ONLY when the sentence says THEY should do the task.
+When they are who the task is about, kind is "default":
+- "pick up the kids from soccer" -> kind "default" (the speaker collects them)
+- "buy Sarah a birthday present" -> kind "default" (the speaker buys it)
+- "have the kids tidy up" -> kind "group", group "kids" (they do it)
+Never put the assignee in the title: "have Sarah take the bins out" -> title "Take the bins out".
+
 TITLE AND NOTES
 - title: a short imperative task name, using THE USER'S OWN WORDS. Never swap in a synonym: "mow the lawn" -> "Mow the lawn", never "Mow the grass".
 - Strip only filler like "I need to", "I should", "remind me to". Keep the user's plurals and wording: "the bins" stays "the bins", "the gutters" stays "the gutters".
@@ -87,6 +107,10 @@ WORKED EXAMPLES
   title "Clean the gutters", when kind "in_duration" amount 14 unit "days", recurrence type "none"
 "put the bins out tonight"
   title "Put the bins out", when kind "day_offset" dayOffset 0 part "evening", recurrence type "none"
+"pick up the kids from soccer at 5:30 tomorrow"
+  title "Pick up the kids from soccer", assignee kind "default" — the kids are the errand, not the assignee
+"have Sarah take the bins out on Thursday"
+  title "Take the bins out", assignee kind "person" person "Sarah"
 
 Output ONLY the JSON object.`
 
@@ -97,6 +121,9 @@ Output ONLY the JSON object.`
 const WHEN_KINDS = ['none', 'day_offset', 'next_weekday', 'in_duration', 'absolute'] as const
 const PARTS = ['none', 'morning', 'afternoon', 'evening', 'night'] as const
 const UNITS = ['minutes', 'hours', 'days'] as const
+const ASSIGNEE_KINDS = ['default', 'me', 'group', 'person'] as const
+const ASSIGNEE_GROUPS = ['adults', 'kids'] as const
+
 const RECURRENCE_TYPES = [
   'none',
   'daily',
@@ -128,11 +155,19 @@ export interface RawRecurrence {
   dayOfWeek: number
 }
 
+export interface RawAssignee {
+  kind: (typeof ASSIGNEE_KINDS)[number]
+  group: (typeof ASSIGNEE_GROUPS)[number]
+  /** Spoken name; resolved to a household member by the caller. */
+  person: string
+}
+
 interface RawDraft {
   title: string
   notes: string
   when: RawWhen
   recurrence: RawRecurrence
+  assignee: RawAssignee
 }
 
 const JSON_SCHEMA = {
@@ -174,8 +209,18 @@ const JSON_SCHEMA = {
           required: ['type', 'daysOfWeek', 'amount', 'unit', 'dayOfMonth', 'week', 'dayOfWeek'],
           additionalProperties: false,
         },
+        assignee: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: ASSIGNEE_KINDS },
+            group: { type: 'string', enum: ASSIGNEE_GROUPS },
+            person: { type: 'string' },
+          },
+          required: ['kind', 'group', 'person'],
+          additionalProperties: false,
+        },
       },
-      required: ['title', 'notes', 'when', 'recurrence'],
+      required: ['title', 'notes', 'when', 'recurrence', 'assignee'],
       additionalProperties: false,
     },
   },
@@ -270,6 +315,32 @@ export function narrowRecurrence(raw: RawRecurrence): Recurrence | null {
   }
 }
 
+export type VoiceAssignee =
+  /** Nobody named — the caller applies its own default. */
+  | { kind: 'default' }
+  | { kind: 'me' }
+  | { kind: 'group'; group: 'adults' | 'kids' }
+  /** A spoken name, not yet matched to a household member. */
+  | { kind: 'person'; name: string }
+
+export function narrowAssignee(raw: RawAssignee | undefined): VoiceAssignee {
+  if (!raw) return { kind: 'default' }
+  switch (raw.kind) {
+    case 'me':
+      return { kind: 'me' }
+    case 'group':
+      return raw.group === 'adults' || raw.group === 'kids'
+        ? { kind: 'group', group: raw.group }
+        : { kind: 'default' }
+    case 'person': {
+      const name = raw.person?.trim()
+      return name ? { kind: 'person', name } : { kind: 'default' }
+    }
+    default:
+      return { kind: 'default' }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Deterministic reconciliation against the transcript
 // ---------------------------------------------------------------------------
@@ -282,6 +353,27 @@ export function narrowRecurrence(raw: RawRecurrence): Recurrence | null {
 // regex settles them perfectly and we stop relying on model compliance. These
 // only ever *correct* a field the model already chose to populate — they never
 // invent timing the model didn't find.
+
+// Spoken day parts, for the same reason as WEEKDAY_WORDS: a closed, tiny
+// vocabulary the model keeps dropping as the prompt grows. "tonight" is
+// evening rather than night — people mean the hours after dinner.
+const DAY_PART_WORDS: Record<string, TimedDayPart> = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+  tonight: 'evening',
+  night: 'night',
+  midnight: 'night',
+}
+
+function dayPartIn(transcript: string): TimedDayPart | null {
+  const found = new Set<TimedDayPart>()
+  for (const word of transcript.toLowerCase().match(/[a-z]+/g) ?? []) {
+    const part = DAY_PART_WORDS[word]
+    if (part) found.add(part)
+  }
+  return found.size === 1 ? [...found][0] : null
+}
 
 const WEEKDAY_WORDS: Record<string, number> = {
   sunday: 0,
@@ -336,6 +428,11 @@ export function reconcileWithTranscript(draft: TaskDraft, transcript: string): T
   }
   if (when.kind === 'in_duration') {
     when = { ...when, amount: scaleDuration(transcript, when.amount, when.unit) }
+  } else if (when.kind !== 'none' && !when.part && !when.time) {
+    // Only fills a gap: an explicit time or part the model did find always
+    // wins, so this can never contradict the transcript.
+    const part = dayPartIn(transcript)
+    if (part) when = { ...when, part }
   }
 
   if (recurrence?.type === 'weekly' && days.length > 0) {
@@ -359,11 +456,14 @@ export interface TaskDraft {
   notes: string | null
   when: VoiceWhen
   recurrence: Recurrence | null
+  assignee: VoiceAssignee
 }
 
 export interface ParseTaskDraftInput {
   transcript: string
   timeZone: string
+  /** Household member names, so a spoken name can be recognised as one. */
+  memberNames?: string[]
   /** Injected for tests; defaults to now. */
   now?: Date
   userId: string
@@ -377,7 +477,13 @@ export async function parseTaskDraft(input: ParseTaskDraftInput): Promise<TaskDr
   const now = input.now ?? new Date()
   // Grounding. Without an explicit "today is <weekday>", the model anchors on
   // whatever its training data suggests and picks the wrong Tuesday.
+  const roster = input.memberNames?.length
+    ? `HOUSEHOLD MEMBERS: ${input.memberNames.join(', ')}`
+    : 'HOUSEHOLD MEMBERS: (none — never use assignee kind "person" or "group")'
+
   const context = [
+    roster,
+    '',
     `Current date: ${formatInTimeZone(now, input.timeZone, 'yyyy-MM-dd')}`,
     `Current day of week: ${formatInTimeZone(now, input.timeZone, 'EEEE')}`,
     `Current local time: ${formatInTimeZone(now, input.timeZone, 'HH:mm')}`,
@@ -392,7 +498,7 @@ export async function parseTaskDraft(input: ParseTaskDraftInput): Promise<TaskDr
       { role: 'user', content: context },
     ],
     temperature: 0,
-    maxTokens: 400,
+    maxTokens: 700,
     timeoutMs: 20_000,
     responseFormat: JSON_SCHEMA,
     track: { kind: 'voice_task', userId: input.userId },
@@ -419,6 +525,7 @@ export function toDraft(raw: string | null): TaskDraft | null {
     notes,
     when,
     recurrence: data.recurrence ? narrowRecurrence(data.recurrence) : null,
+    assignee: narrowAssignee(data.assignee),
   }
 }
 

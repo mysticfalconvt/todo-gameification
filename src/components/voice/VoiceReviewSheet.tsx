@@ -5,10 +5,11 @@
 // ordinary createTask path — auto-categorise, XP scoring and the event log
 // all behave exactly as they do for a typed task.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { resolveDuration, type Recurrence } from '../../domain/recurrence'
+import { getMyHouseholdFn } from '../../server/functions/households'
 import { createTask } from '../../server/functions/tasks'
 import type { VoiceDraft } from '../../server/services/voice'
 import { formatWeeklyLabel } from '../WeekdayPicker'
@@ -93,6 +94,41 @@ function HeardHeader({ transcript, degraded }: { transcript: string | null; degr
   )
 }
 
+/**
+ * The assignee picker collapses three separate task fields (householdId,
+ * assignedToUserId, assigneeGroup) into one select value, because to the
+ * user they are a single "who is this for?" choice.
+ */
+export type WhoValue = 'personal' | 'ffa' | 'group:adults' | 'group:kids' | `user:${string}`
+
+export function whoFromDraft(draft: {
+  householdId: string | null
+  assignedToUserId: string | null
+  assigneeGroup: 'adults' | 'kids' | null
+}): WhoValue {
+  if (!draft.householdId) return 'personal'
+  if (draft.assigneeGroup) return `group:${draft.assigneeGroup}`
+  return draft.assignedToUserId ? `user:${draft.assignedToUserId}` : 'ffa'
+}
+
+export function whoToFields(
+  who: WhoValue,
+  householdId: string | null,
+): {
+  householdId: string | null
+  assignedToUserId: string | null
+  assigneeGroup: 'adults' | 'kids' | null
+} {
+  if (who === 'personal' || !householdId) {
+    return { householdId: null, assignedToUserId: null, assigneeGroup: null }
+  }
+  if (who === 'ffa') return { householdId, assignedToUserId: null, assigneeGroup: null }
+  if (who === 'group:adults')
+    return { householdId, assignedToUserId: null, assigneeGroup: 'adults' }
+  if (who === 'group:kids') return { householdId, assignedToUserId: null, assigneeGroup: 'kids' }
+  return { householdId, assignedToUserId: who.slice('user:'.length), assigneeGroup: null }
+}
+
 interface FieldsProps {
   title: string
   setTitle: (v: string) => void
@@ -104,6 +140,13 @@ interface FieldsProps {
   setTime: (v: string) => void
   repeatLabel: string | null
   clearRepeat: () => void
+  who: WhoValue
+  setWho: (v: WhoValue) => void
+  /** Null when the speaker isn't in a household; the picker then hides. */
+  household: {
+    id: string
+    members: Array<{ userId: string; name: string; role: string }>
+  } | null
 }
 
 const LABEL = 'flex flex-col gap-1 text-xs font-semibold text-[var(--sea-ink-soft)]'
@@ -159,6 +202,29 @@ function DraftFields(p: FieldsProps) {
         </div>
       )}
 
+      {p.household && (
+        <label className={LABEL}>
+          Who
+          <select
+            value={p.who}
+            onChange={(e) => p.setWho(e.target.value as WhoValue)}
+            className={VALUE}
+          >
+            <option value="personal">Just me (personal)</option>
+            <option value="ffa">Anyone in the family</option>
+            <option value="group:adults">Any adult</option>
+            <option value="group:kids">Any kid</option>
+            {p.household.members
+              .filter((m) => m.role !== 'kiosk')
+              .map((m) => (
+                <option key={m.userId} value={`user:${m.userId}`}>
+                  {m.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+
       {p.notes && (
         <label className={LABEL}>
           Notes
@@ -182,18 +248,18 @@ interface Props {
   onClose: () => void
 }
 
-export function VoiceReviewSheet({ draft, transcript, degraded, onClose }: Props) {
-  const dialogRef = useRef<HTMLDialogElement | null>(null)
-  const qc = useQueryClient()
-  const navigate = useNavigate()
-
+/**
+ * Editable copy of a draft, re-seeded whenever a new one arrives. Split out
+ * so the sheet itself stays a render, not a pile of state.
+ */
+function useDraftForm(draft: VoiceDraft | null) {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
+  const [who, setWho] = useState<WhoValue>('personal')
 
-  // Re-seed the form whenever a new draft arrives.
   useEffect(() => {
     if (!draft) return
     const local = splitLocal(draft.dueAtOverride)
@@ -204,30 +270,65 @@ export function VoiceReviewSheet({ draft, transcript, degraded, onClose }: Props
     // showing the 23:59 sentinel the resolver used.
     setTime(draft.timeOfDay ? local.time : '')
     setRecurrence(draft.recurrence)
+    setWho(whoFromDraft(draft))
   }, [draft])
 
-  // Native <dialog> gives focus trap, esc-to-close and a backdrop for free.
+  return {
+    title,
+    setTitle,
+    notes,
+    setNotes,
+    date,
+    setDate,
+    time,
+    setTime,
+    recurrence,
+    setRecurrence,
+    who,
+    setWho,
+  }
+}
+
+/** Drives a native <dialog>, which gives focus trap, esc and a backdrop. */
+function useModalDialog(open: boolean) {
+  const ref = useRef<HTMLDialogElement | null>(null)
   useEffect(() => {
-    const el = dialogRef.current
+    const el = ref.current
     if (!el) return
-    if (draft && !el.open) el.showModal()
-    else if (!draft && el.open) el.close()
-  }, [draft])
+    if (open && !el.open) el.showModal()
+    else if (!open && el.open) el.close()
+  }, [open])
+  return ref
+}
 
-  const repeatLabel = useMemo(() => describeRepeat(recurrence), [recurrence])
+export function VoiceReviewSheet({ draft, transcript, degraded, onClose }: Props) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const form = useDraftForm(draft)
+  const dialogRef = useModalDialog(Boolean(draft))
+
+  const householdQuery = useQuery({
+    queryKey: ['my-household'],
+    queryFn: () => getMyHouseholdFn(),
+  })
+  const household = householdQuery.data ?? null
+
+  const repeatLabel = useMemo(() => describeRepeat(form.recurrence), [form.recurrence])
 
   const save = useMutation({
     mutationFn: () => {
-      const dueAtOverride = joinLocal(date, time)
+      const dueAtOverride = joinLocal(form.date, form.time)
+      const assignment = whoToFields(form.who, household?.household.id ?? null)
       return createTask({
         data: {
-          title: title.trim(),
-          notes: notes.trim() || null,
+          title: form.title.trim(),
+          notes: form.notes.trim() || null,
           difficulty: 'medium' as const,
-          recurrence,
-          timeOfDay: time || null,
-          someday: dueAtOverride === null && recurrence === null,
+          recurrence: form.recurrence,
+          timeOfDay: form.time || null,
+          someday: dueAtOverride === null && form.recurrence === null,
           dueAtOverride,
+          ...assignment,
         },
       })
     },
@@ -259,23 +360,28 @@ export function VoiceReviewSheet({ draft, transcript, degraded, onClose }: Props
           method="dialog"
           onSubmit={(e) => {
             e.preventDefault()
-            if (title.trim()) save.mutate()
+            if (form.title.trim()) save.mutate()
           }}
           className="flex flex-col gap-4 p-5"
         >
           <HeardHeader transcript={transcript} degraded={degraded} />
 
           <DraftFields
-            title={title}
-            setTitle={setTitle}
-            notes={notes}
-            setNotes={setNotes}
-            date={date}
-            setDate={setDate}
-            time={time}
-            setTime={setTime}
+            title={form.title}
+            setTitle={form.setTitle}
+            notes={form.notes}
+            setNotes={form.setNotes}
+            date={form.date}
+            setDate={form.setDate}
+            time={form.time}
+            setTime={form.setTime}
             repeatLabel={repeatLabel}
-            clearRepeat={() => setRecurrence(null)}
+            clearRepeat={() => form.setRecurrence(null)}
+            who={form.who}
+            setWho={form.setWho}
+            household={
+              household ? { id: household.household.id, members: household.members } : null
+            }
           />
 
           <div className="mt-1 flex justify-end gap-2">
@@ -289,7 +395,7 @@ export function VoiceReviewSheet({ draft, transcript, degraded, onClose }: Props
             </button>
             <button
               type="submit"
-              disabled={save.isPending || !title.trim()}
+              disabled={save.isPending || !form.title.trim()}
               className="btn-primary rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-60"
             >
               {save.isPending ? 'Adding…' : 'Add task'}

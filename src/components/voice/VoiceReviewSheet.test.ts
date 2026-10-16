@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { describeRepeat, joinLocal, splitLocal } from './VoiceReviewSheet'
+import {
+  describeRepeat,
+  joinLocal,
+  splitLocal,
+  whoFromDraft,
+  whoToFields,
+} from './VoiceReviewSheet'
 
 describe('describeRepeat', () => {
   it('returns null for a one-off task', () => {
@@ -61,5 +67,47 @@ describe('splitLocal / joinLocal', () => {
   it('returns null when there is no date', () => {
     expect(joinLocal('', '09:00')).toBeNull()
     expect(joinLocal('nonsense', '09:00')).toBeNull()
+  })
+})
+
+describe('whoFromDraft / whoToFields', () => {
+  it('round-trips every assignment shape', () => {
+    const cases = [
+      { householdId: null, assignedToUserId: null, assigneeGroup: null },
+      { householdId: 'hh', assignedToUserId: 'u1', assigneeGroup: null },
+      { householdId: 'hh', assignedToUserId: null, assigneeGroup: null },
+      { householdId: 'hh', assignedToUserId: null, assigneeGroup: 'adults' as const },
+      { householdId: 'hh', assignedToUserId: null, assigneeGroup: 'kids' as const },
+    ]
+    for (const fields of cases) {
+      expect(whoToFields(whoFromDraft(fields), 'hh')).toEqual(fields)
+    }
+  })
+
+  it('reads the draft default as the speaker', () => {
+    expect(whoFromDraft({ householdId: 'hh', assignedToUserId: 'u1', assigneeGroup: null })).toBe(
+      'user:u1',
+    )
+  })
+
+  it('treats a household-less draft as personal', () => {
+    expect(whoFromDraft({ householdId: null, assignedToUserId: 'u1', assigneeGroup: 'kids' })).toBe(
+      'personal',
+    )
+  })
+
+  it('never emits a group alongside an assignee', () => {
+    // createTask rejects that combination outright.
+    const fields = whoToFields('group:kids', 'hh')
+    expect(fields.assigneeGroup).toBe('kids')
+    expect(fields.assignedToUserId).toBeNull()
+  })
+
+  it('collapses to personal when there is no household to attach to', () => {
+    expect(whoToFields('group:kids', null)).toEqual({
+      householdId: null,
+      assignedToUserId: null,
+      assigneeGroup: null,
+    })
   })
 })

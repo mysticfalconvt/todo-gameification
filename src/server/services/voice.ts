@@ -8,8 +8,10 @@
 // do for a typed task.
 import type { Recurrence } from '../../domain/recurrence'
 import { resolveVoiceWhen, type VoiceWhen } from '../../domain/voiceWhen'
+import type { VoiceAssignee } from '../llm/parseTaskDraft'
 import { parseTaskDraft } from '../llm/parseTaskDraft'
 import { isWhisperConfigured, transcribeAudio } from '../llm/transcribe'
+import { getMyHousehold, type MyHousehold } from './households'
 import { getUserTimeZone } from './tasks'
 
 /** Base64 of ~8MB of audio, plus slack for the encoding overhead. */
@@ -33,6 +35,70 @@ export interface VoiceDraft {
   timeOfDay: string | null
   dueAtOverride: string | null
   someday: boolean
+  /** Set when the task belongs to the household rather than the speaker. */
+  householdId: string | null
+  /** Null with a householdId means free-for-all. */
+  assignedToUserId: string | null
+  assigneeGroup: 'adults' | 'kids' | null
+}
+
+/** Only adults may own or be assigned chores; kids cannot create at all. */
+function isAdult(role: string): boolean {
+  return role === 'admin' || role === 'member'
+}
+
+/**
+ * Match a spoken name to a household member.
+ *
+ * The model is told to return a name from the roster, but names are a closed
+ * vocabulary, so this settles it deterministically rather than trusting that
+ * — the same reasoning as the weekday reconciliation in parseTaskDraft.
+ * Matches on full name, first name, or handle, case-insensitively. An
+ * ambiguous or unknown name resolves to null and falls back to the default,
+ * so a misheard name never silently assigns someone else's chore.
+ */
+export function resolveMemberName(
+  name: string,
+  members: Array<{ userId: string; name: string; handle: string }>,
+): string | null {
+  const needle = name.trim().toLowerCase()
+  if (!needle) return null
+
+  const candidates = members.filter((m) => {
+    const full = m.name.trim().toLowerCase()
+    return full === needle || full.split(/\s+/)[0] === needle || m.handle.toLowerCase() === needle
+  })
+  return candidates.length === 1 ? candidates[0].userId : null
+}
+
+/**
+ * Turn the spoken assignment into household fields.
+ *
+ * With no household, or for a non-adult, everything collapses to a personal
+ * task. Otherwise the default is a household chore assigned to the speaker.
+ */
+export function resolveAssignment(
+  assignee: VoiceAssignee,
+  household: MyHousehold | null,
+): Pick<VoiceDraft, 'householdId' | 'assignedToUserId' | 'assigneeGroup'> {
+  const personal = { householdId: null, assignedToUserId: null, assigneeGroup: null }
+  if (!household || !isAdult(household.role)) return personal
+
+  const householdId = household.household.id
+  const mine = { householdId, assignedToUserId: household.viewerUserId, assigneeGroup: null }
+
+  switch (assignee.kind) {
+    case 'group':
+      return { householdId, assignedToUserId: null, assigneeGroup: assignee.group }
+    case 'person': {
+      const userId = resolveMemberName(assignee.name, household.members)
+      // An unmatched name is not an assignment — fall back to the speaker
+      // rather than guessing at a member.
+      return userId ? { householdId, assignedToUserId: userId, assigneeGroup: null } : mine
+    }
+    default:
+      return mine
+  }
 }
 
 export interface VoiceCaptureResult {
@@ -57,9 +123,16 @@ export interface CaptureVoiceTaskInput {
  * which is strictly better than losing the capture to a confused model.
  */
 export function toVoiceDraft(
-  parsed: { title: string; notes: string | null; when: VoiceWhen; recurrence: Recurrence | null },
+  parsed: {
+    title: string
+    notes: string | null
+    when: VoiceWhen
+    recurrence: Recurrence | null
+    assignee: VoiceAssignee
+  },
   now: Date,
   timeZone: string,
+  household: MyHousehold | null = null,
 ): VoiceDraft {
   let dueAtOverride: string | null = null
   let timeOfDay: string | null = null
@@ -80,6 +153,7 @@ export function toVoiceDraft(
     // A recurring task with no spoken start still gets a first occurrence
     // from createTask's firstDueAt, so it is not a someday task.
     someday: dueAtOverride === null && parsed.recurrence === null,
+    ...resolveAssignment(parsed.assignee, household),
   }
 }
 
@@ -111,9 +185,15 @@ export async function captureFromAudio(
     return { status: 'no_speech', transcript: null, draft: null, detail: errorMessage }
   }
 
-  const timeZone = await getUserTimeZone(userId)
+  const [timeZone, household] = await Promise.all([getUserTimeZone(userId), getMyHousehold(userId)])
   const now = new Date()
-  const parsed = await parseTaskDraft({ transcript, timeZone, now, userId })
+  const parsed = await parseTaskDraft({
+    transcript,
+    timeZone,
+    now,
+    userId,
+    memberNames: household?.members.map((m) => m.name) ?? [],
+  })
 
   if (!parsed) {
     console.warn(`[voice] parse failed for: ${JSON.stringify(transcript)}`)
@@ -129,9 +209,10 @@ export async function captureFromAudio(
         timeOfDay: null,
         dueAtOverride: null,
         someday: true,
+        ...resolveAssignment({ kind: 'default' }, household),
       },
     }
   }
 
-  return { status: 'ok', transcript, draft: toVoiceDraft(parsed, now, timeZone) }
+  return { status: 'ok', transcript, draft: toVoiceDraft(parsed, now, timeZone, household) }
 }
