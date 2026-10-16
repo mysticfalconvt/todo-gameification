@@ -18,12 +18,25 @@ const MAX_RECORDING_MS = 30_000
 const SILENCE_TAIL_MS = 2_000
 
 /**
- * RMS below this counts as silence for the auto-stop timer. Deliberately
- * low: laptop mic gain varies enormously (measured 0.006 peak for normal
- * speech on one), so a value tuned for a "typical" mic cuts quiet ones off
- * mid-sentence.
+ * Opening window treated as room tone, to calibrate the noise floor. People
+ * tap the button and then start talking, so the first moments are ambience.
  */
-const SILENCE_RMS = 0.0015
+const CALIBRATION_MS = 350
+
+/** Speech is taken to be this many times above the measured noise floor. */
+const NOISE_MULTIPLIER = 5
+
+/** Absolute floor, for a silent room where the noise estimate is ~0. */
+const MIN_SPEECH_RMS = 0.004
+
+/**
+ * Ceiling on the speech threshold, as a fraction of the loudest block so
+ * far. This is what rescues a take where the user started talking inside
+ * the calibration window: the "noise" estimate is then speech-level, and
+ * without this the threshold would be so high that nothing counts as
+ * speech and auto-stop never fires.
+ */
+const SPEECH_FRACTION = 0.25
 
 /** Throttle for the level meter callback. */
 const LEVEL_REPORT_MS = 50
@@ -63,6 +76,64 @@ export interface RecordingResult {
   peakRms: number
   /** True when the level never rose enough to be speech. */
   silent: boolean
+}
+
+/**
+ * Level above which a block counts as speech for the auto-stop timer.
+ *
+ * Deliberately relative, not absolute. Mic gain varies by orders of
+ * magnitude across devices — a fixed value tuned on one laptop either cuts
+ * a quiet mic off mid-sentence or, on a hot one, never fires because room
+ * tone already clears it.
+ */
+export function speechThreshold(noisePeak: number, peakRms: number): number {
+  const fromNoise = Math.max(MIN_SPEECH_RMS, noisePeak * NOISE_MULTIPLIER)
+  const ceiling = Math.max(MIN_SPEECH_RMS, peakRms * SPEECH_FRACTION)
+  return Math.min(fromNoise, ceiling)
+}
+
+/** Rolling analysis of a take, driven one block at a time. */
+export interface TakeState {
+  startedAt: number
+  /** Last moment the level cleared the speech threshold. */
+  lastLoudAt: number
+  /** Loudest block seen during the opening calibration window. */
+  noisePeak: number
+  /** Loudest block of the whole take. */
+  peakRms: number
+  heardSpeech: boolean
+}
+
+export function newTake(startedAt: number): TakeState {
+  return { startedAt, lastLoudAt: startedAt, noisePeak: 0, peakRms: 0, heardSpeech: false }
+}
+
+/** Fold one block's level into the take. */
+export function observeLevel(take: TakeState, level: number, now: number): void {
+  if (level > take.peakRms) take.peakRms = level
+
+  if (now - take.startedAt < CALIBRATION_MS) {
+    // Still sampling room tone; nothing counts as speech yet, and the take
+    // must not look idle while we calibrate.
+    if (level > take.noisePeak) take.noisePeak = level
+    take.lastLoudAt = now
+    return
+  }
+
+  if (level >= speechThreshold(take.noisePeak, take.peakRms)) {
+    take.lastLoudAt = now
+    take.heardSpeech = true
+  }
+}
+
+/**
+ * Trailing silence ends a take, but only once something was actually said —
+ * otherwise a slow start would cut the user off before they began. The hard
+ * cap always applies.
+ */
+export function shouldStop(take: TakeState, now: number): boolean {
+  if (take.heardSpeech && now - take.lastLoudAt > SILENCE_TAIL_MS) return true
+  return now - take.startedAt > MAX_RECORDING_MS
 }
 
 export function rms(samples: Float32Array): number {
@@ -225,9 +296,7 @@ export async function startRecording(options: StartRecordingOptions = {}): Promi
 
   const chunks: Float32Array[] = []
   const startedAt = performance.now()
-  let peakRms = 0
-  let lastLoudAt = startedAt
-  let heardSpeech = false
+  const take = newTake(startedAt)
   let finished = false
   let lastLevelAt = 0
 
@@ -245,19 +314,19 @@ export async function startRecording(options: StartRecordingOptions = {}): Promi
     const captured = concatSamples(chunks)
     const reduced = downsample(captured, context.sampleRate)
     const { samples, gain } = normalize(reduced)
-    const silent = peakRms < MIN_PEAK_RMS
+    const silent = take.peakRms < MIN_PEAK_RMS
     const wav = encodeWav(samples, TARGET_SAMPLE_RATE)
     // The only client-side failure that is otherwise invisible: the user
     // spoke (or thinks they did) and nothing was uploaded. Everything that
     // reaches the server is tracked in llm_call_log / /admin/llm instead.
     if (silent) {
       console.warn(
-        `[voice] take rejected: peakRms=${peakRms.toFixed(4)} floor=${MIN_PEAK_RMS} ` +
+        `[voice] take rejected: peakRms=${take.peakRms.toFixed(4)} floor=${MIN_PEAK_RMS} ` +
           `gain=${gain.toFixed(1)}x samples=${captured.length}@${context.sampleRate}Hz ` +
           `${Math.round(durationMs)}ms`,
       )
     }
-    settle({ wav, durationMs, peakRms, silent })
+    settle({ wav, durationMs, peakRms: take.peakRms, silent })
   }
 
   try {
@@ -273,24 +342,16 @@ export async function startRecording(options: StartRecordingOptions = {}): Promi
       const block = event.data
       chunks.push(block)
 
-      const level = rms(block)
-      if (level > peakRms) peakRms = level
-
       const now = performance.now()
+      const level = rms(block)
+      observeLevel(take, level, now)
       // The worklet posts a block every ~2.7ms; reporting each one would mean
       // ~125 React renders a second. 20/s is plenty for a level meter.
       if (now - lastLevelAt >= LEVEL_REPORT_MS) {
         lastLevelAt = now
         options.onLevel?.(Math.min(1, level * 12))
       }
-      if (level >= SILENCE_RMS) {
-        lastLoudAt = now
-        heardSpeech = true
-      }
-      // Trailing silence ends the take, but only once something was said —
-      // otherwise a slow start would cut the user off before they began.
-      if (heardSpeech && now - lastLoudAt > SILENCE_TAIL_MS) finish()
-      else if (now - startedAt > MAX_RECORDING_MS) finish()
+      if (shouldStop(take, now)) finish()
     }
 
     source.connect(node)

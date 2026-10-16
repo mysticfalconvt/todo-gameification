@@ -4,7 +4,11 @@ import {
   downsample,
   encodeWav,
   normalize,
+  newTake,
+  observeLevel,
   rms,
+  shouldStop,
+  speechThreshold,
   TARGET_SAMPLE_RATE,
 } from './audio-recorder'
 
@@ -171,5 +175,110 @@ describe('normalize', () => {
     for (let i = 0; i < wave.length; i++) {
       expect(samples[i]).toBeCloseTo(wave[i] * gain, 6)
     }
+  })
+})
+
+describe('speechThreshold', () => {
+  it('sits well above room tone in a quiet room', () => {
+    // Quiet room (noise 0.002), normal speech peaking at 0.3.
+    const t = speechThreshold(0.002, 0.3)
+    expect(t).toBeGreaterThan(0.002)
+    expect(t).toBeLessThan(0.3)
+  })
+
+  it('rises with a noisy room so ambience does not read as speech', () => {
+    const quiet = speechThreshold(0.002, 0.4)
+    const noisy = speechThreshold(0.02, 0.4)
+    expect(noisy).toBeGreaterThan(quiet)
+    expect(noisy).toBeGreaterThan(0.02)
+  })
+
+  it('never exceeds a quarter of the loudest block', () => {
+    // The rescue case: the user began talking inside the calibration
+    // window, so "noise" was measured at speech level. Without the ceiling
+    // the threshold would be 5x speech and auto-stop could never fire.
+    const t = speechThreshold(0.4, 0.4)
+    expect(t).toBeCloseTo(0.1, 5)
+    expect(t).toBeLessThan(0.4)
+  })
+
+  it('honours the absolute floor in a silent room', () => {
+    expect(speechThreshold(0, 0)).toBe(0.004)
+    expect(speechThreshold(0, 0.3)).toBe(0.004)
+  })
+
+  it('scales with mic gain rather than assuming a level', () => {
+    // Same acoustic situation, two mics 50x apart in gain: the threshold
+    // should track, not stay fixed.
+    const quietMic = speechThreshold(0.0004, 0.006)
+    const hotMic = speechThreshold(0.02, 0.3)
+    expect(hotMic).toBeGreaterThan(quietMic)
+    expect(quietMic).toBeLessThan(0.006)
+  })
+})
+
+describe('auto-stop', () => {
+  // Drive a take as the worklet would: a level every 2.7ms from t=0.
+  const run = (
+    levelAt: (ms: number) => number,
+    untilMs: number,
+  ): { stoppedAt: number | null; take: ReturnType<typeof newTake> } => {
+    const take = newTake(0)
+    for (let ms = 0; ms <= untilMs; ms += 2.7) {
+      observeLevel(take, levelAt(ms), ms)
+      if (shouldStop(take, ms)) return { stoppedAt: ms, take }
+    }
+    return { stoppedAt: null, take }
+  }
+
+  const ROOM = 0.002
+  const SPEECH = 0.3
+
+  it('stops ~2s after speech ends', () => {
+    // Room tone, 1s of speech from 0.5s, then silence.
+    const { stoppedAt, take } = run((ms) => (ms >= 500 && ms < 1500 ? SPEECH : ROOM), 10_000)
+    expect(take.heardSpeech).toBe(true)
+    expect(stoppedAt).not.toBeNull()
+    expect(stoppedAt as number).toBeGreaterThan(3_000)
+    expect(stoppedAt as number).toBeLessThan(3_800)
+  })
+
+  it('does not stop while speech continues', () => {
+    const { stoppedAt } = run((ms) => (ms < 400 ? ROOM : SPEECH), 10_000)
+    expect(stoppedAt).toBeNull()
+  })
+
+  it('does not cut off a slow start', () => {
+    // Four seconds of silence before the first word — longer than the
+    // trailing-silence window — must not end the take.
+    const { stoppedAt, take } = run((ms) => (ms >= 4_000 ? SPEECH : ROOM), 5_000)
+    expect(stoppedAt).toBeNull()
+    expect(take.heardSpeech).toBe(true)
+  })
+
+  it('treats steady room tone as silence, not speech', () => {
+    // The bug this replaced: a fixed 0.0015 floor meant ambience kept the
+    // take alive forever on a normal mic.
+    const { take } = run(() => ROOM, 5_000)
+    expect(take.heardSpeech).toBe(false)
+  })
+
+  it('still works on a mic 50x quieter', () => {
+    const { stoppedAt, take } = run((ms) => (ms >= 500 && ms < 1500 ? 0.006 : 0.00004), 10_000)
+    expect(take.heardSpeech).toBe(true)
+    expect(stoppedAt).not.toBeNull()
+  })
+
+  it('stops a take that is never spoken into at the hard cap', () => {
+    const { stoppedAt } = run(() => ROOM, 31_000)
+    expect(stoppedAt).toBeGreaterThan(30_000)
+  })
+
+  it('rescues a take where speech began inside the calibration window', () => {
+    // "Noise" is measured at speech level here; the SPEECH_FRACTION ceiling
+    // is what keeps the threshold reachable.
+    const { stoppedAt, take } = run((ms) => (ms < 1_200 ? SPEECH : ROOM), 10_000)
+    expect(take.heardSpeech).toBe(true)
+    expect(stoppedAt).not.toBeNull()
   })
 })
