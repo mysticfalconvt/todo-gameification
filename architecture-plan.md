@@ -630,7 +630,7 @@ New event types: `task.cheered`, `reaction.added`. Small bonus XP for receiving 
 
 Coolify's Nixpacks auto-detects Node apps from `package.json`. Define the build in scripts:
 
-**Node version pin.** A `nixpacks.toml` in the repo root pins `nodejs_23` because Nixpacks' default `nodejs_22` currently resolves to 22.11, which is below Vite 8's minimum (20.19+ or 22.12+). When Vite runs on 22.11 its embedded rolldown bundler fails to load its native binding and the build crashes. Whenever Nixpacks updates its nixpkgs pin past Node 22.12, this override can be revisited.
+**Node version pin.** Deploys build with Railpack, which takes Node from `engines.node` in `package.json` (`>=22.12.0`, resolving to the latest Node 22) and pnpm from `packageManager`. 22.12+ is the floor for pg-boss 12 and for Vite 8's rolldown native binding. (This replaced a `nixpacks.toml` that pinned `nodejs_23` because Nixpacks' `nodejs_22` was stuck at 22.11.)
 
 
 ```json
@@ -875,7 +875,7 @@ Full copy-paste config lives at [`docs/home-assistant.md`](./docs/home-assistant
 
 ## Things to Watch Out For
 
-- **Nixpacks Node version drift.** Nixpacks bakes a nixpkgs commit that controls which Node `nodejs_XX` resolves to. At time of writing `nodejs_22` = 22.11, below Vite 8's 22.12+ floor. If you upgrade Vite or rolldown and deploys start failing with "Cannot find native binding", the nixpacks pin has slipped behind again — update `nixpacks.toml` to the next available major.
+- **Node version drift.** Railpack resolves Node from `engines.node`. If a dependency raises its Node floor (e.g. a future Vite or rolldown), raise `engines.node` to match; a "Cannot find native binding" build failure usually means the Node version is too old.
 - **TanStack Start + PWA tooling** is rough. Plan time for service worker setup; have Next.js as an escape hatch if it becomes a blocker.
 - **Service worker scope and origin rules** — must be served from app origin, path matters. Don't put Start behind a path prefix.
 - **DST and timezones** — never store UTC offsets, always IANA names. Recompute next occurrences rather than adding fixed intervals.

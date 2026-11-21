@@ -26,7 +26,6 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 
 - Coolify + Railpack only. Don't add Dockerfiles or docker-compose. Start command is in `railpack.json`.
 - Railpack takes the pnpm version from `packageManager` and Node from `engines` in package.json. pnpm settings (14-day `minimumReleaseAge`, allowed build scripts, overrides) live in `pnpm-workspace.yaml`.
-- `nixpacks.toml` is kept only until the Coolify app is switched to Railpack; delete it after.
 
 ## Service worker caching
 
