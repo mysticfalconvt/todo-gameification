@@ -14,9 +14,7 @@ export const createCategory = createServerFn({ method: 'POST' })
 
 export const updateCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .validator(
-    (data: { slug: string; label?: string; color?: string; description?: string }) => data,
-  )
+  .validator((data: { slug: string; label?: string; color?: string; description?: string }) => data)
   .handler(({ data, context }) =>
     service.updateCategory(context.userId, data.slug, {
       label: data.label,

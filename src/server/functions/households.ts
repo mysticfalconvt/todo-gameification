@@ -188,9 +188,7 @@ export const getManagedMemberSettingsFn = createServerFn({ method: 'POST' })
 
 export const updateManagedMemberQuietHoursFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .validator(
-    (data: { targetUserId: string; start: string | null; end: string | null }) => data,
-  )
+  .validator((data: { targetUserId: string; start: string | null; end: string | null }) => data)
   .handler(({ data, context }) =>
     service.updateManagedMemberQuietHours(context.userId, data.targetUserId, {
       start: data.start,
