@@ -31,5 +31,21 @@ export function initSentryBrowser(): void {
     environment: import.meta.env.MODE,
     tracesSampleRate: 0,
     integrations: [],
+    // Sentry 11 collects user info, cookies, headers, request bodies, URL
+    // query strings and GraphQL/DB data by default. Keep error reports to the
+    // error itself.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
   })
 }

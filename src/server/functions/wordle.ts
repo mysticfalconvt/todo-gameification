@@ -17,10 +17,10 @@ export const listWordleWords = createServerFn({ method: 'GET' })
 
 export const addWordleWords = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { raw: string }) => data)
+  .validator((data: { raw: string }) => data)
   .handler(({ data, context }) => service.addWords(data.raw, context.userId))
 
 export const removeWordleWord = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { word: string }) => data)
+  .validator((data: { word: string }) => data)
   .handler(({ data }) => service.removeWord(data.word))

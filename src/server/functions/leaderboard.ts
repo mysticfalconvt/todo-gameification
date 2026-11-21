@@ -13,7 +13,7 @@ const WINDOWS: LeaderboardWindow[] = [7, 30, 90, 'all']
 
 export const getLeaderboardFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { scope: string; metric: string; days: number | string }) => {
+  .validator((data: { scope: string; metric: string; days: number | string }) => {
     if (!SCOPES.includes(data.scope as LeaderboardScope)) {
       throw new Error('invalid scope')
     }

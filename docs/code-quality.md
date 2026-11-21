@@ -25,7 +25,7 @@ enabled by `core.hooksPath`, set by `scripts/install-hooks.mjs` from the
 `prepare` script on `pnpm install`.
 
 **That script must never fail.** pnpm runs `prepare` on *every* install,
-including in the Coolify/Nixpacks build container — which copies the source
+including in the Coolify build container — which copies the source
 without a `.git` directory. The original one-liner `git config core.hooksPath
 .githooks` exits 128 there, and a failing `prepare` fails the whole install,
 which broke the deploy. `install-hooks.mjs` probes for a work tree first and

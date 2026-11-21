@@ -9,7 +9,7 @@ function coerceMode(input: unknown): FocusMode {
 
 export const startFocusSession = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       durationMin: service.FocusDuration
       mode?: FocusMode
@@ -27,7 +27,7 @@ export const startFocusSession = createServerFn({ method: 'POST' })
 
 export const completeFocusSession = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       durationMin: service.FocusDuration
       mode?: FocusMode
@@ -47,7 +47,7 @@ export const completeFocusSession = createServerFn({ method: 'POST' })
 
 export const cancelFocusSession = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { startEventId: string }) => data)
+  .validator((data: { startEventId: string }) => data)
   .handler(({ data, context }) =>
     service.cancelFocusSession({
       userId: context.userId,

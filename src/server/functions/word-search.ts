@@ -31,7 +31,7 @@ function validateInput(data: unknown): StartWordSearchInput {
 
 export const startWordSearchGame = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(validateInput)
+  .validator(validateInput)
   .handler(async ({ data, context }) => {
     const game = await service.generateGame({
       userId: context.userId,

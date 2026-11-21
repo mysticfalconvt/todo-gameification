@@ -5,7 +5,7 @@ import * as service from '../services/voice'
 
 export const captureVoiceTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: service.CaptureVoiceTaskInput) => {
+  .validator((data: service.CaptureVoiceTaskInput) => {
     if (typeof data?.audioBase64 !== 'string' || !data.audioBase64) {
       throw new Error('audioBase64 is required')
     }

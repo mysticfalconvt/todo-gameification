@@ -9,7 +9,7 @@ export const listGames = createServerFn({ method: 'GET' })
 
 export const finishGame = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       gameId: string
       result: {

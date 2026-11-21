@@ -10,7 +10,7 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 
 - Biome (format + lint) and fallow (dead code, dupes, complexity). See `docs/code-quality.md`.
 - `pnpm check` is the gate; it also runs from `.githooks/pre-push`. Nothing runs on commit.
-- The `prepare` script (`scripts/install-hooks.mjs`) enables the hook. It must always exit 0 — pnpm runs `prepare` in the Nixpacks build container too, which has no `.git`, and a failing `prepare` fails the install and breaks the deploy.
+- The `prepare` script (`scripts/install-hooks.mjs`) enables the hook. It must always exit 0 — pnpm runs `prepare` in the Railpack build container too, which has no `.git`, and a failing `prepare` fails the install and breaks the deploy.
 - Both tools are **diff-scoped** — the repo carries ~185 lint warnings and ~490 fallow findings as inherited debt, and the gate only fails on newly introduced ones. Don't "fix" this by running the tools whole-tree and committing the result.
 - Rules with existing debt are set to `warn` in `biome.json` as a ratchet: clear a category, then flip it to `error`.
 - fallow's config is `.fallowrc.json` (`fallow.json` is silently ignored). `dynamicallyLoaded` there covers `src/server/nitro/*.ts` and `public/sw.js`, which are reachable only via string paths in `vite.config.ts` / the browser — without it fallow calls them dead. Add new runtime-loaded entry points there.
@@ -20,11 +20,13 @@ Quick orientation for this codebase. `architecture-plan.md` is the authoritative
 
 - Schema lives in `src/server/db/schema.ts`. Migrations in `src/server/db/migrations/`.
 - Recent migrations are hand-written SQL (`NNNN_name.sql`) with an entry appended to `meta/_journal.json`. `drizzle-kit generate` trips on TTY prompts here, so just write the SQL yourself.
-- Prod applies migrations on container boot via `nixpacks.toml` — no manual step needed for deploy.
+- Prod applies migrations on container boot via the start command in `railpack.json` — no manual step needed for deploy.
 
 ## Deployment
 
-- Coolify + Nixpacks only. Don't add Dockerfiles or docker-compose. Start command is in `nixpacks.toml`.
+- Coolify + Railpack only. Don't add Dockerfiles or docker-compose. Start command is in `railpack.json`.
+- Railpack takes the pnpm version from `packageManager` and Node from `engines` in package.json. pnpm settings (14-day `minimumReleaseAge`, allowed build scripts, overrides) live in `pnpm-workspace.yaml`.
+- `nixpacks.toml` is kept only until the Coolify app is switched to Railpack; delete it after.
 
 ## Service worker caching
 

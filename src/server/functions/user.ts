@@ -12,7 +12,7 @@ type Visibility = (typeof VISIBILITY_VALUES)[number]
 
 export const updateTimezone = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { timezone: string }) => {
+  .validator((data: { timezone: string }) => {
     if (!data.timezone || data.timezone.length > 64) {
       throw new Error('invalid timezone')
     }
@@ -81,7 +81,7 @@ export const getProfile = createServerFn({ method: 'GET' })
 
 export const updateQuietHours = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { start: string | null; end: string | null }) => {
+  .validator((data: { start: string | null; end: string | null }) => {
     const parsed = (v: string | null): string | null => {
       if (v === null || v === '') return null
       if (!/^\d{2}:\d{2}$/.test(v)) {
@@ -112,7 +112,7 @@ export const updateQuietHours = createServerFn({ method: 'POST' })
 
 export const updateHandle = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { handle: string }) => {
+  .validator((data: { handle: string }) => {
     const normalized = normalizeHandle(data.handle)
     if (!isValidHandle(normalized)) {
       throw new Error('Handle must be 3–20 characters, lowercase letters, numbers, or underscores.')
@@ -139,7 +139,7 @@ export const updateHandle = createServerFn({ method: 'POST' })
 
 export const updateProfileVisibility = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { visibility: string }) => {
+  .validator((data: { visibility: string }) => {
     if (!VISIBILITY_VALUES.includes(data.visibility as Visibility)) {
       throw new Error('invalid visibility')
     }
@@ -155,7 +155,7 @@ export const updateProfileVisibility = createServerFn({ method: 'POST' })
 
 export const updateGardenVisibility = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { visibility: string }) => {
+  .validator((data: { visibility: string }) => {
     if (!VISIBILITY_VALUES.includes(data.visibility as Visibility)) {
       throw new Error('invalid visibility')
     }
@@ -171,7 +171,7 @@ export const updateGardenVisibility = createServerFn({ method: 'POST' })
 
 export const updatePrefs = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       shareProgression?: boolean
       shareActivity?: boolean

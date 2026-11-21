@@ -9,12 +9,12 @@ export const listCategories = createServerFn({ method: 'GET' })
 
 export const createCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { label: string; color?: string; description?: string }) => data)
+  .validator((data: { label: string; color?: string; description?: string }) => data)
   .handler(({ data, context }) => service.createCategory(context.userId, data))
 
 export const updateCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: { slug: string; label?: string; color?: string; description?: string }) => data,
   )
   .handler(({ data, context }) =>
@@ -27,7 +27,7 @@ export const updateCategory = createServerFn({ method: 'POST' })
 
 export const deleteCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { slug: string }) => data)
+  .validator((data: { slug: string }) => data)
   .handler(({ data, context }) => service.deleteCategory(context.userId, data.slug))
 
 export const countUncategorizedTasks = createServerFn({ method: 'GET' })

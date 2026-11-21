@@ -1,0 +1,15 @@
+# Settings for pnpm (this is a single package, not a monorepo).
+
+# Refuse package versions published less than 14 days ago. Most malicious
+# releases are caught and pulled within days, so this keeps them out.
+minimumReleaseAge: 20160
+
+# Packages allowed to run install scripts (pnpm 10 blocks them by default).
+onlyBuiltDependencies:
+  - esbuild
+  - lightningcss
+
+# Patched versions of nested dependencies, within the same major version.
+overrides:
+  # Via @tanstack/react-devtools -> solid-js (dev-only UI, but keep it clean).
+  seroval@<1.6.10: ^1.6.10

@@ -11,22 +11,22 @@ import * as service from '../services/tasks'
 
 export const createTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: service.CreateTaskInput) => data)
+  .validator((data: service.CreateTaskInput) => data)
   .handler(({ data, context }) => service.createTask(context.userId, data))
 
 export const findSimilarTasks = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: service.FindSimilarTasksInput) => data)
+  .validator((data: service.FindSimilarTasksInput) => data)
   .handler(({ data, context }) => service.findSimilarTasks(context.userId, data))
 
 export const readdTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: service.ReaddTaskInput) => data)
+  .validator((data: service.ReaddTaskInput) => data)
   .handler(({ data, context }) => service.readdTaskInstance(context.userId, data))
 
 export const assignKidXp = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       kidUserId: string
       xp: number
@@ -38,12 +38,12 @@ export const assignKidXp = createServerFn({ method: 'POST' })
 
 export const setKidCompletionXp = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { eventId: string; xp: number }) => data)
+  .validator((data: { eventId: string; xp: number }) => data)
   .handler(({ data, context }) => service.setKidCompletionXp(context.userId, data))
 
 export const setHouseholdChoreXp = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string; xp: number | null }) => data)
+  .validator((data: { taskId: string; xp: number | null }) => data)
   .handler(({ data, context }) => service.setHouseholdChoreXp(context.userId, data))
 
 export const listTodayInstances = createServerFn({ method: 'GET' })
@@ -56,7 +56,7 @@ export const listSomedayInstances = createServerFn({ method: 'GET' })
 
 export const completeInstance = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string; force?: boolean; creditUserIds?: string[] }) => data)
+  .validator((data: { instanceId: string; force?: boolean; creditUserIds?: string[] }) => data)
   .handler(({ data, context }) =>
     service.completeInstance(context.userId, data.instanceId, {
       force: data.force,
@@ -66,24 +66,24 @@ export const completeInstance = createServerFn({ method: 'POST' })
 
 export const skipInstance = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .validator((data: { instanceId: string }) => data)
   .handler(({ data, context }) => service.skipInstance(context.userId, data.instanceId))
 
 export const snoozeInstance = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string; hours: number }) => data)
+  .validator((data: { instanceId: string; hours: number }) => data)
   .handler(({ data, context }) =>
     service.snoozeInstance(context.userId, data.instanceId, data.hours),
   )
 
 export const deferInstanceToTomorrow = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .validator((data: { instanceId: string }) => data)
   .handler(({ data, context }) => service.deferInstanceToTomorrow(context.userId, data.instanceId))
 
 export const surfaceInstanceNow = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .validator((data: { instanceId: string }) => data)
   .handler(({ data, context }) => service.surfaceInstanceNow(context.userId, data.instanceId))
 
 export const listAllTasks = createServerFn({ method: 'GET' })
@@ -92,12 +92,12 @@ export const listAllTasks = createServerFn({ method: 'GET' })
 
 export const getTask = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string }) => data)
+  .validator((data: { taskId: string }) => data)
   .handler(({ data, context }) => service.getTask(context.userId, data.taskId))
 
 export const updateTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       taskId: string
       title: string
@@ -114,7 +114,7 @@ export const updateTask = createServerFn({ method: 'POST' })
 
 export const deleteTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string }) => data)
+  .validator((data: { taskId: string }) => data)
   .handler(({ data, context }) => service.deleteTask(context.userId, data.taskId))
 
 export const resetTasks = createServerFn({ method: 'POST' })
@@ -123,12 +123,12 @@ export const resetTasks = createServerFn({ method: 'POST' })
 
 export const setTaskCategory = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string; slug: string | null }) => data)
+  .validator((data: { taskId: string; slug: string | null }) => data)
   .handler(({ data, context }) => service.setTaskCategory(context.userId, data.taskId, data.slug))
 
 export const moveTaskToHousehold = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       taskId: string
       householdId: string
@@ -140,7 +140,7 @@ export const moveTaskToHousehold = createServerFn({ method: 'POST' })
 
 export const reassignHouseholdTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       taskId: string
       assignedToUserId?: string | null
@@ -151,22 +151,22 @@ export const reassignHouseholdTask = createServerFn({ method: 'POST' })
 
 export const reopenLastCompletion = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string }) => data)
+  .validator((data: { taskId: string }) => data)
   .handler(({ data, context }) => service.reopenLastCompletion(context.userId, data.taskId))
 
 export const repeatTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string }) => data)
+  .validator((data: { taskId: string }) => data)
   .handler(({ data, context }) => service.repeatTask(context.userId, data.taskId))
 
 export const snoozeTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string; until: string | null }) => data)
+  .validator((data: { taskId: string; until: string | null }) => data)
   .handler(({ data, context }) => service.snoozeTask(context.userId, data.taskId, data.until))
 
 export const reanalyzeTask = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string }) => data)
+  .validator((data: { taskId: string }) => data)
   .handler(({ data, context }) => service.reanalyzeTask(context.userId, data.taskId))
 
 export const getProgression = createServerFn({ method: 'GET' })
@@ -179,22 +179,22 @@ export const listRecentActivity = createServerFn({ method: 'GET' })
 
 export const categoryCounts = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { scope: 'active' | 'completed' }) => data)
+  .validator((data: { scope: 'active' | 'completed' }) => data)
   .handler(({ data, context }) => service.categoryCounts(context.userId, data.scope))
 
 export const getStats = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { days?: number | 'all' } | undefined) => data ?? {})
+  .validator((data: { days?: number | 'all' } | undefined) => data ?? {})
   .handler(({ data, context }) => service.getStats(context.userId, data?.days ?? 30))
 
 export const getTaskStats = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { taskId: string; days?: number | 'all' }) => data)
+  .validator((data: { taskId: string; days?: number | 'all' }) => data)
   .handler(({ data, context }) =>
     service.getTaskStats(context.userId, data.taskId, data.days ?? 30),
   )
 
 export const listCompletionHistory = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { days?: number } | undefined) => data ?? {})
+  .validator((data: { days?: number } | undefined) => data ?? {})
   .handler(({ data, context }) => service.listCompletionHistory(context.userId, data?.days ?? 30))

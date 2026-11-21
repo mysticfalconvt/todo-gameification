@@ -39,7 +39,7 @@ export const listAdminUsersFn = createServerFn({ method: 'GET' })
 
 export const listAdminEventsFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { limit?: number }) => ({
+  .validator((data: { limit?: number }) => ({
     limit: typeof data.limit === 'number' ? data.limit : 50,
   }))
   .handler(async ({ data }) => listRecentEvents(data.limit))
@@ -66,7 +66,7 @@ export const getAdminWeeklyEmailStatusFn = createServerFn({ method: 'GET' })
 
 export const triggerWeeklyEmailFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string }) => {
+  .validator((data: { userId: string }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }
@@ -77,7 +77,7 @@ export const triggerWeeklyEmailFn = createServerFn({ method: 'POST' })
 // Drill-in for a single user. userId is the better-auth text id.
 export const getAdminUserDetailFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string }) => {
+  .validator((data: { userId: string }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }
@@ -87,7 +87,7 @@ export const getAdminUserDetailFn = createServerFn({ method: 'POST' })
 
 export const getAdminLlmUsageFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { windowDays?: number }) => ({
+  .validator((data: { windowDays?: number }) => ({
     windowDays:
       typeof data?.windowDays === 'number' && data.windowDays > 0
         ? Math.min(90, Math.floor(data.windowDays))
@@ -97,7 +97,7 @@ export const getAdminLlmUsageFn = createServerFn({ method: 'POST' })
 
 export const listAdminLlmCallsFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator(
+  .validator(
     (data: { kind?: string; userId?: string; before?: string | null; limit?: number }) => ({
       kind: data?.kind?.trim() || undefined,
       userId: data?.userId?.trim() || undefined,
@@ -109,7 +109,7 @@ export const listAdminLlmCallsFn = createServerFn({ method: 'POST' })
 
 export const getAdminLlmCallFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { id: string }) => {
+  .validator((data: { id: string }) => {
     if (typeof data?.id !== 'string' || !data.id) {
       throw new Error('id required')
     }
@@ -119,7 +119,7 @@ export const getAdminLlmCallFn = createServerFn({ method: 'POST' })
 
 export const setEmailVerifiedFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string; verified: boolean }) => {
+  .validator((data: { userId: string; verified: boolean }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }
@@ -137,7 +137,7 @@ export const setEmailVerifiedFn = createServerFn({ method: 'POST' })
 
 export const grantLifetimeFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string; reason?: string | null }) => {
+  .validator((data: { userId: string; reason?: string | null }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }
@@ -156,7 +156,7 @@ export const grantLifetimeFn = createServerFn({ method: 'POST' })
 
 export const revokeMembershipFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string; reason?: string | null }) => {
+  .validator((data: { userId: string; reason?: string | null }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }
@@ -175,7 +175,7 @@ export const revokeMembershipFn = createServerFn({ method: 'POST' })
 
 export const grantTokensFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
-  .inputValidator((data: { userId: string; amount: number; reason?: string | null }) => {
+  .validator((data: { userId: string; amount: number; reason?: string | null }) => {
     if (typeof data?.userId !== 'string' || !data.userId) {
       throw new Error('userId required')
     }

@@ -15,7 +15,7 @@ import {
 
 export const createHouseholdFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { name: string }) => {
+  .validator((data: { name: string }) => {
     if (typeof data.name !== 'string' || !data.name.trim()) {
       throw new Error('Household name is required.')
     }
@@ -29,7 +29,7 @@ export const getMyHouseholdFn = createServerFn({ method: 'GET' })
 
 export const inviteMemberFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { inviteeUserId: string; proposedRole: 'member' | 'kid' }) => {
+  .validator((data: { inviteeUserId: string; proposedRole: 'member' | 'kid' }) => {
     if (!data.inviteeUserId) throw new Error('Invitee is required.')
     if (data.proposedRole !== 'member' && data.proposedRole !== 'kid') {
       throw new Error('Invalid role.')
@@ -50,12 +50,12 @@ export const listOutgoingInvitesFn = createServerFn({ method: 'GET' })
 
 export const acceptInviteFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { inviteId: string }) => data)
+  .validator((data: { inviteId: string }) => data)
   .handler(({ data, context }) => service.acceptInvite(context.userId, data.inviteId))
 
 export const declineInviteFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { inviteId: string }) => data)
+  .validator((data: { inviteId: string }) => data)
   .handler(async ({ data, context }) => {
     await service.declineInvite(context.userId, data.inviteId)
     return { ok: true }
@@ -63,7 +63,7 @@ export const declineInviteFn = createServerFn({ method: 'POST' })
 
 export const cancelInviteFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { inviteId: string }) => data)
+  .validator((data: { inviteId: string }) => data)
   .handler(async ({ data, context }) => {
     await service.cancelInvite(context.userId, data.inviteId)
     return { ok: true }
@@ -71,7 +71,7 @@ export const cancelInviteFn = createServerFn({ method: 'POST' })
 
 export const removeMemberFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string; targetUserId: string }) => data)
+  .validator((data: { householdId: string; targetUserId: string }) => data)
   .handler(async ({ data, context }) => {
     await service.removeMember(context.userId, data.householdId, data.targetUserId)
     return { ok: true }
@@ -86,7 +86,7 @@ export const leaveHouseholdFn = createServerFn({ method: 'POST' })
 
 export const changeRoleFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; role: 'admin' | 'member' | 'kid' }) => {
+  .validator((data: { targetUserId: string; role: 'admin' | 'member' | 'kid' }) => {
     if (data.role !== 'admin' && data.role !== 'member' && data.role !== 'kid') {
       throw new Error('Invalid role.')
     }
@@ -99,7 +99,7 @@ export const changeRoleFn = createServerFn({ method: 'POST' })
 
 export const renameHouseholdFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string; name: string }) => {
+  .validator((data: { householdId: string; name: string }) => {
     if (typeof data.name !== 'string' || !data.name.trim()) {
       throw new Error('Household name is required.')
     }
@@ -112,7 +112,7 @@ export const renameHouseholdFn = createServerFn({ method: 'POST' })
 
 export const deleteHouseholdFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string }) => data)
+  .validator((data: { householdId: string }) => data)
   .handler(async ({ data, context }) => {
     await service.deleteHousehold(context.userId, data.householdId)
     return { ok: true }
@@ -120,34 +120,34 @@ export const deleteHouseholdFn = createServerFn({ method: 'POST' })
 
 export const listHouseholdChoresFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string }) => data)
+  .validator((data: { householdId: string }) => data)
   .handler(({ data, context }) => listHouseholdChores(context.userId, data.householdId))
 
 export const listHouseholdChoresWeekFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string; startDateLocal: string }) => data)
+  .validator((data: { householdId: string; startDateLocal: string }) => data)
   .handler(({ data, context }) =>
     listHouseholdChoresWeek(context.userId, data.householdId, data.startDateLocal),
   )
 
 export const listPendingApprovalsFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string }) => data)
+  .validator((data: { householdId: string }) => data)
   .handler(({ data, context }) => listPendingApprovals(context.userId, data.householdId))
 
 export const approveClaimFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .validator((data: { instanceId: string }) => data)
   .handler(({ data, context }) => approveClaim(context.userId, data.instanceId))
 
 export const rejectClaimFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { instanceId: string }) => data)
+  .validator((data: { instanceId: string }) => data)
   .handler(({ data, context }) => rejectClaim(context.userId, data.instanceId))
 
 export const createManagedMemberFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: {
       name: string
       handle: string
@@ -165,7 +165,7 @@ export const createManagedMemberFn = createServerFn({ method: 'POST' })
 
 export const resetManagedMemberPasswordFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: unknown) => {
+  .validator((data: unknown) => {
     if (!data || typeof data !== 'object') throw new Error('Invalid password reset request.')
     const { targetUserId, newPassword } = data as Record<string, unknown>
     if (typeof targetUserId !== 'string' || !targetUserId) {
@@ -181,14 +181,14 @@ export const resetManagedMemberPasswordFn = createServerFn({ method: 'POST' })
 
 export const getManagedMemberSettingsFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string }) => data)
+  .validator((data: { targetUserId: string }) => data)
   .handler(({ data, context }) =>
     service.getManagedMemberSettings(context.userId, data.targetUserId),
   )
 
 export const updateManagedMemberQuietHoursFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator(
+  .validator(
     (data: { targetUserId: string; start: string | null; end: string | null }) => data,
   )
   .handler(({ data, context }) =>
@@ -202,14 +202,14 @@ export const updateManagedMemberCoachAttitudeFn = createServerFn({
   method: 'POST',
 })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; attitude: string }) => data)
+  .validator((data: { targetUserId: string; attitude: string }) => data)
   .handler(({ data, context }) =>
     service.updateManagedMemberCoachAttitude(context.userId, data.targetUserId, data.attitude),
   )
 
 export const updateMemberColorFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; color: string }) => data)
+  .validator((data: { targetUserId: string; color: string }) => data)
   .handler(async ({ data, context }) => {
     await service.updateMemberColor(context.userId, data.targetUserId, data.color)
     return { ok: true }
@@ -217,14 +217,14 @@ export const updateMemberColorFn = createServerFn({ method: 'POST' })
 
 export const listHouseholdStatsFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string; days?: number }) => data)
+  .validator((data: { householdId: string; days?: number }) => data)
   .handler(({ data, context }) =>
     service.listHouseholdStats(context.userId, data.householdId, data.days ?? 30),
   )
 
 export const listHouseholdActivityFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { householdId: string; days?: number; limit?: number }) => data)
+  .validator((data: { householdId: string; days?: number; limit?: number }) => data)
   .handler(({ data, context }) =>
     service.listHouseholdActivity(context.userId, data.householdId, {
       days: data.days,
@@ -237,7 +237,7 @@ export const listHouseholdActivityFn = createServerFn({ method: 'POST' })
 // the personal stats page already uses, just with a different userId.
 export const getHouseholdMemberStatsFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; days?: number | 'all' }) => data)
+  .validator((data: { targetUserId: string; days?: number | 'all' }) => data)
   .handler(async ({ data, context }) => {
     if (data.targetUserId === context.userId) {
       return getStats(context.userId, data.days ?? 30)

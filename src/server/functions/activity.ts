@@ -4,7 +4,7 @@ import { cheerCompletion, getFriendActivity, getReceivedCheers } from '../servic
 
 export const getFriendActivityFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { days?: number; limit?: number }) => {
+  .validator((data: { days?: number; limit?: number }) => {
     const days = typeof data.days === 'number' && data.days > 0 && data.days <= 90 ? data.days : 7
     const limit =
       typeof data.limit === 'number' && data.limit > 0 && data.limit <= 200 ? data.limit : 50
@@ -14,7 +14,7 @@ export const getFriendActivityFn = createServerFn({ method: 'POST' })
 
 export const cheerCompletionFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { completionEventId: string }) => {
+  .validator((data: { completionEventId: string }) => {
     if (typeof data.completionEventId !== 'string' || !data.completionEventId) {
       throw new Error('Invalid event id.')
     }
@@ -24,7 +24,7 @@ export const cheerCompletionFn = createServerFn({ method: 'POST' })
 
 export const getReceivedCheersFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { days?: number; limit?: number }) => {
+  .validator((data: { days?: number; limit?: number }) => {
     const days = typeof data.days === 'number' && data.days > 0 && data.days <= 90 ? data.days : 30
     const limit =
       typeof data.limit === 'number' && data.limit > 0 && data.limit <= 200 ? data.limit : 50

@@ -12,7 +12,7 @@ A gamified, ADHD-friendly todo PWA with recurring tasks, flexible snoozing, and 
 - **Push:** Web Push API + `web-push` (VAPID)
 - **Client state:** TanStack Query with IndexedDB persistence
 - **Offline:** custom service worker (stale-while-revalidate for `/api/*`)
-- **Deploy:** Coolify + Nixpacks (long-running Node container)
+- **Deploy:** Coolify + Railpack (long-running Node container)
 
 See [`architecture-plan.md`](./architecture-plan.md) for the authoritative design doc — data model, event log, progression, push flow, etc.
 
@@ -45,11 +45,11 @@ pnpm db:studio         # drizzle studio UI
 
 ## Database migrations
 
-Migrations live in `src/server/db/migrations/` with a hand-maintained `meta/_journal.json`. Recent migrations are hand-written SQL; drizzle-kit tracks what's been applied. Prod runs `pnpm db:migrate` on boot (see `nixpacks.toml`), so deploys pick up schema changes automatically.
+Migrations live in `src/server/db/migrations/` with a hand-maintained `meta/_journal.json`. Recent migrations are hand-written SQL; drizzle-kit tracks what's been applied. Prod runs `pnpm db:migrate` on boot (see `railpack.json`), so deploys pick up schema changes automatically.
 
 ## Deployment
 
-Push to the deploy branch; Coolify rebuilds via Nixpacks. The start command in `nixpacks.toml` runs migrations then starts the Node SSR server.
+Push to the deploy branch; Coolify rebuilds via Railpack. The start command in `railpack.json` runs migrations then starts the Node SSR server.
 
 ## Project layout
 

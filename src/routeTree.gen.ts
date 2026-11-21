@@ -9,118 +9,73 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthSignupRouteImport } from './routes/auth/signup'
-import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
-import { Route as AuthLoginRouteImport } from './routes/auth/login'
-import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
-import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe-webhook'
-import { Route as ApiMcpRouteImport } from './routes/api/mcp'
-import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
-import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
-import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
-import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
-import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthenticatedArcadeRouteImport } from './routes/_authenticated/arcade'
-import { Route as AuthenticatedWeeklySummaryIndexRouteImport } from './routes/_authenticated/weekly-summary/index'
-import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
-import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
-import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
-import { Route as AuthenticatedHouseholdIndexRouteImport } from './routes/_authenticated/household/index'
+import { Route as AuthenticatedFeedbackRouteImport } from './routes/_authenticated/feedback'
+import { Route as AuthenticatedFocusRouteImport } from './routes/_authenticated/focus'
+import { Route as AuthenticatedFriendsRouteImport } from './routes/_authenticated/friends'
+import { Route as AuthenticatedGardenRouteImport } from './routes/_authenticated/garden'
+import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe-webhook'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as AuthLoginRouteImport } from './routes/auth/login'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
+import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
-import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
-import { Route as ApiV1ProgressionRouteImport } from './routes/api/v1/progression'
-import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
-import { Route as ApiPushVapidPublicKeyRouteImport } from './routes/api/push/vapid-public-key'
-import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AuthenticatedUHandleRouteImport } from './routes/_authenticated/u.$handle'
-import { Route as AuthenticatedTasksNewRouteImport } from './routes/_authenticated/tasks/new'
-import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenticated/tasks/$taskId'
-import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
-import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
-import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
-import { Route as AuthenticatedHouseholdMemberIdRouteImport } from './routes/_authenticated/household/$memberId'
 import { Route as AuthenticatedAdminWordleRouteImport } from './routes/_authenticated/admin/wordle'
-import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
-import { Route as ApiV1HouseholdIndexRouteImport } from './routes/api/v1/household/index'
+import { Route as AuthenticatedHouseholdIndexRouteImport } from './routes/_authenticated/household/index'
+import { Route as AuthenticatedHouseholdMemberIdRouteImport } from './routes/_authenticated/household/$memberId'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedSettingsApiDocsRouteImport } from './routes/_authenticated/settings/api-docs'
+import { Route as AuthenticatedSettingsHomeAssistantRouteImport } from './routes/_authenticated/settings/home-assistant'
+import { Route as AuthenticatedSettingsMcpRouteImport } from './routes/_authenticated/settings/mcp'
+import { Route as AuthenticatedStatsIndexRouteImport } from './routes/_authenticated/stats/index'
+import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedTasksTaskIdRouteImport } from './routes/_authenticated/tasks/$taskId'
+import { Route as AuthenticatedTasksNewRouteImport } from './routes/_authenticated/tasks/new'
+import { Route as AuthenticatedUHandleRouteImport } from './routes/_authenticated/u.$handle'
+import { Route as AuthenticatedWeeklySummaryIndexRouteImport } from './routes/_authenticated/weekly-summary/index'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiPushSubscribeRouteImport } from './routes/api/push/subscribe'
+import { Route as ApiPushVapidPublicKeyRouteImport } from './routes/api/push/vapid-public-key'
+import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
+import { Route as ApiV1ProgressionRouteImport } from './routes/api/v1/progression'
+import { Route as ApiV1TodayRouteImport } from './routes/api/v1/today'
 import { Route as AuthenticatedAdminLlmIndexRouteImport } from './routes/_authenticated/admin/llm/index'
-import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
-import { Route as ApiV1HouseholdStatsRouteImport } from './routes/api/v1/household/stats'
-import { Route as ApiV1HouseholdActivityRouteImport } from './routes/api/v1/household/activity'
-import { Route as AuthenticatedStatsTaskTaskIdRouteImport } from './routes/_authenticated/stats/task.$taskId'
-import { Route as AuthenticatedAdminUsersUserIdRouteImport } from './routes/_authenticated/admin/users.$userId'
 import { Route as AuthenticatedAdminLlmCallIdRouteImport } from './routes/_authenticated/admin/llm/$callId'
+import { Route as AuthenticatedAdminUsersUserIdRouteImport } from './routes/_authenticated/admin/users.$userId'
+import { Route as AuthenticatedStatsTaskTaskIdRouteImport } from './routes/_authenticated/stats/task.$taskId'
+import { Route as ApiV1HouseholdIndexRouteImport } from './routes/api/v1/household/index'
+import { Route as ApiV1HouseholdActivityRouteImport } from './routes/api/v1/household/activity'
+import { Route as ApiV1HouseholdStatsRouteImport } from './routes/api/v1/household/stats'
+import { Route as ApiV1TasksIndexRouteImport } from './routes/api/v1/tasks/index'
+import { Route as ApiV1TasksTaskIdRouteImport } from './routes/api/v1/tasks/$taskId'
 import { Route as ApiV1HouseholdChoresIndexRouteImport } from './routes/api/v1/household/chores/index'
-import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api/v1/instances/$instanceId/snooze'
-import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
-import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
 import { Route as ApiV1HouseholdChoresWeekRouteImport } from './routes/api/v1/household/chores/week'
+import { Route as ApiV1InstancesInstanceIdCompleteRouteImport } from './routes/api/v1/instances/$instanceId/complete'
+import { Route as ApiV1InstancesInstanceIdSkipRouteImport } from './routes/api/v1/instances/$instanceId/skip'
+import { Route as ApiV1InstancesInstanceIdSnoozeRouteImport } from './routes/api/v1/instances/$instanceId/snooze'
 
-const PricingRoute = PricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthSignupRoute = AuthSignupRouteImport.update({
-  id: '/auth/signup',
-  path: '/auth/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
-  id: '/auth/reset-password',
-  path: '/auth/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/auth/login',
-  path: '/auth/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/auth/forgot-password',
-  path: '/auth/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
-  id: '/api/stripe-webhook',
-  path: '/api/stripe-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiMcpRoute = ApiMcpRouteImport.update({
-  id: '/api/mcp',
-  path: '/api/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedTodayRoute = AuthenticatedTodayRouteImport.update({
-  id: '/today',
-  path: '/today',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedGardenRoute = AuthenticatedGardenRouteImport.update({
-  id: '/garden',
-  path: '/garden',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
-  id: '/friends',
-  path: '/friends',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
-  id: '/focus',
-  path: '/focus',
+const AuthenticatedArcadeRoute = AuthenticatedArcadeRouteImport.update({
+  id: '/arcade',
+  path: '/arcade',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFeedbackRoute = AuthenticatedFeedbackRouteImport.update({
@@ -128,31 +83,65 @@ const AuthenticatedFeedbackRoute = AuthenticatedFeedbackRouteImport.update({
   path: '/feedback',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedArcadeRoute = AuthenticatedArcadeRouteImport.update({
-  id: '/arcade',
-  path: '/arcade',
+const AuthenticatedFocusRoute = AuthenticatedFocusRouteImport.update({
+  id: '/focus',
+  path: '/focus',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedWeeklySummaryIndexRoute =
-  AuthenticatedWeeklySummaryIndexRouteImport.update({
-    id: '/weekly-summary/',
-    path: '/weekly-summary/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
-  id: '/tasks/',
-  path: '/tasks/',
+const AuthenticatedFriendsRoute = AuthenticatedFriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedStatsIndexRoute = AuthenticatedStatsIndexRouteImport.update({
-  id: '/stats/',
-  path: '/stats/',
+const AuthenticatedGardenRoute = AuthenticatedGardenRouteImport.update({
+  id: '/garden',
+  path: '/garden',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSettingsIndexRoute =
-  AuthenticatedSettingsIndexRouteImport.update({
-    id: '/settings/',
-    path: '/settings/',
+const AuthenticatedTodayRoute = AuthenticatedTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe-webhook',
+  path: '/api/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignupRoute = AuthSignupRouteImport.update({
+  id: '/auth/signup',
+  path: '/auth/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminWordleRoute =
+  AuthenticatedAdminWordleRouteImport.update({
+    id: '/admin/wordle',
+    path: '/admin/wordle',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedHouseholdIndexRoute =
@@ -161,67 +150,16 @@ const AuthenticatedHouseholdIndexRoute =
     path: '/household/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const ApiV1TodayRoute = ApiV1TodayRouteImport.update({
-  id: '/api/v1/today',
-  path: '/api/v1/today',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1ProgressionRoute = ApiV1ProgressionRouteImport.update({
-  id: '/api/v1/progression',
-  path: '/api/v1/progression',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1EventsRoute = ApiV1EventsRouteImport.update({
-  id: '/api/v1/events',
-  path: '/api/v1/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPushVapidPublicKeyRoute = ApiPushVapidPublicKeyRouteImport.update({
-  id: '/api/push/vapid-public-key',
-  path: '/api/push/vapid-public-key',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
-  id: '/api/push/subscribe',
-  path: '/api/push/subscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedUHandleRoute = AuthenticatedUHandleRouteImport.update({
-  id: '/u/$handle',
-  path: '/u/$handle',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedTasksNewRoute = AuthenticatedTasksNewRouteImport.update({
-  id: '/tasks/new',
-  path: '/tasks/new',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedTasksTaskIdRoute =
-  AuthenticatedTasksTaskIdRouteImport.update({
-    id: '/tasks/$taskId',
-    path: '/tasks/$taskId',
+const AuthenticatedHouseholdMemberIdRoute =
+  AuthenticatedHouseholdMemberIdRouteImport.update({
+    id: '/household/$memberId',
+    path: '/household/$memberId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSettingsMcpRoute =
-  AuthenticatedSettingsMcpRouteImport.update({
-    id: '/settings/mcp',
-    path: '/settings/mcp',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedSettingsHomeAssistantRoute =
-  AuthenticatedSettingsHomeAssistantRouteImport.update({
-    id: '/settings/home-assistant',
-    path: '/settings/home-assistant',
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsApiDocsRoute =
@@ -230,26 +168,78 @@ const AuthenticatedSettingsApiDocsRoute =
     path: '/settings/api-docs',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedHouseholdMemberIdRoute =
-  AuthenticatedHouseholdMemberIdRouteImport.update({
-    id: '/household/$memberId',
-    path: '/household/$memberId',
+const AuthenticatedSettingsHomeAssistantRoute =
+  AuthenticatedSettingsHomeAssistantRouteImport.update({
+    id: '/settings/home-assistant',
+    path: '/settings/home-assistant',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminWordleRoute =
-  AuthenticatedAdminWordleRouteImport.update({
-    id: '/admin/wordle',
-    path: '/admin/wordle',
+const AuthenticatedSettingsMcpRoute =
+  AuthenticatedSettingsMcpRouteImport.update({
+    id: '/settings/mcp',
+    path: '/settings/mcp',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
-  id: '/api/v1/tasks/',
-  path: '/api/v1/tasks/',
+const AuthenticatedStatsIndexRoute = AuthenticatedStatsIndexRouteImport.update({
+  id: '/stats/',
+  path: '/stats/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
+  id: '/tasks/',
+  path: '/tasks/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTasksTaskIdRoute =
+  AuthenticatedTasksTaskIdRouteImport.update({
+    id: '/tasks/$taskId',
+    path: '/tasks/$taskId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTasksNewRoute = AuthenticatedTasksNewRouteImport.update({
+  id: '/tasks/new',
+  path: '/tasks/new',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedUHandleRoute = AuthenticatedUHandleRouteImport.update({
+  id: '/u/$handle',
+  path: '/u/$handle',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedWeeklySummaryIndexRoute =
+  AuthenticatedWeeklySummaryIndexRouteImport.update({
+    id: '/weekly-summary/',
+    path: '/weekly-summary/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1HouseholdIndexRoute = ApiV1HouseholdIndexRouteImport.update({
-  id: '/api/v1/household/',
-  path: '/api/v1/household/',
+const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
+  id: '/api/push/subscribe',
+  path: '/api/push/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushVapidPublicKeyRoute = ApiPushVapidPublicKeyRouteImport.update({
+  id: '/api/push/vapid-public-key',
+  path: '/api/push/vapid-public-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1EventsRoute = ApiV1EventsRouteImport.update({
+  id: '/api/v1/events',
+  path: '/api/v1/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ProgressionRoute = ApiV1ProgressionRouteImport.update({
+  id: '/api/v1/progression',
+  path: '/api/v1/progression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1TodayRoute = ApiV1TodayRouteImport.update({
+  id: '/api/v1/today',
+  path: '/api/v1/today',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminLlmIndexRoute =
@@ -258,25 +248,10 @@ const AuthenticatedAdminLlmIndexRoute =
     path: '/admin/llm/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiV1TasksTaskIdRoute = ApiV1TasksTaskIdRouteImport.update({
-  id: '/api/v1/tasks/$taskId',
-  path: '/api/v1/tasks/$taskId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1HouseholdStatsRoute = ApiV1HouseholdStatsRouteImport.update({
-  id: '/api/v1/household/stats',
-  path: '/api/v1/household/stats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1HouseholdActivityRoute = ApiV1HouseholdActivityRouteImport.update({
-  id: '/api/v1/household/activity',
-  path: '/api/v1/household/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedStatsTaskTaskIdRoute =
-  AuthenticatedStatsTaskTaskIdRouteImport.update({
-    id: '/stats/task/$taskId',
-    path: '/stats/task/$taskId',
+const AuthenticatedAdminLlmCallIdRoute =
+  AuthenticatedAdminLlmCallIdRouteImport.update({
+    id: '/admin/llm/$callId',
+    path: '/admin/llm/$callId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminUsersUserIdRoute =
@@ -285,28 +260,47 @@ const AuthenticatedAdminUsersUserIdRoute =
     path: '/admin/users/$userId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminLlmCallIdRoute =
-  AuthenticatedAdminLlmCallIdRouteImport.update({
-    id: '/admin/llm/$callId',
-    path: '/admin/llm/$callId',
+const AuthenticatedStatsTaskTaskIdRoute =
+  AuthenticatedStatsTaskTaskIdRouteImport.update({
+    id: '/stats/task/$taskId',
+    path: '/stats/task/$taskId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiV1HouseholdIndexRoute = ApiV1HouseholdIndexRouteImport.update({
+  id: '/api/v1/household/',
+  path: '/api/v1/household/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HouseholdActivityRoute = ApiV1HouseholdActivityRouteImport.update({
+  id: '/api/v1/household/activity',
+  path: '/api/v1/household/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1HouseholdStatsRoute = ApiV1HouseholdStatsRouteImport.update({
+  id: '/api/v1/household/stats',
+  path: '/api/v1/household/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1TasksIndexRoute = ApiV1TasksIndexRouteImport.update({
+  id: '/api/v1/tasks/',
+  path: '/api/v1/tasks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1TasksTaskIdRoute = ApiV1TasksTaskIdRouteImport.update({
+  id: '/api/v1/tasks/$taskId',
+  path: '/api/v1/tasks/$taskId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1HouseholdChoresIndexRoute =
   ApiV1HouseholdChoresIndexRouteImport.update({
     id: '/api/v1/household/chores/',
     path: '/api/v1/household/chores/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiV1InstancesInstanceIdSnoozeRoute =
-  ApiV1InstancesInstanceIdSnoozeRouteImport.update({
-    id: '/api/v1/instances/$instanceId/snooze',
-    path: '/api/v1/instances/$instanceId/snooze',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiV1InstancesInstanceIdSkipRoute =
-  ApiV1InstancesInstanceIdSkipRouteImport.update({
-    id: '/api/v1/instances/$instanceId/skip',
-    path: '/api/v1/instances/$instanceId/skip',
+const ApiV1HouseholdChoresWeekRoute =
+  ApiV1HouseholdChoresWeekRouteImport.update({
+    id: '/api/v1/household/chores/week',
+    path: '/api/v1/household/chores/week',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiV1InstancesInstanceIdCompleteRoute =
@@ -315,10 +309,16 @@ const ApiV1InstancesInstanceIdCompleteRoute =
     path: '/api/v1/instances/$instanceId/complete',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiV1HouseholdChoresWeekRoute =
-  ApiV1HouseholdChoresWeekRouteImport.update({
-    id: '/api/v1/household/chores/week',
-    path: '/api/v1/household/chores/week',
+const ApiV1InstancesInstanceIdSkipRoute =
+  ApiV1InstancesInstanceIdSkipRouteImport.update({
+    id: '/api/v1/instances/$instanceId/skip',
+    path: '/api/v1/instances/$instanceId/skip',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1InstancesInstanceIdSnoozeRoute =
+  ApiV1InstancesInstanceIdSnoozeRouteImport.update({
+    id: '/api/v1/instances/$instanceId/snooze',
+    path: '/api/v1/instances/$instanceId/snooze',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -658,11 +658,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof PricingRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -672,81 +672,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/signup': {
-      id: '/auth/signup'
-      path: '/auth/signup'
-      fullPath: '/auth/signup'
-      preLoaderRoute: typeof AuthSignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/reset-password': {
-      id: '/auth/reset-password'
-      path: '/auth/reset-password'
-      fullPath: '/auth/reset-password'
-      preLoaderRoute: typeof AuthResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/auth/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/forgot-password': {
-      id: '/auth/forgot-password'
-      path: '/auth/forgot-password'
-      fullPath: '/auth/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stripe-webhook': {
-      id: '/api/stripe-webhook'
-      path: '/api/stripe-webhook'
-      fullPath: '/api/stripe-webhook'
-      preLoaderRoute: typeof ApiStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/mcp': {
-      id: '/api/mcp'
-      path: '/api/mcp'
-      fullPath: '/api/mcp'
-      preLoaderRoute: typeof ApiMcpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/today': {
-      id: '/_authenticated/today'
-      path: '/today'
-      fullPath: '/today'
-      preLoaderRoute: typeof AuthenticatedTodayRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/garden': {
-      id: '/_authenticated/garden'
-      path: '/garden'
-      fullPath: '/garden'
-      preLoaderRoute: typeof AuthenticatedGardenRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/friends': {
-      id: '/_authenticated/friends'
-      path: '/friends'
-      fullPath: '/friends'
-      preLoaderRoute: typeof AuthenticatedFriendsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/focus': {
-      id: '/_authenticated/focus'
-      path: '/focus'
-      fullPath: '/focus'
-      preLoaderRoute: typeof AuthenticatedFocusRouteImport
+    '/_authenticated/arcade': {
+      id: '/_authenticated/arcade'
+      path: '/arcade'
+      fullPath: '/arcade'
+      preLoaderRoute: typeof AuthenticatedArcadeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/feedback': {
@@ -756,144 +693,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFeedbackRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/arcade': {
-      id: '/_authenticated/arcade'
-      path: '/arcade'
-      fullPath: '/arcade'
-      preLoaderRoute: typeof AuthenticatedArcadeRouteImport
+    '/_authenticated/focus': {
+      id: '/_authenticated/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof AuthenticatedFocusRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/weekly-summary/': {
-      id: '/_authenticated/weekly-summary/'
-      path: '/weekly-summary'
-      fullPath: '/weekly-summary/'
-      preLoaderRoute: typeof AuthenticatedWeeklySummaryIndexRouteImport
+    '/_authenticated/friends': {
+      id: '/_authenticated/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof AuthenticatedFriendsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/tasks/': {
-      id: '/_authenticated/tasks/'
-      path: '/tasks'
-      fullPath: '/tasks/'
-      preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
+    '/_authenticated/garden': {
+      id: '/_authenticated/garden'
+      path: '/garden'
+      fullPath: '/garden'
+      preLoaderRoute: typeof AuthenticatedGardenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/stats/': {
-      id: '/_authenticated/stats/'
-      path: '/stats'
-      fullPath: '/stats/'
-      preLoaderRoute: typeof AuthenticatedStatsIndexRouteImport
+    '/_authenticated/today': {
+      id: '/_authenticated/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof AuthenticatedTodayRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/settings/': {
-      id: '/_authenticated/settings/'
-      path: '/settings'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/household/': {
-      id: '/_authenticated/household/'
-      path: '/household'
-      fullPath: '/household/'
-      preLoaderRoute: typeof AuthenticatedHouseholdIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/api/stripe-webhook': {
+      id: '/api/stripe-webhook'
+      path: '/api/stripe-webhook'
+      fullPath: '/api/stripe-webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/signup': {
+      id: '/auth/signup'
+      path: '/auth/signup'
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/api/v1/today': {
-      id: '/api/v1/today'
-      path: '/api/v1/today'
-      fullPath: '/api/v1/today'
-      preLoaderRoute: typeof ApiV1TodayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/progression': {
-      id: '/api/v1/progression'
-      path: '/api/v1/progression'
-      fullPath: '/api/v1/progression'
-      preLoaderRoute: typeof ApiV1ProgressionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/events': {
-      id: '/api/v1/events'
-      path: '/api/v1/events'
-      fullPath: '/api/v1/events'
-      preLoaderRoute: typeof ApiV1EventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/push/vapid-public-key': {
-      id: '/api/push/vapid-public-key'
-      path: '/api/push/vapid-public-key'
-      fullPath: '/api/push/vapid-public-key'
-      preLoaderRoute: typeof ApiPushVapidPublicKeyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/push/subscribe': {
-      id: '/api/push/subscribe'
-      path: '/api/push/subscribe'
-      fullPath: '/api/push/subscribe'
-      preLoaderRoute: typeof ApiPushSubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/u/$handle': {
-      id: '/_authenticated/u/$handle'
-      path: '/u/$handle'
-      fullPath: '/u/$handle'
-      preLoaderRoute: typeof AuthenticatedUHandleRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tasks/new': {
-      id: '/_authenticated/tasks/new'
-      path: '/tasks/new'
-      fullPath: '/tasks/new'
-      preLoaderRoute: typeof AuthenticatedTasksNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tasks/$taskId': {
-      id: '/_authenticated/tasks/$taskId'
-      path: '/tasks/$taskId'
-      fullPath: '/tasks/$taskId'
-      preLoaderRoute: typeof AuthenticatedTasksTaskIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/mcp': {
-      id: '/_authenticated/settings/mcp'
-      path: '/settings/mcp'
-      fullPath: '/settings/mcp'
-      preLoaderRoute: typeof AuthenticatedSettingsMcpRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/home-assistant': {
-      id: '/_authenticated/settings/home-assistant'
-      path: '/settings/home-assistant'
-      fullPath: '/settings/home-assistant'
-      preLoaderRoute: typeof AuthenticatedSettingsHomeAssistantRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/settings/api-docs': {
-      id: '/_authenticated/settings/api-docs'
-      path: '/settings/api-docs'
-      fullPath: '/settings/api-docs'
-      preLoaderRoute: typeof AuthenticatedSettingsApiDocsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/household/$memberId': {
-      id: '/_authenticated/household/$memberId'
-      path: '/household/$memberId'
-      fullPath: '/household/$memberId'
-      preLoaderRoute: typeof AuthenticatedHouseholdMemberIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/wordle': {
@@ -903,18 +777,130 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminWordleRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/v1/tasks/': {
-      id: '/api/v1/tasks/'
-      path: '/api/v1/tasks'
-      fullPath: '/api/v1/tasks/'
-      preLoaderRoute: typeof ApiV1TasksIndexRouteImport
+    '/_authenticated/household/': {
+      id: '/_authenticated/household/'
+      path: '/household'
+      fullPath: '/household/'
+      preLoaderRoute: typeof AuthenticatedHouseholdIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/household/$memberId': {
+      id: '/_authenticated/household/$memberId'
+      path: '/household/$memberId'
+      fullPath: '/household/$memberId'
+      preLoaderRoute: typeof AuthenticatedHouseholdMemberIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/api-docs': {
+      id: '/_authenticated/settings/api-docs'
+      path: '/settings/api-docs'
+      fullPath: '/settings/api-docs'
+      preLoaderRoute: typeof AuthenticatedSettingsApiDocsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/home-assistant': {
+      id: '/_authenticated/settings/home-assistant'
+      path: '/settings/home-assistant'
+      fullPath: '/settings/home-assistant'
+      preLoaderRoute: typeof AuthenticatedSettingsHomeAssistantRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/mcp': {
+      id: '/_authenticated/settings/mcp'
+      path: '/settings/mcp'
+      fullPath: '/settings/mcp'
+      preLoaderRoute: typeof AuthenticatedSettingsMcpRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/stats/': {
+      id: '/_authenticated/stats/'
+      path: '/stats'
+      fullPath: '/stats/'
+      preLoaderRoute: typeof AuthenticatedStatsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tasks/': {
+      id: '/_authenticated/tasks/'
+      path: '/tasks'
+      fullPath: '/tasks/'
+      preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tasks/$taskId': {
+      id: '/_authenticated/tasks/$taskId'
+      path: '/tasks/$taskId'
+      fullPath: '/tasks/$taskId'
+      preLoaderRoute: typeof AuthenticatedTasksTaskIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tasks/new': {
+      id: '/_authenticated/tasks/new'
+      path: '/tasks/new'
+      fullPath: '/tasks/new'
+      preLoaderRoute: typeof AuthenticatedTasksNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/u/$handle': {
+      id: '/_authenticated/u/$handle'
+      path: '/u/$handle'
+      fullPath: '/u/$handle'
+      preLoaderRoute: typeof AuthenticatedUHandleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/weekly-summary/': {
+      id: '/_authenticated/weekly-summary/'
+      path: '/weekly-summary'
+      fullPath: '/weekly-summary/'
+      preLoaderRoute: typeof AuthenticatedWeeklySummaryIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/household/': {
-      id: '/api/v1/household/'
-      path: '/api/v1/household'
-      fullPath: '/api/v1/household/'
-      preLoaderRoute: typeof ApiV1HouseholdIndexRouteImport
+    '/api/push/subscribe': {
+      id: '/api/push/subscribe'
+      path: '/api/push/subscribe'
+      fullPath: '/api/push/subscribe'
+      preLoaderRoute: typeof ApiPushSubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/vapid-public-key': {
+      id: '/api/push/vapid-public-key'
+      path: '/api/push/vapid-public-key'
+      fullPath: '/api/push/vapid-public-key'
+      preLoaderRoute: typeof ApiPushVapidPublicKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/events': {
+      id: '/api/v1/events'
+      path: '/api/v1/events'
+      fullPath: '/api/v1/events'
+      preLoaderRoute: typeof ApiV1EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/progression': {
+      id: '/api/v1/progression'
+      path: '/api/v1/progression'
+      fullPath: '/api/v1/progression'
+      preLoaderRoute: typeof ApiV1ProgressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/today': {
+      id: '/api/v1/today'
+      path: '/api/v1/today'
+      fullPath: '/api/v1/today'
+      preLoaderRoute: typeof ApiV1TodayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/llm/': {
@@ -924,32 +910,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLlmIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/v1/tasks/$taskId': {
-      id: '/api/v1/tasks/$taskId'
-      path: '/api/v1/tasks/$taskId'
-      fullPath: '/api/v1/tasks/$taskId'
-      preLoaderRoute: typeof ApiV1TasksTaskIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/household/stats': {
-      id: '/api/v1/household/stats'
-      path: '/api/v1/household/stats'
-      fullPath: '/api/v1/household/stats'
-      preLoaderRoute: typeof ApiV1HouseholdStatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/household/activity': {
-      id: '/api/v1/household/activity'
-      path: '/api/v1/household/activity'
-      fullPath: '/api/v1/household/activity'
-      preLoaderRoute: typeof ApiV1HouseholdActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/stats/task/$taskId': {
-      id: '/_authenticated/stats/task/$taskId'
-      path: '/stats/task/$taskId'
-      fullPath: '/stats/task/$taskId'
-      preLoaderRoute: typeof AuthenticatedStatsTaskTaskIdRouteImport
+    '/_authenticated/admin/llm/$callId': {
+      id: '/_authenticated/admin/llm/$callId'
+      path: '/admin/llm/$callId'
+      fullPath: '/admin/llm/$callId'
+      preLoaderRoute: typeof AuthenticatedAdminLlmCallIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/users/$userId': {
@@ -959,12 +924,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersUserIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/llm/$callId': {
-      id: '/_authenticated/admin/llm/$callId'
-      path: '/admin/llm/$callId'
-      fullPath: '/admin/llm/$callId'
-      preLoaderRoute: typeof AuthenticatedAdminLlmCallIdRouteImport
+    '/_authenticated/stats/task/$taskId': {
+      id: '/_authenticated/stats/task/$taskId'
+      path: '/stats/task/$taskId'
+      fullPath: '/stats/task/$taskId'
+      preLoaderRoute: typeof AuthenticatedStatsTaskTaskIdRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/v1/household/': {
+      id: '/api/v1/household/'
+      path: '/api/v1/household'
+      fullPath: '/api/v1/household/'
+      preLoaderRoute: typeof ApiV1HouseholdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/household/activity': {
+      id: '/api/v1/household/activity'
+      path: '/api/v1/household/activity'
+      fullPath: '/api/v1/household/activity'
+      preLoaderRoute: typeof ApiV1HouseholdActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/household/stats': {
+      id: '/api/v1/household/stats'
+      path: '/api/v1/household/stats'
+      fullPath: '/api/v1/household/stats'
+      preLoaderRoute: typeof ApiV1HouseholdStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/tasks/': {
+      id: '/api/v1/tasks/'
+      path: '/api/v1/tasks'
+      fullPath: '/api/v1/tasks/'
+      preLoaderRoute: typeof ApiV1TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/tasks/$taskId': {
+      id: '/api/v1/tasks/$taskId'
+      path: '/api/v1/tasks/$taskId'
+      fullPath: '/api/v1/tasks/$taskId'
+      preLoaderRoute: typeof ApiV1TasksTaskIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/v1/household/chores/': {
       id: '/api/v1/household/chores/'
@@ -973,18 +973,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1HouseholdChoresIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/instances/$instanceId/snooze': {
-      id: '/api/v1/instances/$instanceId/snooze'
-      path: '/api/v1/instances/$instanceId/snooze'
-      fullPath: '/api/v1/instances/$instanceId/snooze'
-      preLoaderRoute: typeof ApiV1InstancesInstanceIdSnoozeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/instances/$instanceId/skip': {
-      id: '/api/v1/instances/$instanceId/skip'
-      path: '/api/v1/instances/$instanceId/skip'
-      fullPath: '/api/v1/instances/$instanceId/skip'
-      preLoaderRoute: typeof ApiV1InstancesInstanceIdSkipRouteImport
+    '/api/v1/household/chores/week': {
+      id: '/api/v1/household/chores/week'
+      path: '/api/v1/household/chores/week'
+      fullPath: '/api/v1/household/chores/week'
+      preLoaderRoute: typeof ApiV1HouseholdChoresWeekRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/instances/$instanceId/complete': {
@@ -994,11 +987,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1InstancesInstanceIdCompleteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/household/chores/week': {
-      id: '/api/v1/household/chores/week'
-      path: '/api/v1/household/chores/week'
-      fullPath: '/api/v1/household/chores/week'
-      preLoaderRoute: typeof ApiV1HouseholdChoresWeekRouteImport
+    '/api/v1/instances/$instanceId/skip': {
+      id: '/api/v1/instances/$instanceId/skip'
+      path: '/api/v1/instances/$instanceId/skip'
+      fullPath: '/api/v1/instances/$instanceId/skip'
+      preLoaderRoute: typeof ApiV1InstancesInstanceIdSkipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/instances/$instanceId/snooze': {
+      id: '/api/v1/instances/$instanceId/snooze'
+      path: '/api/v1/instances/$instanceId/snooze'
+      fullPath: '/api/v1/instances/$instanceId/snooze'
+      preLoaderRoute: typeof ApiV1InstancesInstanceIdSnoozeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

@@ -13,7 +13,7 @@ export const getGardenFn = createServerFn({ method: 'GET' })
 
 export const getCommunityGardenFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .inputValidator((data: { scope: CommunityGardenScope }) => {
+  .validator((data: { scope: CommunityGardenScope }) => {
     if (data.scope !== 'friends' && data.scope !== 'global') {
       throw new Error('invalid scope')
     }

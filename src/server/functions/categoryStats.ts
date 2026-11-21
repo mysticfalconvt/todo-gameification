@@ -10,7 +10,7 @@ const SCOPES: CategoryScope[] = ['active', 'completed']
 
 export const getCategoryHistogramFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string; scope: string }) => {
+  .validator((data: { targetUserId: string; scope: string }) => {
     if (typeof data.targetUserId !== 'string' || !data.targetUserId) {
       throw new Error('targetUserId is required.')
     }
@@ -31,7 +31,7 @@ export const getCategoryHistogramFn = createServerFn({ method: 'POST' })
 // tab on /friends.
 export const getFriendsCategoryHistogramsFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { scope: string }) => {
+  .validator((data: { scope: string }) => {
     if (!SCOPES.includes(data.scope as CategoryScope)) {
       throw new Error('invalid scope')
     }

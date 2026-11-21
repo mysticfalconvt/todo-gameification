@@ -8,19 +8,19 @@ export const getGithubIntegration = createServerFn({ method: 'GET' })
 
 export const upsertGithubIntegration = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { token: string; pollIntervalMinutes?: number }) => data)
+  .validator((data: { token: string; pollIntervalMinutes?: number }) => data)
   .handler(({ data, context }) => service.upsertGithubIntegration(context.userId, data))
 
 export const updateGithubPollInterval = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { pollIntervalMinutes: number }) => data)
+  .validator((data: { pollIntervalMinutes: number }) => data)
   .handler(({ data, context }) =>
     service.updateGithubPollInterval(context.userId, data.pollIntervalMinutes),
   )
 
 export const updateGithubSyncOptions = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { trackReviewRequested: boolean; trackAssigned: boolean }) => data)
+  .validator((data: { trackReviewRequested: boolean; trackAssigned: boolean }) => data)
   .handler(({ data, context }) => service.updateGithubSyncOptions(context.userId, data))
 
 export const removeGithubIntegration = createServerFn({ method: 'POST' })

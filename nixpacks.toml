@@ -1,3 +1,6 @@
+# DEPRECATED: Coolify is moving this app to Railpack (railpack.json). Delete this
+# file once the switch is done.
+#
 # Pins Node 23 for Coolify/Nixpacks builds. Nixpacks' default nodejs_22
 # resolves to 22.11 in the current nixpkgs pin; pg-boss 12 requires 22.12+.
 # When Nixpacks updates its pin past 22.12, this override can be dropped.

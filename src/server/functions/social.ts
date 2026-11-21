@@ -24,7 +24,7 @@ import {
 // info. Returns null when no match; sign-in surface should fail
 // generically rather than echo "no such handle."
 export const resolveHandleToEmailFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: { handle: string }) => data)
+  .validator((data: { handle: string }) => data)
   .handler(async ({ data }) => {
     const handle = normalizeHandle(data.handle)
     if (!handle) return { email: null }
@@ -54,7 +54,7 @@ export const listBlockedFn = createServerFn({ method: 'GET' })
 
 export const sendFriendRequestFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { handle: string }) => {
+  .validator((data: { handle: string }) => {
     if (typeof data.handle !== 'string' || !data.handle.trim()) {
       throw new Error('Handle is required.')
     }
@@ -64,7 +64,7 @@ export const sendFriendRequestFn = createServerFn({ method: 'POST' })
 
 export const acceptFriendRequestFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { requesterId: string }) => {
+  .validator((data: { requesterId: string }) => {
     if (typeof data.requesterId !== 'string' || !data.requesterId) {
       throw new Error('Invalid request.')
     }
@@ -77,7 +77,7 @@ export const acceptFriendRequestFn = createServerFn({ method: 'POST' })
 
 export const declineFriendRequestFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { requesterId: string }) => {
+  .validator((data: { requesterId: string }) => {
     if (typeof data.requesterId !== 'string' || !data.requesterId) {
       throw new Error('Invalid request.')
     }
@@ -90,7 +90,7 @@ export const declineFriendRequestFn = createServerFn({ method: 'POST' })
 
 export const cancelFriendRequestFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { addresseeId: string }) => {
+  .validator((data: { addresseeId: string }) => {
     if (typeof data.addresseeId !== 'string' || !data.addresseeId) {
       throw new Error('Invalid request.')
     }
@@ -103,7 +103,7 @@ export const cancelFriendRequestFn = createServerFn({ method: 'POST' })
 
 export const removeFriendFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { otherUserId: string }) => {
+  .validator((data: { otherUserId: string }) => {
     if (typeof data.otherUserId !== 'string' || !data.otherUserId) {
       throw new Error('Invalid request.')
     }
@@ -116,7 +116,7 @@ export const removeFriendFn = createServerFn({ method: 'POST' })
 
 export const blockUserFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string }) => {
+  .validator((data: { targetUserId: string }) => {
     if (typeof data.targetUserId !== 'string' || !data.targetUserId) {
       throw new Error('Invalid request.')
     }
@@ -129,7 +129,7 @@ export const blockUserFn = createServerFn({ method: 'POST' })
 
 export const unblockUserFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { targetUserId: string }) => {
+  .validator((data: { targetUserId: string }) => {
     if (typeof data.targetUserId !== 'string' || !data.targetUserId) {
       throw new Error('Invalid request.')
     }

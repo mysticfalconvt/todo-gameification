@@ -4,7 +4,7 @@ import { getPublicProfile } from '../services/profile'
 
 export const getPublicProfileFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .inputValidator((data: { handle: string }) => {
+  .validator((data: { handle: string }) => {
     if (typeof data.handle !== 'string' || !data.handle.trim()) {
       throw new Error('Handle is required.')
     }

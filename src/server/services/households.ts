@@ -844,11 +844,16 @@ export async function createManagedMember(
   // Pass emailVerified directly so the user can sign in immediately —
   // no verification email is sent because we're never going through
   // `sendVerificationEmail`.
-  const createdUser = await ctx.internalAdapter.createUser({
-    email,
-    name,
-    emailVerified: true,
-  })
+  const createdUser = await ctx.internalAdapter.createUser(
+    {
+      email,
+      name,
+      emailVerified: true,
+    },
+    // better-auth 1.7 records how an account was provisioned; a household
+    // admin creating a managed member is the "admin" method.
+    { method: 'admin' },
+  )
   if (!createdUser?.id) {
     throw new Error('Failed to create managed account.')
   }
@@ -939,7 +944,9 @@ export async function resetManagedMemberPassword(
   const ctx = await auth.$context
   const hashed = await ctx.password.hash(newPassword)
   await ctx.internalAdapter.updatePassword(targetUserId, hashed)
-  await ctx.internalAdapter.deleteSessions(targetUserId)
+  // better-auth 1.7: deleteSessions takes session tokens; this revokes every
+  // session for the user.
+  await ctx.internalAdapter.deleteUserSessions(targetUserId)
 }
 
 export interface HouseholdMemberStats {

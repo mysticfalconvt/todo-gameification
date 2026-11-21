@@ -21,6 +21,22 @@ export default function sentryPlugin(nitroApp: NitroApp): void {
     environment: process.env.NODE_ENV,
     tracesSampleRate: 0,
     integrations: [],
+    // Sentry 11 collects user info, cookies, headers, request bodies, URL
+    // query strings and GraphQL/DB data by default. Keep error reports to the
+    // error itself.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
   })
 
   // Fires for errors thrown out of request handlers (server functions, API
